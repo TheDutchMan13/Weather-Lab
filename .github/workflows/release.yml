@@ -1,10 +1,16 @@
 name: Release
 
-# Pushing a tag such as v0.12.0 runs the tests, builds the installer and publishes a GitHub release with
-# the installer and latest.json. Running it by hand (Actions tab) builds the installer and keeps it as a download.
+# Every push to main checks the version in weatherlab/config.py. When that version has no GitHub release yet,
+# the workflow runs the tests, builds the installer, and publishes a release (tag vX.Y.Z on that commit) with the
+# installer and latest.json. Pushes that don't change the released version do nothing.
+#
+# Pushing a tag such as v0.13.0 by hand does the same build and publishes to that tag.
+# Running it by hand (Actions tab) builds the installer and keeps it as a download without publishing.
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -13,7 +19,41 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      publish: ${{ steps.decide.outputs.publish }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Decide whether to build and publish
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          version=$(sed -n 's/^APP_VERSION = "\(.*\)"/\1/p' weatherlab/config.py)
+          if [ -z "$version" ]; then echo "APP_VERSION not found in weatherlab/config.py"; exit 1; fi
+          tag="v$version"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag is already released; nothing to build."
+            echo "build=false" >> "$GITHUB_OUTPUT"; echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$tag has no release yet; building and publishing it."
+            echo "build=true" >> "$GITHUB_OUTPUT"; echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: check
+    if: needs.check.outputs.build == 'true'
     runs-on: windows-latest
     steps:
       - name: Get the code
@@ -60,21 +100,22 @@ jobs:
         run: python build_installer.py
 
       - name: Keep the installer for a manual run
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: WeatherLab-installer
           path: installer/
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: needs.check.outputs.publish == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.check.outputs.tag }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" installer/WeatherLabSetup-*.exe installer/latest.json --clobber
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" installer/WeatherLabSetup-*.exe installer/latest.json --clobber
           else
-            gh release create "$GITHUB_REF_NAME" installer/WeatherLabSetup-*.exe installer/latest.json \
-              --title "Weather Lab $GITHUB_REF_NAME" --generate-notes
+            gh release create "$TAG" installer/WeatherLabSetup-*.exe installer/latest.json \
+              --target "$GITHUB_SHA" --title "Weather Lab $TAG" --generate-notes
           fi
