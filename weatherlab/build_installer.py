@@ -14,7 +14,7 @@ import re
 import subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]  # the project folder, one level above this package
 
 
 def app_version() -> str:
