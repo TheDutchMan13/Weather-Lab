@@ -27,6 +27,10 @@ class Settings:
     cwop_callsign: str = ""
     wu_enabled: bool = False  # send readings to Weather Underground; the key is in Windows Credential Manager
     wu_station_id: str = ""
+    pws_enabled: bool = False  # send readings to PWSweather; the key is in Windows Credential Manager
+    pws_station_id: str = ""
+    weathercloud_enabled: bool = False  # send readings to Weathercloud; the key is in Windows Credential Manager
+    weathercloud_id: str = ""
     theme_mode: str = "auto"  # "auto", "light", or "dark"
     allow_network: bool = False  # let phones and other devices on the home network open the app
     live_cards: list[str] = field(default_factory=lambda: list(DEFAULT_CARDS))

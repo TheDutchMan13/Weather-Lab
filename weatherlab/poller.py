@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from weatherlab import alert_rules, airquality, backup, cwop, wunderground, daily, digest, fire, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
+from weatherlab import alert_rules, airquality, backup, cwop, pwsweather, uploads, weathercloud, wunderground, daily, digest, fire, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
 from weatherlab.config import APP_VERSION
 from weatherlab.settings import load_settings
 
@@ -25,7 +25,7 @@ ROLLUP_SECONDS = 300  # how often to rebuild the last few daily summaries
 AQI_SECONDS = 1800  # AirNow updates about hourly
 FIRE_SECONDS = 3600  # fire weather index is calculated once an hour
 CWOP_SECONDS = 300  # CWOP's usual interval: one report every five minutes
-WU_SECONDS = 300  # Weather Underground: one upload every five minutes
+UPLOAD_SECONDS = 300  # Weather Underground, PWSweather and Weathercloud: one upload every five minutes each
 ROLLUP_DAYS_BACK = 3
 RECORD_REFRESH_SECONDS = 3600  # how often the all-time records reload from the daily summaries
 BACKUP_CHECK_SECONDS = 3600  # how often to check whether a daily database backup is due
@@ -49,6 +49,10 @@ class PollStatus:
     cwop_last: float | None = None
     wu_error: str = ""
     wu_last: float | None = None
+    pws_error: str = ""
+    pws_last: float | None = None
+    wc_error: str = ""
+    wc_last: float | None = None
     backup_error: str = ""
     sensor_error: str = ""
     forecast_error: str = ""
@@ -69,6 +73,7 @@ class Poller(threading.Thread):
         self._fired: dict = {}
         self._last_cwop = 0.0
         self._last_wu = 0.0
+        self._last_extra = 0.0
         self._best: dict | None = None
         self._best_at = 0.0
         self._record_day: dict = {}
@@ -114,8 +119,10 @@ class Poller(threading.Thread):
                     self._fire(db, s)
                 if s.cwop_enabled and time.time() - self._last_cwop > CWOP_SECONDS:
                     self._cwop(db, s)
-                if s.wu_enabled and time.time() - self._last_wu > WU_SECONDS:
+                if s.wu_enabled and time.time() - self._last_wu > UPLOAD_SECONDS:
                     self._wu(db, s)
+                if (s.pws_enabled or s.weathercloud_enabled) and time.time() - self._last_extra > UPLOAD_SECONDS:
+                    self._extra_uploads(db, s)
                 if s.backup_enabled and time.time() - self._last_backup > BACKUP_CHECK_SECONDS:
                     self._backup(s)
                 if s.sensor_alerts and s.station_ip.strip() and time.time() - self._last_sensors > SENSOR_SECONDS:
@@ -362,8 +369,29 @@ class Poller(threading.Thread):
             wunderground.send_reading(s.wu_station_id, secrets.get_key(wunderground.KEY_NAME), latest[1])
             self.status.wu_last = time.time()
             self.status.wu_error = ""
-        except wunderground.WuError as exc:
+        except uploads.UploadError as exc:
             self.status.wu_error = str(exc)
+
+    def _extra_uploads(self, db, s) -> None:
+        """Send the latest reading to PWSweather and Weathercloud. Each one only runs when the user has turned it on."""
+        self._last_extra = time.time()
+        latest = storage.latest(db)
+        fresh = latest is not None and time.time() - latest[0] <= 1800
+        targets = []
+        if s.pws_enabled:
+            targets.append(("pws", lambda r: pwsweather.send_reading(s.pws_station_id, secrets.get_key(pwsweather.KEY_NAME), r)))
+        if s.weathercloud_enabled:
+            targets.append(("wc", lambda r: weathercloud.send_reading(s.weathercloud_id, secrets.get_key(weathercloud.KEY_NAME), r)))
+        for prefix, send in targets:
+            if not fresh:
+                setattr(self.status, f"{prefix}_error", "No recent reading to send.")
+                continue
+            try:
+                send(latest[1])
+                setattr(self.status, f"{prefix}_last", time.time())
+                setattr(self.status, f"{prefix}_error", "")
+            except uploads.UploadError as exc:
+                setattr(self.status, f"{prefix}_error", str(exc))
 
     def _fire(self, db, s) -> None:
         """Fire weather index from the latest reading, with the NWS forecast when the location is in the US."""

@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 
 from weatherlab import (alert_map, alert_rules, astro, auth, autofit, autostart, charts, comfort, daily, dials, ecowitt_import, gateway_sensors, gauges, health, hero, heat_safety, history, history_compare, airquality, importer, coverage, backup, ask, dew, digest, discover, forecast_check, parse, rain_events, motion, network, nws, rain_calendar, replay, report, secrets, sparks, station_status, storage, sun_uv, theme, tropics, units, whats_new, wind_rose, wx_icons, yearly)
 from weatherlab.config import APP_NAME, APP_VERSION, CARD_LABELS, RISK_COLORS
-from weatherlab import forecast_view, health_check, lightning_history, push, stations, updates, wunderground
+from weatherlab import forecast_view, health_check, lightning_history, pwsweather, push, stations, updates, weathercloud, wunderground
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 
@@ -273,8 +273,8 @@ def setup_page() -> None:
     st.markdown(theme.title_html("Setup"), unsafe_allow_html=True)
     s = load_settings()
     _station_tools(s)
-    (station_tab, air_tab, cwop_tab, wu_tab, phone_tab) = st.tabs(
-        ["Station", "Air and lightning", "CWOP", "Weather Underground", "Phone access"])
+    (station_tab, air_tab, cwop_tab, wu_tab, other_tab, phone_tab) = st.tabs(
+        ["Station", "Air and lightning", "CWOP", "Weather Underground", "Other services", "Phone access"])
 
     with station_tab:
         ip = st.text_input("Station IP address", value=s.station_ip, placeholder="for example 192.168.1.224",
@@ -343,6 +343,38 @@ def setup_page() -> None:
             elif wu_status.wu_last:
                 st.caption(f"Last sent to Weather Underground {_clock(wu_status.wu_last)}")
 
+    with other_tab:
+        st.subheader("PWSweather (optional, public)")
+        pws_on = st.checkbox("Send my readings to PWSweather", value=s.pws_enabled,
+                             help="PWSweather shows your station on its public map. Get the station ID and key from your "
+                                  "PWSweather account. Off by default.")
+        pws_id = st.text_input("PWSweather station ID", value=s.pws_station_id)
+        pws_key_saved = bool(secrets.get_key(pwsweather.KEY_NAME))
+        pws_key = st.text_input("PWSweather station key", type="password",
+                                placeholder="Saved in Windows Credential Manager" if pws_key_saved else "Paste your station key")
+        remove_pws_key = st.checkbox("Remove the saved PWSweather key", value=False, disabled=not pws_key_saved)
+        if pws_on:
+            pws_status = start_poller().status
+            if pws_status.pws_error:
+                st.warning(pws_status.pws_error)
+            elif pws_status.pws_last:
+                st.caption(f"Last sent to PWSweather {_clock(pws_status.pws_last)}")
+        st.subheader("Weathercloud (optional, public)")
+        wc_on = st.checkbox("Send my readings to Weathercloud", value=s.weathercloud_enabled,
+                            help="Weathercloud shows your station on its public map. Get the device ID and key from your "
+                                 "Weathercloud account. Off by default.")
+        wc_id = st.text_input("Weathercloud device ID", value=s.weathercloud_id)
+        wc_key_saved = bool(secrets.get_key(weathercloud.KEY_NAME))
+        wc_key = st.text_input("Weathercloud device key", type="password",
+                               placeholder="Saved in Windows Credential Manager" if wc_key_saved else "Paste your device key")
+        remove_wc_key = st.checkbox("Remove the saved Weathercloud key", value=False, disabled=not wc_key_saved)
+        if wc_on:
+            wc_status = start_poller().status
+            if wc_status.wc_error:
+                st.warning(wc_status.wc_error)
+            elif wc_status.wc_last:
+                st.caption(f"Last sent to Weathercloud {_clock(wc_status.wc_last)}")
+
     with phone_tab:
         st.subheader("Phones and other devices")
         allow_network = st.checkbox(
@@ -376,6 +408,12 @@ def setup_page() -> None:
         if wu_on and not (wu_key.strip() or (wu_key_saved and not remove_wu_key)):
             st.error("Enter your Weather Underground station key to turn uploads on.")
             return
+        if pws_on and not (pws_id.strip() and (pws_key.strip() or (pws_key_saved and not remove_pws_key))):
+            st.error("Enter your PWSweather station ID and key to turn uploads on.")
+            return
+        if wc_on and not (wc_id.strip() and (wc_key.strip() or (wc_key_saved and not remove_wc_key))):
+            st.error("Enter your Weathercloud device ID and key to turn uploads on.")
+            return
         try:
             if remove_key:
                 secrets.set_key("airnow", "")
@@ -385,6 +423,14 @@ def setup_page() -> None:
                 secrets.set_key(wunderground.KEY_NAME, "")
             elif wu_key.strip():
                 secrets.set_key(wunderground.KEY_NAME, wu_key.strip())
+            if remove_pws_key:
+                secrets.set_key(pwsweather.KEY_NAME, "")
+            elif pws_key.strip():
+                secrets.set_key(pwsweather.KEY_NAME, pws_key.strip())
+            if remove_wc_key:
+                secrets.set_key(weathercloud.KEY_NAME, "")
+            elif wc_key.strip():
+                secrets.set_key(weathercloud.KEY_NAME, wc_key.strip())
         except Exception as exc:
             st.error(f"Couldn't save the keys: {exc}")
             return
@@ -392,7 +438,9 @@ def setup_page() -> None:
                                timezone=tz, nws_contact=contact.strip(),
                                lightning_value_is_km=km, cwop_enabled=cwop_on,
                                cwop_callsign=cwop_call.strip().upper(), wu_enabled=wu_on,
-                               wu_station_id=wu_id.strip(), allow_network=allow_network))
+                               wu_station_id=wu_id.strip(), pws_enabled=pws_on,
+                               pws_station_id=pws_id.strip(), weathercloud_enabled=wc_on,
+                               weathercloud_id=wc_id.strip(), allow_network=allow_network))
         st.success(f"Saved to {settings_path()}")
 
 
@@ -2233,7 +2281,7 @@ def status_page() -> None:
     latest = storage.latest(db)
     last_ts = latest[0] if latest else None
     reporting, age_text = health.age_status(last_ts, now)
-    feed_errors = [e for e in (poller.status.last_error, poller.status.aqi_error, poller.status.cwop_error, poller.status.wu_error, poller.status.sensor_error) if e]
+    feed_errors = [e for e in (poller.status.last_error, poller.status.aqi_error, poller.status.cwop_error, poller.status.wu_error, poller.status.pws_error, poller.status.wc_error, poller.status.sensor_error) if e]
     if poller.status.skipped_log:
         with st.expander(f"Skipped readings ({poller.status.skipped} since Weather Lab started)"):
             for ts, reason in poller.status.skipped_log[:20]:

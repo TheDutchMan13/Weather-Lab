@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.15.0",
+        "date": "October 21, 2026",
+        "items": [
+            "Other upload services: send your readings to PWSweather or Weathercloud every five minutes, each off by default. Set them up under Setup, Other services.",
+            "Like Weather Underground, each key is kept in Windows Credential Manager, and upload problems show on the Setup page and in the health check.",
+        ],
+    },
+    {
         "version": "0.14.0",
         "date": "October 21, 2026",
         "items": [

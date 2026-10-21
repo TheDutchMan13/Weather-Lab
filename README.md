@@ -26,7 +26,8 @@ On the **Setup** page:
 5. Optional: turn on **Start Weather Lab when I sign in to Windows**.
 6. Optional: turn on **CWOP**. This sends your readings to the public Citizen Weather Observer Program, and your station's location becomes public. It is off by default.
 7. Optional: turn on **Weather Underground** under its own tab, with your station ID and key from wunderground.com. The key is stored in Windows Credential Manager. It is off by default.
-8. Click **Save**.
+8. Optional: turn on **PWSweather** or **Weathercloud** under Other services, with the station ID and key from each account. Each key is stored in Windows Credential Manager. Both are off by default.
+9. Click **Save**.
 
 The Live page starts filling in within a minute. History builds up from the time the app starts collecting data, so charts and records grow over the first few days.
 
