@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 
 from weatherlab import (alert_map, alert_rules, astro, auth, autofit, autostart, charts, comfort, daily, dials, ecowitt_import, gateway_sensors, gauges, health, hero, heat_safety, history, history_compare, airquality, importer, coverage, backup, ask, dew, digest, discover, forecast_check, parse, rain_events, motion, network, nws, rain_calendar, replay, report, secrets, sparks, station_status, storage, sun_uv, theme, tropics, units, whats_new, wind_rose, wx_icons, yearly)
 from weatherlab.config import APP_NAME, APP_VERSION, CARD_LABELS, RISK_COLORS
-from weatherlab import forecast_view, health_check, lightning_history, push, stations, updates
+from weatherlab import forecast_view, health_check, lightning_history, push, stations, updates, wunderground
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 
@@ -273,8 +273,8 @@ def setup_page() -> None:
     st.markdown(theme.title_html("Setup"), unsafe_allow_html=True)
     s = load_settings()
     _station_tools(s)
-    (station_tab, air_tab, cwop_tab, phone_tab) = st.tabs(
-        ["Station", "Air and lightning", "CWOP", "Phone access"])
+    (station_tab, air_tab, cwop_tab, wu_tab, phone_tab) = st.tabs(
+        ["Station", "Air and lightning", "CWOP", "Weather Underground", "Phone access"])
 
     with station_tab:
         ip = st.text_input("Station IP address", value=s.station_ip, placeholder="for example 192.168.1.224",
@@ -321,6 +321,28 @@ def setup_page() -> None:
             elif cwop_status.cwop_last:
                 st.caption(f"Last sent to CWOP {_clock(cwop_status.cwop_last)}")
 
+    with wu_tab:
+        st.subheader("Weather Underground (optional, public)")
+        wu_on = st.checkbox(
+            "Send my readings to Weather Underground",
+            value=s.wu_enabled,
+            help="Weather Underground shows your station on its public map. Get the station ID and key from your "
+                 "station's page on wunderground.com. Off by default.",
+        )
+        wu_id = st.text_input("Station ID", value=s.wu_station_id, placeholder="for example KAZPHOEN123")
+        wu_key_saved = bool(secrets.get_key(wunderground.KEY_NAME))
+        wu_key = st.text_input(
+            "Station key", type="password",
+            placeholder="Saved in Windows Credential Manager" if wu_key_saved else "Paste your station key",
+            help="Stored in Windows Credential Manager, not in a file.")
+        remove_wu_key = st.checkbox("Remove the saved Weather Underground key", value=False, disabled=not wu_key_saved)
+        if wu_on:
+            wu_status = start_poller().status
+            if wu_status.wu_error:
+                st.warning(wu_status.wu_error)
+            elif wu_status.wu_last:
+                st.caption(f"Last sent to Weather Underground {_clock(wu_status.wu_last)}")
+
     with phone_tab:
         st.subheader("Phones and other devices")
         allow_network = st.checkbox(
@@ -348,18 +370,29 @@ def setup_page() -> None:
         if cwop_on and not cwop_call.strip():
             st.error("Enter a CWOP callsign to turn CWOP on.")
             return
+        if wu_on and not wu_id.strip():
+            st.error("Enter your Weather Underground station ID to turn uploads on.")
+            return
+        if wu_on and not (wu_key.strip() or (wu_key_saved and not remove_wu_key)):
+            st.error("Enter your Weather Underground station key to turn uploads on.")
+            return
         try:
             if remove_key:
                 secrets.set_key("airnow", "")
             elif airnow_key.strip():
                 secrets.set_key("airnow", airnow_key.strip())
+            if remove_wu_key:
+                secrets.set_key(wunderground.KEY_NAME, "")
+            elif wu_key.strip():
+                secrets.set_key(wunderground.KEY_NAME, wu_key.strip())
         except Exception as exc:
-            st.error(f"Couldn't save the AirNow key: {exc}")
+            st.error(f"Couldn't save the keys: {exc}")
             return
         save_settings(replace(s, station_ip=ip, latitude=lat, longitude=lon, elevation_m=elev,
                                timezone=tz, nws_contact=contact.strip(),
                                lightning_value_is_km=km, cwop_enabled=cwop_on,
-                               cwop_callsign=cwop_call.strip().upper(), allow_network=allow_network))
+                               cwop_callsign=cwop_call.strip().upper(), wu_enabled=wu_on,
+                               wu_station_id=wu_id.strip(), allow_network=allow_network))
         st.success(f"Saved to {settings_path()}")
 
 
@@ -2200,7 +2233,7 @@ def status_page() -> None:
     latest = storage.latest(db)
     last_ts = latest[0] if latest else None
     reporting, age_text = health.age_status(last_ts, now)
-    feed_errors = [e for e in (poller.status.last_error, poller.status.aqi_error, poller.status.cwop_error, poller.status.sensor_error) if e]
+    feed_errors = [e for e in (poller.status.last_error, poller.status.aqi_error, poller.status.cwop_error, poller.status.wu_error, poller.status.sensor_error) if e]
     if poller.status.skipped_log:
         with st.expander(f"Skipped readings ({poller.status.skipped} since Weather Lab started)"):
             for ts, reason in poller.status.skipped_log[:20]:

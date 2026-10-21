@@ -25,6 +25,8 @@ class Settings:
     lightning_value_is_km: bool = False  # set on if the station's lightning distance is really kilometres
     cwop_enabled: bool = False  # send readings to CWOP, which makes the location public. Off by default.
     cwop_callsign: str = ""
+    wu_enabled: bool = False  # send readings to Weather Underground; the key is in Windows Credential Manager
+    wu_station_id: str = ""
     theme_mode: str = "auto"  # "auto", "light", or "dark"
     allow_network: bool = False  # let phones and other devices on the home network open the app
     live_cards: list[str] = field(default_factory=lambda: list(DEFAULT_CARDS))

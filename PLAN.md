@@ -44,10 +44,11 @@ A public, generic weather dashboard for the Ecowitt GW2000, built on Streamlit, 
 - [x] Fire weather index with NWS forecast (US only)
 - [x] Lightning page with km switch
 - [x] Comfort index tiles on Live
-- [x] Daily PDF report download on the Daily page (monthly and yearly reports not yet)
+- [x] PDF reports: daily on the Daily page, and monthly and yearly on the Reports page
 
 ### Phase 5: Sharing (in progress)
 - [x] Optional CWOP upload (off by default, user's callsign, APRS-IS position weather report)
+- [x] Optional Weather Underground upload (off by default, station ID and key; key in Credential Manager)
 - [x] Installer built and tested on the PC (Inno Setup 7; per-user install, start-on-login entry removed on uninstall)
 - [x] README for other users
 - [x] Code signing: skipped for now. The app is unsigned, and the README explains the Windows warning.

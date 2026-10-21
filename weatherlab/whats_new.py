@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.14.0",
+        "date": "October 21, 2026",
+        "items": [
+            "Weather Underground upload: send your readings to Weather Underground every five minutes, as CWOP does. Turn it on under Setup, Weather Underground, with your station ID and key from wunderground.com.",
+            "The Weather Underground key is kept in Windows Credential Manager, not in a file. Upload problems show on the Setup page and in the health check.",
+        ],
+    },
+    {
         "version": "0.13.0",
         "date": "October 21, 2026",
         "items": [
