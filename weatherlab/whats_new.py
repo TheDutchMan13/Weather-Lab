@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.13.0",
+        "date": "October 21, 2026",
+        "items": [
+            "Forecast page redesigned: an Overview of the next 24 hours, one column every two hours, with the sky, temperature, rain chance, sunrise and sunset, and the moon phase.",
+            "Rain falls over the hours with a rain chance of 40% or more. The rain stops moving when your device asks for less motion.",
+            "Next 7 days: each day shows its rain chance, its low and high on a temperature bar, and the wind. Wind is in km/h when you use metric.",
+        ],
+    },
+    {
         "version": "0.12.0",
         "date": "October 21, 2026",
         "items": [

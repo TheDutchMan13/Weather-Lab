@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 
 from weatherlab import (alert_map, alert_rules, astro, auth, autofit, autostart, charts, comfort, daily, dials, ecowitt_import, gateway_sensors, gauges, health, hero, heat_safety, history, history_compare, airquality, importer, coverage, backup, ask, dew, digest, discover, forecast_check, parse, rain_events, motion, network, nws, rain_calendar, replay, report, secrets, sparks, station_status, storage, sun_uv, theme, tropics, units, whats_new, wind_rose, wx_icons, yearly)
 from weatherlab.config import APP_NAME, APP_VERSION, CARD_LABELS, RISK_COLORS
-from weatherlab import health_check, lightning_history, push, stations, updates
+from weatherlab import forecast_view, health_check, lightning_history, push, stations, updates
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 
@@ -1500,15 +1500,6 @@ def _alert_box(a: dict) -> str:
             f'<div class="wl-label">{expires}</div></div>')
 
 
-def _forecast_tile(p: dict, value: str, note: str) -> str:
-    """A forecast day with its animated sky icon, from the NWS short forecast wording."""
-    icon = wx_icons.forecast_icon(p["short"], not p.get("isDaytime", True), 36)
-    return (f'<div class="wl-tile"><div style="display:flex;align-items:center;gap:10px">{icon}'
-            f'<div style="min-width:0"><div class="wl-label">{html.escape(p["name"])}</div>'
-            f'<div class="wl-value">{html.escape(value)}</div>'
-            f'<div class="wl-label">{html.escape(note)}</div></div></div></div>')
-
-
 def _forecast_accuracy(db, s: Settings) -> None:
     """How far the saved forecast highs were from what actually happened."""
     metric = units.is_metric(s.units)
@@ -1576,26 +1567,12 @@ def forecast_page() -> None:
         st.error(str(exc))
         return
 
-    if periods:
-        tiles = []
-        for p in periods:
-            if p["temperature"] is None:
-                value = "--"
-            elif units.is_metric(s.units) and p["unit"] == "F":
-                value = f"{round((p['temperature'] - 32) * 5 / 9)}°C"
-            else:
-                value = f"{p['temperature']}°{p['unit']}"
-            note = p["short"] + (f" · rain {p['pop']}%" if p.get("pop") else "")
-            tiles.append(_forecast_tile(p, value, note))
-        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
-
-    if hourly:
-        times = [datetime.fromisoformat(h["start"]).astimezone(tz) for h in hourly]
-        fig = charts.figure(theme.is_dark())
-        fig.add_trace(go.Scatter(x=times, y=_conv("tempf", [h["temperature"] for h in hourly], units.is_metric(s.units)),
-                                 name=f"Temperature ({units.unit('tempf', units.is_metric(s.units))})",
-                                 line=dict(color=charts.CHART_COLORS[3])))
-        charts.show(fig)
+    metric = units.is_metric(s.units)
+    now = datetime.now(tz)
+    views = forecast_view.overview_html(hourly, s.latitude, s.longitude, tz, metric, len(alerts), now)
+    views += forecast_view.days_html(periods, tz, metric, now.date())
+    if views:
+        st.markdown(forecast_view.STYLE + views, unsafe_allow_html=True)
     _forecast_accuracy(storage.connect(), s)
     _rain_accuracy(storage.connect(), s)
 

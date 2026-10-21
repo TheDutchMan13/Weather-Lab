@@ -47,7 +47,7 @@ Each download is checked against a published checksum before the installer runs.
 - **Daily:** one day's summary, with a PDF report download
 - **History:** rain totals and daily charts
 - **Records:** highs and lows since the app started collecting data
-- **Forecast:** NWS alerts, a 7-day forecast, and an hourly chart (United States only)
+- **Forecast:** NWS alerts, an Overview of the next 24 hours with rain streaks when rain is likely, and the next 7 days with rain chance and wind (United States only)
 - **Air:** AirNow air quality (needs a key and a location)
 - **Lightning:** recent strikes. If distances look too small, turn on the kilometres switch on the Setup page.
 - **Fire:** Canadian Fire Weather Index and forecast (United States forecast only)
@@ -91,7 +91,7 @@ Build the app and installer (activate `.venv` first):
 ### Publishing a release
 
 1. Set `APP_VERSION` in `weatherlab/config.py` and add a What's New entry in `weatherlab/whats_new.py`.
-2. Commit, then tag the commit and push the tag, for example `git tag v0.12.0` and `git push origin v0.12.0`.
+2. Commit, then tag the commit and push the tag, for example `git tag v0.13.0` and `git push origin v0.13.0`.
 3. GitHub Actions runs the tests, builds the installer and publishes the release with `latest.json`. The tag must match `APP_VERSION`, or the build stops.
 
 To build without publishing, run the **Release** workflow by hand from the Actions tab and download the installer from the run.
