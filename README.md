@@ -11,8 +11,8 @@ A Windows weather dashboard for the Ecowitt GW2000 station. It reads your statio
 
 ## Install
 
-1. Download `WeatherLabSetup-0.12.0.exe` and run it.
-2. Windows may warn that the app is from an unknown publisher. Click **More info**, then **Run anyway**. The app is not code-signed yet.
+1. Go to the [Releases page](https://github.com/TheDutchMan13/weather-lab/releases) and download the newest `WeatherLabSetup-x.y.z.exe`.
+2. Run it. Windows may warn that the app is from an unknown publisher. Click **More info**, then **Run anyway**. The app is not code-signed yet.
 3. Weather Lab opens when setup finishes. Use the **Setup** page to finish the steps below.
 
 ## First-time setup
@@ -28,6 +28,18 @@ On the **Setup** page:
 7. Click **Save**.
 
 The Live page starts filling in within a minute. History builds up from the time the app starts collecting data, so charts and records grow over the first few days.
+
+## Stations
+
+If you run more than one station, open **Data and setup > Stations** and add each one by name. Each station keeps its own readings, settings, alerts and backups. Pick the station in the sidebar; the picker appears once a second station exists. A new station starts with default settings, so set its IP address and location on its **Setup** page. Removing a station stops its collection but keeps its folder. Adding a station with the same name again brings its readings back.
+
+## Updates
+
+Weather Lab can check for new versions and install them. Open **Settings > Updates**, paste this address, and click **Check for updates**:
+
+    https://github.com/TheDutchMan13/weather-lab/releases/latest/download/latest.json
+
+Each download is checked against a published checksum before the installer runs. The update check needs the repository to be public, because GitHub doesn't allow anonymous downloads of release files from a private repository.
 
 ## Pages
 
@@ -47,7 +59,7 @@ On the **Setup** page, turn on "Let phones and other devices on my home network 
 
 ## Where your data lives
 
-Settings and history are stored in `%APPDATA%\WeatherLab`. Uninstalling Weather Lab removes the program and its start-on-login entry, but keeps this folder. Delete the folder yourself if you want to remove your history.
+The first station's settings and history are stored in `%APPDATA%\WeatherLab`. Other stations are in `%APPDATA%\WeatherLab\stations\<name>`. Uninstalling Weather Lab removes the program and its start-on-login entry, but keeps these folders. Delete them yourself if you want to remove your history.
 
 ## Troubleshooting
 
@@ -74,6 +86,18 @@ Build the app and installer (activate `.venv` first):
     python build_exe.py
     python build_installer.py
 
-`build_installer.py` needs Inno Setup 6 (free, from jrsoftware.org).
+`build_installer.py` needs Inno Setup 6 (free, from jrsoftware.org). It writes `installer\WeatherLabSetup-<version>.exe` and `installer\latest.json`, which the update check reads. `rebuild.bat` runs the tests and both build steps.
 
-Project layout: `app.py` (pages), `launcher.py` (desktop window), `weatherlab/` (readers, storage, and calculations), `tests/`. `SOURCES.md` lists every piece copied from the author's dashboard. `PLAN.md` tracks the phases.
+### Publishing a release
+
+1. Set `APP_VERSION` in `weatherlab/config.py` and add a What's New entry in `weatherlab/whats_new.py`.
+2. Commit, then tag the commit and push the tag, for example `git tag v0.12.0` and `git push origin v0.12.0`.
+3. GitHub Actions runs the tests, builds the installer and publishes the release with `latest.json`. The tag must match `APP_VERSION`, or the build stops.
+
+To build without publishing, run the **Release** workflow by hand from the Actions tab and download the installer from the run.
+
+Project layout: `app.py` (pages), `launcher.py` (desktop window), `weatherlab/` (readers, storage, and calculations), `tests/`, `.github/workflows/` (release build). `SOURCES.md` lists every piece copied from the author's dashboard. `PLAN.md` tracks the phases.
+
+## License
+
+MIT. See `LICENSE`.
