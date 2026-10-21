@@ -1,0 +1,294 @@
+"""The dashboard's look, copied so Weather Lab matches it. Each value's source is listed in SOURCES.md.
+
+Two sets of colours, as in the dashboard:
+- page colours (background, surface, border, text, accent) from utils/theme.py, used for the page and Streamlit's own
+  controls (buttons, inputs, tabs, sidebar);
+- card colours (tiles, lines, muted text) from utils/live_cards.py, used for the tiles and gauges.
+Colour schemes change both sets, as they do in the dashboard.
+"""
+
+import html as _html
+import math
+import time
+
+import streamlit as st
+
+FONT = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"  # tiles and headings (utils/live_cards.py)
+
+# Card colours (utils/live_cards.py _k).
+LIGHT = {"page": "#ffffff", "surface": "#f8f9fa", "text": "#1c2330", "muted": "#5b6472",
+         "card": "#ffffff", "line": "#e3e7ee", "sub": "#f4f6f9", "accent": "#4a9eff"}
+DARK = {"page": "#0e1117", "surface": "#161b22", "text": "#e8eaed", "muted": "#9aa3b0",
+        "card": "#161b24", "line": "#262d3a", "sub": "#1b2130", "accent": "#58a6ff"}
+
+# Page colours (utils/theme.py LIGHT_PALETTE and DARK_PALETTE).
+PAGE_LIGHT = {"background": "#ffffff", "surface": "#f8f9fa", "border": "#e0e0e0",
+              "text": "#1a1a1a", "text_muted": "#666666", "accent": "#4a9eff"}
+PAGE_DARK = {"background": "#0e1117", "surface": "#161b22", "border": "#30363d",
+             "text": "#e0e0e0", "text_muted": "#999999", "accent": "#58a6ff"}
+
+# Selected pill-tab colours (wxdash/live_glue.py inject_style): background, text.
+TAB_ON = {True: ("#23324a", "#ffffff"), False: ("#e6eefb", "#17325c")}
+
+DOT_COLORS = {"ok": "#3ddc84", "slow": "#f6d55c", "silent": "#e5633c"}
+
+# Colour schemes (utils/theme.py COLOR_SCHEMES), copied exactly.
+SCHEMES = {
+    "Default": {},
+    "Ocean": {
+        "light": {"background": "#f5fbfd", "surface": "#e5f3f8", "border": "#bcdde8",
+                  "accent": "#0b8fb0", "info": "#38a9d8"},
+        "dark": {"background": "#0a1620", "surface": "#102230", "border": "#1f3d54",
+                 "accent": "#2dd4f0", "info": "#7dd3fc"},
+    },
+    "Desert": {
+        "light": {"background": "#fffaf4", "surface": "#f8ebde", "border": "#e6cdb4",
+                  "accent": "#cf5a24", "info": "#d98a3d"},
+        "dark": {"background": "#16100c", "surface": "#221812", "border": "#3d2b1f",
+                 "accent": "#f28c4e", "info": "#f0b27a"},
+    },
+    "Forest": {
+        "light": {"background": "#f6fbf7", "surface": "#e4f1e8", "border": "#bfdcc8",
+                  "accent": "#2a7d52", "info": "#4a9d78"},
+        "dark": {"background": "#0b140f", "surface": "#122019", "border": "#21392b",
+                 "accent": "#4fd18b", "info": "#86e0b0"},
+    },
+    "Violet": {
+        "light": {"background": "#faf8ff", "surface": "#eee9fa", "border": "#d6cbef",
+                  "accent": "#7048d6", "info": "#8f6fe0"},
+        "dark": {"background": "#110e1b", "surface": "#1a1530", "border": "#312850",
+                 "accent": "#a78bfa", "info": "#c4b5fd"},
+    },
+    "High contrast": {
+        "light": {"background": "#ffffff", "surface": "#f0f0f0", "border": "#000000",
+                  "text": "#000000", "text_muted": "#2b2b2b", "accent": "#0030c8",
+                  "success": "#006b2e", "warning": "#8a5a00", "error": "#b00020", "info": "#0030c8"},
+        "dark": {"background": "#000000", "surface": "#0d0d0d", "border": "#ffffff",
+                 "text": "#ffffff", "text_muted": "#dcdcdc", "accent": "#6cb8ff",
+                 "success": "#5dff8a", "warning": "#ffd84d", "error": "#ff7b7b", "info": "#6cb8ff"},
+    },
+}
+
+TEXT_SELECTORS = (".stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,.stApp p,.stApp label,"
+                  ".stApp li,.stApp span,[data-testid='stMarkdownContainer'],[data-testid='stMetricValue'],"
+                  "[data-testid='stMetricLabel'],[data-testid='stWidgetLabel']")
+INPUT_SELECTORS = ("[data-baseweb='select']>div,[data-baseweb='input']>div,.stTextInput input,"
+                   ".stNumberInput input,.stDateInput input")
+
+# Phone and tablet layout (utils/theme.py apply_mobile_css), then the card-tile sizes for phones.
+MOBILE_CSS = (
+    "@media (max-width:900px){"
+    ".block-container{padding:1.25rem 1rem 3rem 1rem !important}"
+    ".stApp h1{font-size:1.7rem !important;line-height:1.25 !important}"
+    ".stApp h2{font-size:1.35rem !important}"
+    ".stApp h3{font-size:1.15rem !important}"
+    ".wx-sec h3{font-size:18px !important}"
+    "[data-testid='stTabs'] [data-baseweb='tab-list']{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}"
+    "[data-testid='stTabs'] button{padding:0.6rem 0.9rem !important;white-space:nowrap}"
+    "[data-testid='stDataFrame'],[data-testid='stTable']{overflow-x:auto}"
+    "iframe{max-width:100% !important}"
+    ".js-plotly-plot,.stPlotlyChart{max-width:100% !important}"
+    "}"
+    "@media (max-width:640px){"
+    ".block-container{padding:1rem 0.75rem 3rem 0.75rem !important}"
+    "[data-testid='stHorizontalBlock']{flex-wrap:wrap !important;gap:0.75rem !important}"
+    "[data-testid='stColumn'],[data-testid='column']{min-width:100% !important;flex:1 1 100% !important;width:100% !important}"
+    ".stButton>button,.stDownloadButton>button,[data-testid='stFormSubmitButton']>button{min-height:48px !important;font-size:1rem !important}"
+    "[data-testid='stRadio'] label,[data-testid='stCheckbox'] label{min-height:44px;align-items:center;padding:0.25rem 0 !important}"
+    "[data-testid='stRadio'] [role='radiogroup'][aria-orientation='horizontal'],"
+    "[data-testid='stRadio']>div[role='radiogroup']{flex-wrap:wrap;gap:0.25rem 1rem}"
+    "[data-baseweb='select']>div,.stTextInput input,.stNumberInput input,.stDateInput input{min-height:46px !important;font-size:16px !important}"
+    "[data-testid='stMetricValue']{font-size:1.5rem !important}"
+    "[data-testid='stColumn']:has([data-testid='stMetric']):not(:has([data-testid='stPlotlyChart'],iframe,[data-testid='stDataFrame'])){"
+    "min-width:calc(50% - 0.5rem) !important;flex:1 1 calc(50% - 0.5rem) !important;width:calc(50% - 0.5rem) !important}"
+    ".wl-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}"
+    ".wl-value{font-size:18px}.wl-title{font-size:22px}.wl-tile{padding:8px 10px}"
+    "}"
+)
+
+
+def _rule(selector: str, declarations: str) -> str:
+    return f"{selector}{{{declarations}}}"
+
+
+def page_palette(dark: bool, scheme: str = "Default") -> dict:
+    """Page colours for the chosen mode and scheme, as the dashboard's get_palette() gives them."""
+    base = dict(PAGE_DARK if dark else PAGE_LIGHT)
+    base.update(SCHEMES.get(scheme, {}).get("dark" if dark else "light", {}))
+    return base
+
+
+def palette(dark: bool, scheme: str = "Default") -> dict:
+    """Card colours for the chosen mode and scheme (tiles, lines, muted text)."""
+    base = dict(DARK if dark else LIGHT)
+    over = SCHEMES.get(scheme, {}).get("dark" if dark else "light", {})
+    for src, dst in (("background", "page"), ("surface", "surface"), ("border", "line"),
+                     ("text", "text"), ("text_muted", "muted"), ("accent", "accent")):
+        if src in over:
+            base[dst] = over[src]
+    return base
+
+
+def is_dark(mode: str | None = None) -> bool:
+    """mode is "light", "dark", or "auto". With no mode, the saved Setup choice is used.
+    Auto follows Streamlit's theme, the same way the dashboard does."""
+    if mode is None:
+        from weatherlab.settings import load_settings
+        mode = load_settings().theme_mode
+    if mode == "dark":
+        return True
+    if mode == "light":
+        return False
+    try:
+        return st.context.theme.type == "dark"
+    except Exception:
+        pass
+    try:
+        return st.get_option("theme.base") == "dark"
+    except Exception:
+        return False
+
+
+def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool = False) -> str:
+    pg = page_palette(dark, scheme)
+    p = palette(dark, scheme)
+    tab_bg, tab_text = TAB_ON[bool(dark)]
+    rules = [
+        # Page and sidebar (utils/theme.py apply_theme_css)
+        _rule(".stApp", f"background:{pg['background']}"),
+        _rule("[data-testid='stHeader']", f"background:{pg['background']}"),
+        _rule("[data-testid='stSidebar'],[data-testid='stSidebar']>div", f"background:{pg['surface']}"),
+        _rule(TEXT_SELECTORS, f"color:{pg['text']} !important"),
+        _rule("[data-testid='stTabs'] button", f"color:{pg['text_muted']} !important"),
+        _rule("[data-testid='stTabs'] button[aria-selected='true']", f"color:{pg['accent']} !important"),
+        _rule(".stApp hr", f"border-color:{pg['border']} !important"),
+        _rule(INPUT_SELECTORS, f"background-color:{pg['surface']} !important;color:{pg['text']} !important;"
+                               f"border-color:{pg['border']} !important"),
+        _rule(".stButton>button", f"background-color:{pg['surface']} !important;color:{pg['text']} !important;"
+                                  f"border:1px solid {pg['border']} !important"),
+        # Pill tabs, button groups, card containers, alerts and metrics (wxdash/live_glue.py inject_style)
+        _rule("div[data-baseweb='tab-list'],div[data-testid='stTabs'] [role='tablist']",
+              "gap:6px;border-bottom:none !important;box-shadow:none !important"),
+        _rule("div[data-baseweb='tab-list'] button[role='tab'],div[data-testid='stTab']",
+              f"border:1px solid {p['line']} !important;border-radius:99px !important;padding:6px 16px !important;"
+              "margin-bottom:8px"),
+        _rule("div[data-baseweb='tab-list'] button[role='tab'][aria-selected='true'],"
+              "div[data-testid='stTab'][aria-selected='true']",
+              f"background:{tab_bg};border-color:transparent !important"),
+        _rule("div[data-baseweb='tab-list'] button[role='tab'][aria-selected='true'] p,"
+              "div[data-testid='stTab'][aria-selected='true'] p", f"color:{tab_text} !important"),
+        _rule("div[data-testid='stTab']::after,div[data-testid='stTab']::before", "display:none !important"),
+        _rule("div[data-baseweb='tab-highlight'],div[data-baseweb='tab-border']", "display:none !important"),
+        _rule("div[data-testid='stTabs'] .react-aria-SelectionIndicator", "display:none !important"),
+        _rule("div[data-testid='stButtonGroup']>div", "gap:6px !important;flex-wrap:wrap"),
+        _rule("div[data-testid='stButtonGroup'] button",
+              f"border:1px solid {p['line']} !important;border-radius:99px !important;padding:6px 16px !important;"
+              "margin:0 0 8px 0 !important;background:transparent !important"),
+        _rule("div[data-testid='stButtonGroup'] button[aria-checked='true']",
+              f"background:{tab_bg} !important;border-color:transparent !important"),
+        _rule("div[data-testid='stButtonGroup'] button[aria-checked='true'] p", f"color:{tab_text} !important"),
+        _rule("div[data-testid='stVerticalBlockBorderWrapper']:has(>div>div[data-testid='stVerticalBlock'])",
+              f"border-radius:14px !important;border-color:{p['line']} !important;background:{p['card']}"),
+        _rule("div[data-testid='stLayoutWrapper']>div[data-testid='stVerticalBlock']",
+              f"border-radius:14px !important;border-color:{p['line']} !important"),
+        _rule("div[data-testid='stAlert']", "padding:2px 4px !important;border-radius:10px !important"),
+        _rule("div[data-testid='stAlert'] p", "font-size:14px !important"),
+        _rule("div[data-testid='stMetricValue']", "font-size:1.6rem !important;font-weight:650 !important"),
+        _rule("div[data-testid='stMetricLabel'] p", f"color:{p['muted']} !important;font-size:13px !important"),
+        # Card tiles and headings (utils/page_look.py, utils/live_cards.py)
+        _rule(".wl-title", f"font-family:{FONT};font-size:26px;font-weight:700;letter-spacing:-.4px;"
+                           f"color:{p['text']};margin:4px 0 14px"),
+        _rule(".wl-grid", "display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px"),
+        _rule(".wl-tile", f"font-family:{FONT};background:{p['card']};border:1px solid {p['line']};"
+                          "border-radius:12px;padding:10px 14px;min-width:0"),
+        _rule(".wl-label", f"font-size:12px;color:{p['muted']}"),
+        _rule(".wl-value", f"font-size:22px;font-weight:650;color:{p['text']};margin-top:2px;"
+                           "white-space:nowrap;overflow:hidden;text-overflow:ellipsis"),
+        _rule(".wl-status", f"font-size:12px;color:{p['muted']};margin-top:6px"),
+        _rule(".wl-note", f"font-size:14px;color:{p['muted']}"),
+        _rule(".wx-sec", "display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin:6px 0 6px"),
+        _rule(".wx-sec h3", "white-space:nowrap;margin:0 !important;padding:0 !important;"
+                             "font-size:18px !important;font-weight:650 !important"),
+        _rule(".wx-sec span", f"font-size:13px;color:{p['muted']}"),
+        _rule("[data-testid='stDataFrame'],[data-testid='stTable']",
+              f"border:1px solid {p['line']};border-radius:12px;overflow:hidden"),
+        _rule("[data-testid='stImage'] img", "width:100%;height:auto;border-radius:12px"),
+        "@keyframes wl-sweep{from{stroke-dasharray:0.001,var(--c)}to{stroke-dasharray:var(--v),var(--c)}}",
+        "@media (prefers-reduced-motion:no-preference){.wl-sweep{animation:wl-sweep .9s ease-out}}",
+    ]
+    if large:
+        rules += ["html{font-size:118%}", ".wl-title{font-size:32px !important}", ".wl-label{font-size:15px !important}",
+                  ".wl-value{font-size:28px !important}", ".wl-note,.wl-status{font-size:16px !important}",
+                  ".wx-sec h3{font-size:22px !important}"]
+    extra = ".wl-grid{gap:6px;margin-bottom:6px}" if compact else ""
+    # One line, no indentation: Streamlit shows indented lines as code.
+    return "<style>" + "".join(rules) + MOBILE_CSS + extra + "</style>"
+
+
+def title_html(text: str) -> str:
+    return f'<div class="wl-title">{text}</div>'
+
+
+def tile_html(label: str, value: str) -> str:
+    return (f'<div class="wl-tile"><div class="wl-label">{label}</div>'
+            f'<div class="wl-value">{value}</div></div>')
+
+
+def grid_html(tiles: list[str]) -> str:
+    return f'<div class="wl-grid">{"".join(tiles)}</div>'
+
+
+def gauge_html(value, lo: float, hi: float, label: str, fmt: str, dark: bool, animate: bool = False) -> str:
+    """A round gauge in a tile. The arc fills from lo to hi and is clamped at both ends."""
+    p = DARK if dark else LIGHT
+    frac = 0.0 if value is None else max(0.0, min(1.0, (value - lo) / (hi - lo)))
+    r = 44
+    circ = 2 * math.pi * r
+    text = "--" if value is None else fmt.format(value)
+    sweep = f' class="wl-sweep" style="--v:{circ * frac:.1f};--c:{circ:.1f}"' if animate else ""
+    return ('<div class="wl-tile" style="text-align:center">'
+            '<svg viewBox="0 0 120 120" width="100%" style="max-width:120px;display:block;margin:0 auto">'
+            f'<circle cx="60" cy="60" r="{r}" fill="none" stroke="{p["line"]}" stroke-width="10"/>'
+            f'<circle cx="60" cy="60" r="{r}" fill="none" stroke="{p["accent"]}" stroke-width="10" '
+            f'stroke-linecap="round" stroke-dasharray="{circ * frac:.1f},{circ:.1f}" transform="rotate(-90 60 60)"'
+            f'{sweep}/>'
+            f'<text x="60" y="68" text-anchor="middle" font-family="{FONT}" font-size="22" '
+            f'font-weight="650" fill="{p["text"]}">{text}</text></svg>'
+            f'<div class="wl-label" style="margin-top:4px">{label}</div></div>')
+
+
+def status_dot(state: str) -> str:
+    """A small colored dot: ok (green), slow (yellow), silent (red), anything else grey."""
+    color = DOT_COLORS.get(state, "#9aa3b0")
+    return (f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
+            f'background:{color};margin-right:6px;vertical-align:middle"></span>')
+
+
+def is_phone() -> bool:
+    """True when the page is open on a phone, judged from the browser's User-Agent (wxdash/common.py is_phone)."""
+    try:
+        ua = (st.context.headers.get("User-Agent") or "").lower()
+    except Exception:
+        return False
+    return any(k in ua for k in ("iphone", "ipod", "android", "mobile"))
+
+
+def freshness_html(updated: float | None) -> str:
+    """'updated 3 min ago' chip: green under 15 minutes, amber under an hour, red after (wxdash/live_glue.py)."""
+    if updated is None:
+        return ""
+    mins = max(0.0, (time.time() - updated) / 60)
+    if mins < 60:
+        txt = f"updated {int(mins)} min ago" if mins >= 1 else "updated just now"
+    else:
+        txt = f"updated {mins / 60:.1f} h ago"
+    color, bg = (("#15803d", "#dcfce7") if mins < 15
+                 else (("#b45309", "#fef3c7") if mins < 60 else ("#b91c1c", "#fee2e2")))
+    return (f'<span style="font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;'
+            f'color:{color};background:{bg};margin-left:6px">{_html.escape(txt)}</span>')
+
+
+def section_html(title: str, note: str = "", updated: float | None = None) -> str:
+    """A calm section heading with an optional note and freshness chip (wxdash/live_glue.py section)."""
+    return (f'<div class="wx-sec"><h3>{_html.escape(title)}</h3><span>{_html.escape(note)}</span>'
+            f'{freshness_html(updated)}</div>')

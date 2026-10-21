@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.db
+settings.json
+installer/*.exe
+installer/latest.json
+report/
+tools/__pycache__/
+archive/

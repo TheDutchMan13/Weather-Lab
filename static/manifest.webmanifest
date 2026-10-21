@@ -1,0 +1,12 @@
+{
+  "name": "Weather Lab",
+  "short_name": "Weather Lab",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b3d91",
+  "icons": [
+    {"src": "/app/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/app/static/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
