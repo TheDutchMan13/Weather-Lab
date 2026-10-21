@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.16.0",
+        "date": "October 21, 2026",
+        "items": [
+            "Home Assistant over MQTT: publish each reading to your MQTT broker once a minute, such as the Mosquitto add-on in Home Assistant. Set it up under Setup, Other services.",
+            "Home Assistant finds the sensors by itself. Weather Lab sends discovery messages once an hour, and the broker password is kept in Windows Credential Manager.",
+        ],
+    },
+    {
         "version": "0.15.0",
         "date": "October 21, 2026",
         "items": [

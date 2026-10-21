@@ -31,6 +31,12 @@ class Settings:
     pws_station_id: str = ""
     weathercloud_enabled: bool = False  # send readings to Weathercloud; the key is in Windows Credential Manager
     weathercloud_id: str = ""
+    mqtt_enabled: bool = False  # publish readings to an MQTT broker such as Home Assistant's Mosquitto add-on
+    mqtt_host: str = ""
+    mqtt_port: int = 1883
+    mqtt_user: str = ""  # the password is in Windows Credential Manager
+    mqtt_prefix: str = "weatherlab/home"
+    mqtt_discovery: bool = True  # send Home Assistant discovery messages so the sensors appear by themselves
     theme_mode: str = "auto"  # "auto", "light", or "dark"
     allow_network: bool = False  # let phones and other devices on the home network open the app
     live_cards: list[str] = field(default_factory=lambda: list(DEFAULT_CARDS))

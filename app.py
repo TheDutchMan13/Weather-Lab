@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 
 from weatherlab import (alert_map, alert_rules, astro, auth, autofit, autostart, charts, comfort, daily, dials, ecowitt_import, gateway_sensors, gauges, health, hero, heat_safety, history, history_compare, airquality, importer, coverage, backup, ask, dew, digest, discover, forecast_check, parse, rain_events, motion, network, nws, rain_calendar, replay, report, secrets, sparks, station_status, storage, sun_uv, theme, tropics, units, whats_new, wind_rose, wx_icons, yearly)
 from weatherlab.config import APP_NAME, APP_VERSION, CARD_LABELS, RISK_COLORS
-from weatherlab import forecast_view, health_check, lightning_history, pwsweather, push, stations, updates, weathercloud, wunderground
+from weatherlab import forecast_view, health_check, lightning_history, mqtt_publish, pwsweather, push, stations, updates, weathercloud, wunderground
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 
@@ -375,6 +375,30 @@ def setup_page() -> None:
             elif wc_status.wc_last:
                 st.caption(f"Last sent to Weathercloud {_clock(wc_status.wc_last)}")
 
+    with other_tab:
+        st.subheader("Home Assistant over MQTT (optional)")
+        mqtt_on = st.checkbox("Send my readings to an MQTT broker", value=s.mqtt_enabled,
+                              help="Use this with Home Assistant's Mosquitto add-on or another broker on your network. "
+                                   "Off by default.")
+        mqtt_host = st.text_input("Broker address", value=s.mqtt_host, placeholder="for example 192.168.1.20")
+        mqtt_port = st.number_input("Broker port", min_value=1, max_value=65535, value=int(s.mqtt_port), step=1)
+        mqtt_user = st.text_input("Broker username", value=s.mqtt_user)
+        mqtt_pass_saved = bool(secrets.get_key(mqtt_publish.KEY_NAME))
+        mqtt_pass = st.text_input("Broker password", type="password",
+                                  placeholder="Saved in Windows Credential Manager" if mqtt_pass_saved
+                                  else "Leave blank if the broker has no password")
+        remove_mqtt_pass = st.checkbox("Remove the saved MQTT password", value=False, disabled=not mqtt_pass_saved)
+        mqtt_prefix = st.text_input("Topic prefix", value=s.mqtt_prefix,
+                                    help="Each reading is sent to a topic under this prefix, for example weatherlab/home/temperature.")
+        mqtt_discovery = st.checkbox("Add the sensors to Home Assistant automatically", value=s.mqtt_discovery,
+                                     help="Sends Home Assistant discovery messages once an hour. Turn this off if you add the sensors yourself.")
+        if mqtt_on:
+            mqtt_status = start_poller().status
+            if mqtt_status.mqtt_error:
+                st.warning(mqtt_status.mqtt_error)
+            elif mqtt_status.mqtt_last:
+                st.caption(f"Last published to MQTT {_clock(mqtt_status.mqtt_last)}")
+
     with phone_tab:
         st.subheader("Phones and other devices")
         allow_network = st.checkbox(
@@ -414,6 +438,15 @@ def setup_page() -> None:
         if wc_on and not (wc_id.strip() and (wc_key.strip() or (wc_key_saved and not remove_wc_key))):
             st.error("Enter your Weathercloud device ID and key to turn uploads on.")
             return
+        if mqtt_on and not mqtt_host.strip():
+            st.error("Enter the MQTT broker address to turn MQTT on.")
+            return
+        if mqtt_on:
+            try:
+                mqtt_publish.check_prefix(mqtt_prefix)
+            except mqtt_publish.MqttError as exc:
+                st.error(str(exc))
+                return
         try:
             if remove_key:
                 secrets.set_key("airnow", "")
@@ -431,6 +464,10 @@ def setup_page() -> None:
                 secrets.set_key(weathercloud.KEY_NAME, "")
             elif wc_key.strip():
                 secrets.set_key(weathercloud.KEY_NAME, wc_key.strip())
+            if remove_mqtt_pass:
+                secrets.set_key(mqtt_publish.KEY_NAME, "")
+            elif mqtt_pass.strip():
+                secrets.set_key(mqtt_publish.KEY_NAME, mqtt_pass.strip())
         except Exception as exc:
             st.error(f"Couldn't save the keys: {exc}")
             return
@@ -440,7 +477,10 @@ def setup_page() -> None:
                                cwop_callsign=cwop_call.strip().upper(), wu_enabled=wu_on,
                                wu_station_id=wu_id.strip(), pws_enabled=pws_on,
                                pws_station_id=pws_id.strip(), weathercloud_enabled=wc_on,
-                               weathercloud_id=wc_id.strip(), allow_network=allow_network))
+                               weathercloud_id=wc_id.strip(), mqtt_enabled=mqtt_on,
+                               mqtt_host=mqtt_host.strip(), mqtt_port=int(mqtt_port),
+                               mqtt_user=mqtt_user.strip(), mqtt_prefix=mqtt_prefix.strip().strip("/"),
+                               mqtt_discovery=mqtt_discovery, allow_network=allow_network))
         st.success(f"Saved to {settings_path()}")
 
 
@@ -2281,7 +2321,7 @@ def status_page() -> None:
     latest = storage.latest(db)
     last_ts = latest[0] if latest else None
     reporting, age_text = health.age_status(last_ts, now)
-    feed_errors = [e for e in (poller.status.last_error, poller.status.aqi_error, poller.status.cwop_error, poller.status.wu_error, poller.status.pws_error, poller.status.wc_error, poller.status.sensor_error) if e]
+    feed_errors = [e for e in (poller.status.last_error, poller.status.aqi_error, poller.status.cwop_error, poller.status.wu_error, poller.status.pws_error, poller.status.wc_error, poller.status.mqtt_error, poller.status.sensor_error) if e]
     if poller.status.skipped_log:
         with st.expander(f"Skipped readings ({poller.status.skipped} since Weather Lab started)"):
             for ts, reason in poller.status.skipped_log[:20]:

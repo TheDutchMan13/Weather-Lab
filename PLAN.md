@@ -50,6 +50,7 @@ A public, generic weather dashboard for the Ecowitt GW2000, built on Streamlit, 
 - [x] Optional CWOP upload (off by default, user's callsign, APRS-IS position weather report)
 - [x] Optional Weather Underground upload (off by default, station ID and key; key in Credential Manager)
 - [x] Optional PWSweather and Weathercloud uploads (off by default; keys in Credential Manager)
+- [x] Optional MQTT publishing for Home Assistant, with discovery (off by default; password in Credential Manager; no TLS)
 - [x] Installer built and tested on the PC (Inno Setup 7; per-user install, start-on-login entry removed on uninstall)
 - [x] README for other users
 - [x] Code signing: skipped for now. The app is unsigned, and the README explains the Windows warning.
