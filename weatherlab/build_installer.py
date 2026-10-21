@@ -26,7 +26,10 @@ def app_version() -> str:
 
 
 def find_iscc() -> Path | None:
-    """ISCC.exe from any Inno Setup version (6, 7, ...) in the usual install folders."""
+    """ISCC.exe from the ISCC environment variable if set, else from any Inno Setup version (6, 7, ...) in the usual install folders."""
+    override = os.environ.get("ISCC", "").strip()
+    if override and Path(override).exists():
+        return Path(override)
     roots = [Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")),
              Path(os.environ.get("ProgramFiles", r"C:\Program Files")),
              Path(os.environ.get("LOCALAPPDATA", "")) / "Programs"]
@@ -40,6 +43,7 @@ def find_iscc() -> Path | None:
 def write_manifest(installer: Path, version: str) -> Path:
     """latest.json: the version, the installer's file name and its SHA-256, which the app checks before installing."""
     digest = hashlib.sha256(installer.read_bytes()).hexdigest()
+    installer.parent.mkdir(exist_ok=True)
     manifest = installer.parent / "latest.json"
     manifest.write_text(json.dumps({"version": version, "file": installer.name, "sha256": digest}, indent=2) + "\n",
                         encoding="utf-8")
@@ -55,6 +59,7 @@ def main() -> int:
         print("Inno Setup 6 wasn't found. Install it from jrsoftware.org, then run this again.")
         return 1
     version = app_version()
+    (ROOT / "installer").mkdir(exist_ok=True)
     subprocess.run([str(iscc), str(ROOT / "installer.iss")], check=True, cwd=ROOT)
     installer = ROOT / "installer" / f"WeatherLabSetup-{version}.exe"
     manifest = write_manifest(installer, version)

@@ -46,6 +46,16 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
 
+      - name: Find the Inno Setup compiler
+        shell: pwsh
+        run: |
+          $folder = Get-ChildItem -Path "C:\Program Files (x86)", "C:\Program Files" -Directory -Filter "Inno Setup*" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $folder) { Write-Error "No Inno Setup folder found"; exit 1 }
+          $iscc = Join-Path $folder.FullName "ISCC.exe"
+          if (-not (Test-Path $iscc)) { Write-Error "ISCC.exe not found in $($folder.FullName)"; exit 1 }
+          Write-Host "Using $iscc"
+          Add-Content -Path $env:GITHUB_ENV -Value "ISCC=$iscc"
+
       - name: Build the installer
         run: python build_installer.py
 
