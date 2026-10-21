@@ -8,7 +8,8 @@ from pathlib import Path
 
 from weatherlab import alert_rules, heat_safety, sun_uv, tropics, wind_rose
 
-PHOENIX = (33.435, -112.358)
+# A remote point in central Nevada. The test doesn't use a real home location.
+TEST_HOME = (39.5, -116.5)
 
 
 class HeatTests(unittest.TestCase):
@@ -88,7 +89,7 @@ class TropicsTests(unittest.TestCase):
     ]}
 
     def test_parse_measures_from_home(self):
-        rows = tropics.parse(self.RAW, PHOENIX)
+        rows = tropics.parse(self.RAW, TEST_HOME)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["wind_mph"], 58)
         self.assertIn(rows[0]["direction"], {"S", "SSE", "SE"})
@@ -103,13 +104,13 @@ class TropicsTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "tropics.json"
-            first = tropics.refresh(PHOENIX, path, fetch=lambda: self.RAW)
+            first = tropics.refresh(TEST_HOME, path, fetch=lambda: self.RAW)
             self.assertTrue(first["ok"])
-            again = tropics.refresh(PHOENIX, path, fetch=never)
+            again = tropics.refresh(TEST_HOME, path, fetch=never)
             self.assertEqual(again["storms"][0]["name"], "Test Storm")
             old = dict(first, checked_ts=time.time() - 7200)
             path.write_text(json.dumps(old), encoding="utf-8")
-            broken = tropics.refresh(PHOENIX, path, fetch=down)
+            broken = tropics.refresh(TEST_HOME, path, fetch=down)
             self.assertFalse(broken["ok"])
             self.assertEqual(broken["storms"][0]["name"], "Test Storm")
 
