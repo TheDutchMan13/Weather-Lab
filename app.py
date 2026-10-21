@@ -2574,10 +2574,6 @@ PAGE_FUNCS = {"Live": live_page, "Sensors": sensors_page, "Status": status_page,
               "Import": _import_page, "Export": export_page, "Setup": setup_page}
 
 
-PAGE_ICONS["Stations"] = "📍"
-PAGE_FUNCS["Stations"] = stations_page
-
-
 def _sections() -> dict:
     """The sidebar sections and their pages, as Streamlit page objects."""
     return {group: [st.Page(PAGE_FUNCS[name], title=name, icon=PAGE_ICONS[name], default=(name == "Live"))
@@ -2693,6 +2689,10 @@ def stations_page() -> None:
                 if stations.current() == pick:
                     st.session_state["pending_station"] = stations.MAIN
                 st.rerun()
+
+
+PAGE_ICONS["Stations"] = "📍"
+PAGE_FUNCS["Stations"] = stations_page
 
 
 def main() -> None:
