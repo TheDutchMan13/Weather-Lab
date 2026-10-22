@@ -6,7 +6,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import time
 from datetime import datetime, timedelta
-from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, health, hero, history_compare, motion, nws, sparks, stations, storage, theme, units, wind_rose, wx_icons
+from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, theme, units, wind_rose, wx_icons
 from weatherlab.config import CARD_LABELS
 from weatherlab.settings import Settings, load_settings
 from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, empty_card, freshness_line, start_poller
@@ -444,6 +444,64 @@ def _dew_line(s: Settings) -> None:
     st.caption(f"Dew point {shown}: {dew.text(dew_point)}.")
 
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def _nearby_station(lat: float, lon: float, contact: str) -> dict:
+    """The station to read for this point, looked up once a day. Errors are kept so they aren't retried on every load."""
+    try:
+        url = nws.points(lat, lon, contact).get("stations", "")
+        found = nws.nearest_airport_station(url, lat, lon, contact) if url else None
+        return found or {"error": "No weather station was found near this location."}
+    except nws.NwsError as exc:
+        return {"error": str(exc)}
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _station_reading(station_id: str, contact: str) -> dict:
+    try:
+        return nws.latest_observation(station_id, contact)
+    except nws.NwsError as exc:
+        return {"error": str(exc)}
+
+
+def airport_card(s: Settings) -> None:
+    """The latest reading from the nearest airport (or weather station), from the National Weather Service. US only."""
+    if s.latitude is None or s.longitude is None:
+        return
+    station = _nearby_station(s.latitude, s.longitude, s.nws_contact)
+    if "error" in station:
+        st.caption(f"Nearby airport weather: {station['error']}")
+        return
+    reading = _station_reading(station["id"], s.nws_contact)
+    if "error" in reading:
+        st.caption(f"Nearby airport weather: {reading['error']}")
+        return
+    metric = units.is_metric(s.units)
+    label = "Airport" if station["airport"] else "Nearest weather station"
+    parts = []
+    if reading["temp_f"] is not None:
+        parts.append(f"{units.convert('tempf', reading['temp_f'], metric):.0f}{units.suffix('tempf', metric)}")
+    if reading["wind_mph"] is not None:
+        direction = nws.compass(reading["direction"])
+        speed = f"{units.convert('windspeedmph', reading['wind_mph'], metric):.0f}{units.suffix('windspeedmph', metric)}"
+        wind = f"wind {direction + ' ' if direction else ''}{speed}"
+        if reading["gust_mph"] is not None:
+            wind += f", gusts {units.convert('windgustmph', reading['gust_mph'], metric):.0f}{units.suffix('windgustmph', metric)}"
+        parts.append(wind)
+    if reading["humidity"] is not None:
+        parts.append(f"humidity {reading['humidity']:.0f}%")
+    if reading["text"]:
+        parts.append(reading["text"])
+    try:
+        age = health_check.age_text(time.time() - datetime.fromisoformat(reading["time"]).timestamp())
+    except (TypeError, ValueError):
+        age = ""
+    st.markdown(theme.section_html(f"{label} nearby", f"{station['name']}, {station['km']:.0f} km away"),
+                unsafe_allow_html=True)
+    st.markdown(" · ".join(parts) or "No readings from this station yet.")
+    if age:
+        st.caption(f"Read from the National Weather Service, {age}.")
+
+
 def live_page() -> None:
     s = load_settings()
     st.markdown(theme.title_html("Live"), unsafe_allow_html=True)
@@ -451,6 +509,7 @@ def live_page() -> None:
         st.info("Set the station IP on the Setup page.")
         return
     freshness_line()
+    airport_card(s)
     _today_vs_yesterday(s)
     _dew_line(s)
     live_readings()

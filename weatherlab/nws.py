@@ -9,6 +9,7 @@ not from the dashboard's hardcoded grid point.
 """
 
 import json
+import math
 from urllib.request import Request, urlopen
 
 BASE = "https://api.weather.gov"
@@ -46,7 +47,8 @@ def points(lat: float, lon: float, contact: str) -> dict:
         raise NwsError("The National Weather Service doesn't cover this location.")
     return {"forecast": p["forecast"], "forecastHourly": p.get("forecastHourly", ""),
             "zone": str(p.get("forecastZone", "")).rsplit("/", 1)[-1],
-            "radar": p.get("radarStation") or ""}
+            "radar": p.get("radarStation") or "",
+            "stations": p.get("observationStations") or ""}
 
 
 def alerts(lat: float, lon: float, contact: str) -> list[dict]:
@@ -114,3 +116,68 @@ def forecast_hourly(url: str, contact: str, limit: int = 48) -> list[dict]:
         "humidity": (p.get("relativeHumidity") or {}).get("value"),
         "wind": p.get("windSpeed", ""),
     } for p in periods[:limit]]
+
+
+COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+AIRPORT_WORDS = ("airport", "international", "intl", "regional", "airfield")
+AIRPORT_MAX_KM = 80  # an airport station counts as nearby within this distance
+
+
+def compass(degrees) -> str:
+    """A wind direction in degrees as a point of the compass, such as "SW". Empty when there is no direction."""
+    if degrees is None:
+        return ""
+    return COMPASS[int((float(degrees) % 360) / 22.5 + 0.5) % 16]
+
+
+def _km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in kilometres."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    a = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2
+    return 2 * 6371.0 * math.asin(math.sqrt(a))
+
+
+def nearest_airport_station(url: str, lat: float, lon: float, contact: str) -> dict | None:
+    """The observation station to use for a point: the nearest airport within AIRPORT_MAX_KM, otherwise the
+    nearest station of any kind. url is the observationStations link from /points."""
+    rows = []
+    for feature in _get(url, contact).get("features", []):
+        p = feature.get("properties") or {}
+        coords = (feature.get("geometry") or {}).get("coordinates") or []
+        station_id = p.get("stationIdentifier")
+        if not station_id or len(coords) < 2:
+            continue
+        name = p.get("name") or station_id
+        rows.append({"id": station_id, "name": name,
+                     "km": _km(lat, lon, float(coords[1]), float(coords[0])),
+                     "airport": any(word in name.lower() for word in AIRPORT_WORDS)})
+    if not rows:
+        return None
+    airports = [r for r in rows if r["airport"] and r["km"] <= AIRPORT_MAX_KM]
+    return min(airports or rows, key=lambda r: r["km"])
+
+
+def _value(p: dict, key: str):
+    value = (p.get(key) or {}).get("value")
+    return None if value is None else float(value)
+
+
+def parse_observation(data: dict) -> dict:
+    """A station's latest observation in US units: temperature in °F, wind in mph, humidity in %."""
+    p = data.get("properties") or {}
+    celsius = _value(p, "temperature")
+    kmh, gust = _value(p, "windSpeed"), _value(p, "windGust")
+    return {
+        "time": p.get("timestamp") or "",
+        "text": p.get("textDescription") or "",
+        "temp_f": None if celsius is None else celsius * 9 / 5 + 32,
+        "humidity": _value(p, "relativeHumidity"),
+        "wind_mph": None if kmh is None else kmh / 1.609344,
+        "gust_mph": None if gust is None else gust / 1.609344,
+        "direction": _value(p, "windDirection"),
+    }
+
+
+def latest_observation(station_id: str, contact: str) -> dict:
+    """The latest reading from one observation station."""
+    return parse_observation(_get(f"{BASE}/stations/{station_id}/observations/latest", contact))

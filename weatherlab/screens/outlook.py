@@ -4,7 +4,7 @@ import html
 import streamlit as st
 import time
 from datetime import datetime, timedelta, timezone
-from weatherlab import astro, charts, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, wind_rose
+from weatherlab import astro, charts, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose
 from weatherlab.settings import Settings, load_settings
 from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, empty_card, start_poller
 
@@ -242,3 +242,58 @@ def astronomy_page() -> None:
     theme.table(rows)
     st.caption(f"Times are in {s.timezone}. Sun times use the standard NOAA method, accurate to about a minute. "
                "Moon dates can be off by about a day.")
+
+
+# ---------------------------------------------------------------- Wind map
+def _band_label(i: int, metric: bool) -> str:
+    """The speed range of a colour band, in the chosen units, such as 10–15 or 20+."""
+    lower = 0.0 if i == 0 else windmap.BANDS[i - 1][0]
+    upper = windmap.BANDS[i][0]
+    low = units.convert("windspeedmph", lower, metric)
+    if upper == float("inf"):
+        return f"{low:.0f}+"
+    return f"{low:.0f}–{units.convert('windspeedmph', upper, metric):.0f}"
+
+
+def _wind_grid_html(frame: list, plate: str = "#dfe7ef") -> str:
+    """The arrows as one block of HTML: a grid of points with the station in the middle."""
+    cells = "".join(f'<div style="display:flex;align-items:center;justify-content:center">'
+                    f'{windmap.arrow_html(speed, direction)}</div>' for speed, direction in frame)
+    marker = ('<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;'
+              'border-radius:50%;background:#1c2330;border:3px solid #fff;box-shadow:0 0 0 2px #1c2330"></div>')
+    return (f'<div role="img" aria-label="Wind map: arrows show where the wind goes, colour shows the speed" '
+            f'style="position:relative;width:100%;max-width:820px;margin:0 auto;aspect-ratio:7 / 5;'
+            f'background:{plate};border:1px solid #c9d1db;border-radius:14px;overflow:hidden">'
+            f'<div style="position:absolute;inset:10px;display:grid;grid-template-columns:repeat({windmap.COLS},'
+            f'minmax(0,1fr));grid-template-rows:repeat({windmap.ROWS},minmax(0,1fr))">{cells}</div>'
+            f'{marker}</div>')
+
+
+def wind_map_page() -> None:
+    """Wind across the area around the station, now and later, as arrows coloured by speed."""
+    s = load_settings()
+    metric = units.is_metric(s.units)
+    st.markdown(theme.title_html("Wind map"), unsafe_allow_html=True)
+    if s.latitude is None or s.longitude is None:
+        empty_card("Set your location first", "The wind map is centred on your latitude and longitude, on the Setup page.")
+        return
+    choice = st.segmented_control("Time", list(windmap.TIMES), default="Now", key="windmap_time",
+                                  label_visibility="collapsed") or "Now"
+    try:
+        grid = windmap.load(s.latitude, s.longitude, time.time(), _tz(s))
+    except windmap.WindError as exc:
+        empty_card("The wind map isn't available right now", str(exc))
+        return
+    frame = grid["frames"].get(str(windmap.TIMES[choice]), [])
+    if not frame:
+        empty_card("No wind forecast for that time yet")
+        return
+    st.markdown(_wind_grid_html(frame), unsafe_allow_html=True)
+    keys = "".join(f'<span style="display:inline-flex;align-items:center;gap:6px;margin:4px 14px 4px 0">'
+                   f'<span style="display:inline-block;width:18px;height:11px;border-radius:3px;background:{colour};'
+                   f'border:1px solid #1b4f7a"></span>{_band_label(i, metric)}</span>'
+                   for i, (_, colour, _) in enumerate(windmap.BANDS))
+    st.markdown(f'<div style="font-size:14px;margin-top:10px">Speed ({units.unit("windspeedmph", metric)}): {keys}</div>',
+                unsafe_allow_html=True)
+    st.caption("Each arrow points the way the wind blows. Colour shows the speed. The middle point is your station. "
+               "Data from Open-Meteo, saved for an hour.")

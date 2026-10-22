@@ -14,7 +14,7 @@ from weatherlab.screens.explore import ask_page, rain_calendar_page, rain_events
 from weatherlab.screens.hazards import air_page, fire_page, lightning_page, radar_page, tropics_page
 from weatherlab.screens.history import climate_page, coverage_page, daily_page, history_page, my_year_page, rankings_page, records_page, rewind_page
 from weatherlab.screens.now import alerts_log_page, live_page, sensors_page
-from weatherlab.screens.outlook import astronomy_page, forecast_page, heat_page, sun_page, wind_page
+from weatherlab.screens.outlook import astronomy_page, forecast_page, heat_page, sun_page, wind_map_page, wind_page
 from weatherlab.screens.system import health_check_page, settings_page, setup_page, stations_page, status_page, whats_new_page
 
 
@@ -22,7 +22,7 @@ GROUPS = {  # sidebar sections, each with its pages
     "Now": ["Live", "Sensors", "Alert history"],
     "History": ["Daily", "History", "Records", "Coverage", "Rankings", "Rewind", "Climate charts", "My year"],
     "Explore": ["Rain calendar", "Rain events", "Ask", "Unusual days", "Replay"],
-    "Outlook": ["Forecast", "Heat", "Wind", "Sun", "Astronomy"],
+    "Outlook": ["Forecast", "Heat", "Wind", "Wind map", "Sun", "Astronomy"],
     "Hazards": ["Air", "Fire", "Lightning", "Tropics", "Radar"],
     "Data": ["Import", "Export", "Reports"],
     "Configure": ["Setup", "Settings", "Stations", "Status", "Health check", "What's New"],
@@ -65,7 +65,7 @@ PAGE_ICONS = {
     "Climate charts": ":material/bar_chart:", "My year": ":material/event:",
     "Rain calendar": ":material/rainy:", "Rain events": ":material/water_drop:", "Ask": ":material/search:",
     "Unusual days": ":material/psychology:", "Replay": ":material/replay:",
-    "Forecast": ":material/wb_cloudy:", "Heat": ":material/thermostat:", "Wind": ":material/air:",
+    "Forecast": ":material/wb_cloudy:", "Heat": ":material/thermostat:", "Wind": ":material/air:", "Wind map": ":material/explore:",
     "Sun": ":material/wb_sunny:", "Astronomy": ":material/nights_stay:",
     "Air": ":material/masks:", "Fire": ":material/local_fire_department:", "Lightning": ":material/bolt:",
     "Tropics": ":material/tornado:", "Radar": ":material/radar:",
@@ -87,7 +87,7 @@ PAGE_FUNCS = {"Live": live_page, "Sensors": sensors_page, "Status": status_page,
               "History": history_page, "Records": records_page, "Coverage": coverage_page, "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page, "Rankings": rankings_page, "Rewind": rewind_page,
               "Climate charts": climate_page, "My year": my_year_page, "Rain calendar": rain_calendar_page,
               "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,
-              "Wind": wind_page, "Sun": sun_page, "Astronomy": astronomy_page, "Air": air_page,
+              "Wind": wind_page, "Wind map": wind_map_page, "Sun": sun_page, "Astronomy": astronomy_page, "Air": air_page,
               "Fire": fire_page, "Lightning": lightning_page, "Tropics": tropics_page, "Radar": radar_page,
               "Import": _import_page, "Export": export_page, "Setup": setup_page, "Stations": stations_page}
 

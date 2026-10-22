@@ -5,7 +5,7 @@ import sqlite3
 import streamlit as st
 from dataclasses import replace
 from datetime import date, datetime, timedelta
-from weatherlab import backup, ecowitt_import, exports, history, importer, report, storage, theme, units
+from weatherlab import auto_reports, backup, ecowitt_import, exports, history, importer, noaa, report, secrets, storage, theme, units
 from weatherlab.settings import Settings, load_settings, save_settings
 from zoneinfo import ZoneInfo
 from weatherlab.screens.common import _tz, empty_card, start_poller
@@ -17,6 +17,14 @@ def reports_page() -> None:
     today = datetime.now(_tz(s)).date()
     db = storage.connect()
     st.markdown(theme.title_html("Reports"), unsafe_allow_html=True)
+    auto = st.checkbox("Make reports automatically", value=s.auto_reports, key="auto_reports_on",
+                       help="Last month's PDF is made each month, and last year's in January. Each file is made once.")
+    if auto != s.auto_reports:
+        save_settings(replace(s, auto_reports=auto))
+    st.caption(f"Saved in {auto_reports.folder()}.")
+    error = start_poller().status.report_error
+    if error:
+        st.warning(error)
     kind = st.radio("Report", ["Monthly", "Yearly"], horizontal=True)
     year = st.number_input("Year", min_value=2000, max_value=today.year, value=today.year, step=1)
     if kind == "Monthly":
@@ -279,6 +287,25 @@ def export_page() -> None:
         _readings_export(db, tz, today)
     with st.expander("Database backups"):
         _backups_section(s)
+    with st.expander("Old readings"):
+        _archive_section(s)
+
+
+def _archive_section(s: Settings) -> None:
+    """Move raw readings older than a chosen age into an archive table. Nothing is deleted."""
+    st.write("The station sends a reading every few seconds, so the database grows over time. Readings older than the "
+             "number of days below move to an archive table in the same database. Nothing is deleted, and charts, "
+             "reports and exports still include them.")
+    days = int(st.number_input("Move readings older than (days, 0 keeps them all)", min_value=0, max_value=3650,
+                               value=int(s.archive_after_days), step=1, key="archive_days",
+                               help="At least the last 7 days always stay raw, so recent summaries can be rebuilt."))
+    if days != s.archive_after_days:
+        save_settings(replace(s, archive_after_days=days))
+    error = start_poller().status.archive_error
+    if error:
+        st.warning(error)
+    if days == 0:
+        st.caption("Off. Every reading stays in the main table.")
 
 
 # ---------------------------------------------------------------- Ecowitt export import
@@ -313,9 +340,58 @@ def ecowitt_import_page() -> None:
         st.success(f"Added {added} days. They show on the Daily and Records pages.")
 
 
+def noaa_page() -> None:
+    """Daily rain and temperatures from NOAA's nearest station, for years before this app collected data."""
+    s = load_settings()
+    db = storage.connect()
+    st.markdown(theme.title_html("NOAA history"), unsafe_allow_html=True)
+    st.write("NOAA keeps daily rain and temperatures for many weather stations, going back decades. Weather Lab can fetch "
+             "the nearest station's last 10 years. They show on the Explore page, in the year totals, beside your own "
+             "readings. NOAA needs a free token from its Climate Data Online website.")
+    token = noaa.token()
+    with st.form("noaa-token"):
+        typed = st.text_input("NOAA token", type="password",
+                              placeholder="Saved in Windows Credential Manager" if token else "Paste your token")
+        if st.form_submit_button("Save token") and typed.strip():
+            secrets.set_key(noaa.TOKEN_KEY, typed.strip())
+            st.rerun()
+    if not token:
+        st.caption("Get a free token from the Climate Data Online website, then paste it here.")
+        return
+    if s.noaa_station:
+        st.caption(f"Nearest station: {s.noaa_station_name} ({s.noaa_station})")
+    count, first, last = storage.noaa_summary(db)
+    if count:
+        st.caption(f"Stored: {count:,} days, from {first} to {last}.")
+    if st.button("Find the nearest station"):
+        if s.latitude is None or s.longitude is None:
+            st.warning("Set your latitude and longitude on the Setup page first.")
+        else:
+            try:
+                found = noaa.find_station(s.latitude, s.longitude, token)
+            except noaa.NoaaError as exc:
+                st.error(str(exc))
+                found = None
+            if found is None:
+                st.warning("NOAA has no daily station within about 55 km of your location.")
+            else:
+                save_settings(replace(s, noaa_station=found[0], noaa_station_name=found[1]))
+                st.success(f"Nearest station: {found[1]}, about {found[2]:.0f} km away.")
+    if s.noaa_station and st.button("Fetch the last 10 years"):
+        today = date.today()
+        with st.spinner("Fetching from NOAA. This can take a minute."):
+            try:
+                days = noaa.fetch_daily(s.noaa_station, date(today.year - 10, 1, 1), today - timedelta(days=1), token)
+            except noaa.NoaaError as exc:
+                st.error(str(exc))
+            else:
+                storage.store_noaa_days(db, days)
+                st.success(f"Stored {len(days):,} days from NOAA.")
+
+
 def _import_page() -> None:
     pages = {"CSV": csv_import_page, "Excel": excel_import_page,
              "Weather Underground": weather_underground_page,
-             "Ecowitt export": ecowitt_import_page}
+             "Ecowitt export": ecowitt_import_page, "NOAA history": noaa_page}
     source = st.radio("Import from", list(pages), horizontal=True)
     pages[source]()

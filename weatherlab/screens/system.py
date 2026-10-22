@@ -500,19 +500,21 @@ def _alert_extras_section(s: Settings) -> None:
     fire_level = float(st.number_input("Fire danger notice at fire weather index", min_value=5.0, max_value=60.0,
                                        value=float(s.fire_alert_fwi), step=1.0, key="ex_fire_level"))
     rain_on = st.checkbox("Rain started and stopped notices", value=s.rain_notices, key="ex_rain")
-    current = (uv_on, uv_level, aqi_on, aqi_level, fire_on, fire_level, rain_on)
+    nws_on = st.checkbox("National Weather Service warnings and advisories (US only)", value=s.nws_alerts, key="ex_nws",
+                         help="Sends each new warning or advisory for your location once, to this PC and your phone.")
+    current = (uv_on, uv_level, aqi_on, aqi_level, fire_on, fire_level, rain_on, nws_on)
     saved = (s.uv_alerts, s.uv_alert_level, s.aqi_alerts, s.aqi_alert_level, s.fire_alerts, s.fire_alert_fwi,
-             s.rain_notices)
+             s.rain_notices, s.nws_alerts)
     if current != saved:
         save_settings(replace(s, uv_alerts=uv_on, uv_alert_level=uv_level, aqi_alerts=aqi_on, aqi_alert_level=aqi_level,
-                              fire_alerts=fire_on, fire_alert_fwi=fire_level, rain_notices=rain_on))
+                              fire_alerts=fire_on, fire_alert_fwi=fire_level, rain_notices=rain_on, nws_alerts=nws_on))
 
 
 def _alert_rules_section() -> None:
     s = load_settings()
     st.subheader("Alert rules")
-    st.caption("Weather Lab shows a Windows notification when a reading crosses one of these rules. "
-               "Each rule repeats at most once an hour.")
+    st.caption("Weather Lab sends a notification when a rule's conditions hold. A rule repeats at most once an hour, "
+               "unless it escalates: then it becomes more serious the longer it lasts.")
     metric = units.is_metric(s.units)
     rules = list(s.alert_rules)
     if not rules:
@@ -524,17 +526,36 @@ def _alert_rules_section() -> None:
             save_settings(replace(s, alert_rules=rules[:i] + rules[i + 1:]))
             st.rerun()
     labels = {label: key for key, (label, _) in alert_rules.METRICS.items()}
+    names = list(labels)
+    unit_text = "°C, km/h or mm" if metric else "°F, mph or inches"
+    default_value = round(units.convert("tempf", 110.0, metric), 1)
     with st.form("new-rule"):
         name = st.text_input("Name", placeholder="Extreme heat")
-        watch = st.selectbox("Watch", list(labels))
+        watch = st.selectbox("Watch", names, help="Pressure falling and temperature falling are changes per hour.")
         op = st.selectbox("When it is", list(alert_rules.OPS), format_func=alert_rules.OPS.get)
-        value = st.number_input(f"Value ({'°C, km/h or mm' if metric else '°F, mph or inches'})",
-                                value=round(units.convert("tempf", 110.0, metric), 1), step=1.0,
+        value = st.number_input(f"Value ({unit_text})", value=default_value, step=1.0,
                                 key=f"rule_value_{'c' if metric else 'f'}")
+        second = st.checkbox("Add a second condition")
+        watch2 = st.selectbox("Second condition: watch", names, key="rule_watch2")
+        op2 = st.selectbox("Second condition: when it is", list(alert_rules.OPS), format_func=alert_rules.OPS.get,
+                           key="rule_op2")
+        value2 = st.number_input("Second condition: value", value=default_value, step=1.0,
+                                 key=f"rule_value2_{'c' if metric else 'f'}")
+        combine = st.selectbox("With a second condition", ["Both must be true", "Either can be true"])
+        window = st.selectbox("Only apply", list(alert_rules.WINDOWS), format_func=alert_rules.WINDOWS.get)
+        months = st.multiselect("Months", list(range(1, 13)), format_func=lambda m: alert_rules.MONTH_NAMES[m - 1],
+                                help="Used only when Only apply is set to chosen months.")
+        escalate = st.checkbox("Escalate while it lasts",
+                               help="A Warning after an hour, and Severe after three hours, repeated every three hours.")
         if st.form_submit_button("Add rule"):
-            key = labels[watch]
-            rule = {"name": name.strip() or watch, "metric": key, "op": op,
-                    "value": round(units.to_us(key, float(value), metric), 2)}
+            conditions = [{"metric": labels[watch], "op": op,
+                           "value": alert_rules.to_us_value(labels[watch], float(value), metric)}]
+            if second:
+                conditions.append({"metric": labels[watch2], "op": op2,
+                                   "value": alert_rules.to_us_value(labels[watch2], float(value2), metric)})
+            rule = {"name": name.strip() or watch, "conditions": conditions,
+                    "combine": "OR" if combine == "Either can be true" else "AND",
+                    "window": window, "months": sorted(months), "escalate": escalate}
             problem = alert_rules.valid_rule(rule)
             if problem:
                 st.error(problem)
@@ -655,6 +676,12 @@ def health_check_page() -> None:
         "airnow_key": bool(secrets.get_key("airnow")),
         "allow_network": s.allow_network,
         "update_available": poller.status.update_available,
+        "nws_on": s.nws_alerts,
+        "nws_error": poller.status.nws_error,
+        "reports_on": s.auto_reports,
+        "report_error": poller.status.report_error,
+        "archive_days": s.archive_after_days,
+        "archive_error": poller.status.archive_error,
     }
     checks = health_check.evaluate(facts, now)
     st.markdown(theme.title_html("Health check"), unsafe_allow_html=True)

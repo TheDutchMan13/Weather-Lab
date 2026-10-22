@@ -184,9 +184,27 @@ def rain_calendar_page() -> None:
 
     st.subheader("Year totals")
     rain_dec = 1 if metric else 2
-    theme.table([{"Year": y, f"Rain ({units.unit('dailyrainin', metric)})":
-               f"{units.convert('dailyrainin', totals[y], metric):.{rain_dec}f}", "Rainy days": rainy.get(y, 0)}
-              for y in sorted(totals, reverse=True)])
+    noaa_rain = _noaa_rain_by_year(storage.connect())
+    unit = units.unit("dailyrainin", metric)
+
+    def shown(inches: float) -> str:
+        return f"{units.convert('dailyrainin', inches, metric):.{rain_dec}f}"
+
+    theme.table([{"Year": y,
+                  f"Rain from your readings ({unit})": shown(totals[y]) if y in totals else "--",
+                  f"Rain from NOAA ({unit})": shown(noaa_rain[y]) if y in noaa_rain else "--",
+                  "Rainy days": rainy.get(y, 0) if y in totals else "--"}
+                 for y in sorted(set(totals) | set(noaa_rain), reverse=True)])
+
+
+def _noaa_rain_by_year(db) -> dict:
+    """Yearly rain in inches from the NOAA history, for years where NOAA has rain values."""
+    by_year: dict = {}
+    for day, values in storage.noaa_days_between(db, "0000-01-01", "9999-12-31"):
+        if values.get("rain_in") is not None:
+            year = int(day[:4])
+            by_year[year] = by_year.get(year, 0.0) + values["rain_in"]
+    return by_year
 
 
 # ---------------------------------------------------------------- Replay

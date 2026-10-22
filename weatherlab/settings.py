@@ -72,6 +72,11 @@ class Settings:
     ntfy_server: str = ""  # phone alerts server address; blank means ntfy.sh
     backup_copy_folder: str = ""  # also copy each backup here, such as a USB drive or synced folder
     update_url: str = ""  # optional address of a text file whose first line is the newest version
+    nws_alerts: bool = False  # send new National Weather Service warnings and advisories to your phone and PC
+    auto_reports: bool = False  # create last month's PDF report each month (and last year's in January)
+    archive_after_days: int = 0  # move raw readings older than this into the archive table; 0 keeps them all
+    noaa_station: str = ""  # NOAA station ID for the nearest weather station, found on the Import page
+    noaa_station_name: str = ""
 
 
 def settings_path() -> Path:

@@ -51,9 +51,9 @@ The sidebar groups the pages into seven sections: Now, History, Explore, Outlook
 - **Now:** **Live** (current readings with heat index, wind chill, and humidex when they apply), **Sensors** (how complete the readings are, and any gaps), and **Alert history**.
 - **History:** **Daily** (one day's summary, with a PDF report download), **History** (rain totals and daily charts), **Records** (highs and lows since the app started collecting data), **Coverage**, **Rankings**, **Rewind**, **Climate charts**, and **My year**.
 - **Explore:** **Rain calendar**, **Rain events**, **Ask**, **Unusual days**, and **Replay**.
-- **Outlook:** **Forecast** (NWS alerts, an Overview of the next 24 hours with rain streaks when rain is likely, and the next 7 days with rain chance and wind; United States only), **Heat**, **Wind**, **Sun**, and **Astronomy**.
+- **Outlook:** **Forecast** (NWS alerts, an Overview of the next 24 hours with rain streaks when rain is likely, and the next 7 days with rain chance and wind; United States only), **Heat**, **Wind**, **Wind map** (arrows across the area around the station, for now and up to 12 hours ahead), **Sun**, and **Astronomy**.
 - **Hazards:** **Air** (AirNow air quality; needs a key and a location), **Fire** (Canadian Fire Weather Index and forecast; United States forecast only), **Lightning** (recent strikes), **Tropics**, and **Radar**.
-- **Data:** **Import**, **Export** (downloads of readings and daily summaries, plus the database backups), and **Reports** (monthly and yearly PDF reports).
+- **Data:** **Import** (including **NOAA history**, which needs a free NOAA Climate Data Online token), **Export** (downloads of readings and daily summaries, plus the database backups, and an **Old readings** section that moves raw readings to an archive table without deleting them), and **Reports** (monthly and yearly PDF reports, which can be made automatically).
 - **Configure:** **Setup**, **Settings**, **Stations**, **Status**, **Health check**, and **What's New**.
 
 ## Phone and other devices
@@ -70,6 +70,7 @@ The first station's settings and history are stored in `%APPDATA%\WeatherLab`. O
 - **Nothing on the Live page:** the reader needs a minute after you save the IP address.
 - **Lightning distances look too small:** some firmware labels kilometres as miles. Turn on the kilometres switch on the Setup page, under **Air**.
 - **Forecast or fire weather says it's unavailable:** the National Weather Service covers the United States only.
+- **NOAA history says the token was refused:** get a new token from NOAA Climate Data Online, and paste it on the Import page's NOAA history tab. The token is saved in Windows Credential Manager, not in the settings file.
 
 ## For developers
 

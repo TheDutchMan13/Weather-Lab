@@ -71,7 +71,9 @@ def day_rows(db, day: date, tz: tzinfo):
     nxt = day + timedelta(days=1)
     end = int(datetime(nxt.year, nxt.month, nxt.day, tzinfo=tz).timestamp())
     rows = []
-    for ts, data in db.execute("SELECT ts, data FROM readings WHERE ts >= ? AND ts < ? ORDER BY ts", (start, end)):
+    for ts, data in db.execute("SELECT ts, data FROM readings WHERE ts >= ? AND ts < ? "
+                               "UNION ALL SELECT ts, data FROM readings_archive WHERE ts >= ? AND ts < ? ORDER BY ts",
+                               (start, end, start, end)):
         try:
             rows.append((ts, json.loads(data)))
         except (TypeError, ValueError):

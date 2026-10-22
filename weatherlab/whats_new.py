@@ -5,6 +5,23 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.0",
+        "date": "October 22, 2026",
+        "items": [
+            "Alert rules can check more than one thing: for example, temperature at or above 105 and humidity at or below 20, both at once, or either one.",
+            "Alert rules can run only in the daytime, only at night, or only in the months you pick.",
+            "An alert rule can escalate: a Notice at first, a Warning after an hour, and Severe after three hours, repeated every three hours while it lasts.",
+            "New alerts for falling pressure (in inches of mercury or millibars per hour) and falling temperature (per hour), over the last hour.",
+            "Setup can send National Weather Service warnings and advisories to your phone and PC. Only new ones are sent, and US locations only.",
+            "Reports can be made automatically: a monthly PDF on the second day of each month, and a yearly PDF in January.",
+            "Export has an Old readings section. Raw readings older than the number of days you choose move to an archive table. Nothing is deleted, and charts and daily totals still see them.",
+            "Import has a NOAA history page. Paste a free NOAA token, find the nearest station, and fetch up to ten years of rain and temperatures. Explore's year totals show the NOAA rain too.",
+            "Outlook has a Wind map: arrows across the area around your station, coloured by speed, for now, +3, +6 or +12 hours.",
+            "Live shows the latest reading from the nearest airport, or the nearest weather station if no airport is close. US locations only.",
+            "Health check has new lines for weather warnings, automatic reports and the reading archive when they are turned on.",
+        ],
+    },
+    {
         "version": "0.21.0",
         "date": "October 22, 2026",
         "items": [

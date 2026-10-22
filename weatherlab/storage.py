@@ -23,7 +23,10 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     db.execute("CREATE TABLE IF NOT EXISTS readings (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, "
                "data TEXT NOT NULL, source TEXT DEFAULT 'gw2000', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_readings_ts ON readings(ts)")
+    db.execute("CREATE TABLE IF NOT EXISTS readings_archive (ts INTEGER PRIMARY KEY, data TEXT NOT NULL, "
+               "source TEXT DEFAULT 'gw2000')")
     db.execute("CREATE TABLE IF NOT EXISTS daily (date TEXT PRIMARY KEY, data TEXT NOT NULL)")
+    db.execute("CREATE TABLE IF NOT EXISTS noaa_daily (date TEXT PRIMARY KEY, data TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS aqi (ts INTEGER PRIMARY KEY, data TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS lightning_events (ts INTEGER PRIMARY KEY, distance REAL)")
     db.execute("CREATE TABLE IF NOT EXISTS fire (ts INTEGER PRIMARY KEY, data TEXT NOT NULL)")
@@ -82,8 +85,40 @@ def recent_daily_rain(db: sqlite3.Connection, limit: int = 60) -> list[tuple[str
 
 
 def readings_between(db: sqlite3.Connection, start_ts: float, end_ts: float) -> list[tuple[int, dict]]:
+    """Readings in a time range, including ones moved to the archive table."""
     return [(ts, json.loads(data)) for ts, data in db.execute(
-        "SELECT ts, data FROM readings WHERE ts >= ? AND ts < ? ORDER BY ts", (int(start_ts), int(end_ts)))]
+        "SELECT ts, data FROM readings WHERE ts >= ? AND ts < ? "
+        "UNION ALL SELECT ts, data FROM readings_archive WHERE ts >= ? AND ts < ? ORDER BY ts",
+        (int(start_ts), int(end_ts), int(start_ts), int(end_ts)))]
+
+
+def archive_before(db: sqlite3.Connection, cutoff_ts: float) -> int:
+    """Move raw readings older than the cutoff into the archive table. Nothing is deleted from the data. Returns the
+    number of readings moved."""
+    with db:
+        cur = db.execute("INSERT OR IGNORE INTO readings_archive (ts, data, source) "
+                         "SELECT ts, data, source FROM readings WHERE ts < ?", (int(cutoff_ts),))
+        moved = cur.rowcount
+        db.execute("DELETE FROM readings WHERE ts < ? AND ts IN (SELECT ts FROM readings_archive)", (int(cutoff_ts),))
+    return moved
+
+
+def store_noaa_days(db: sqlite3.Connection, days: dict) -> None:
+    """NOAA daily values, keyed by date ISO string. Days already in the app's own daily table are left alone when read."""
+    with db:
+        db.executemany("INSERT OR REPLACE INTO noaa_daily (date, data) VALUES (?, ?)",
+                       [(day, json.dumps(values)) for day, values in days.items()])
+
+
+def noaa_summary(db: sqlite3.Connection) -> tuple[int, str | None, str | None]:
+    """(number of NOAA days stored, first date, last date)."""
+    count, first, last = db.execute("SELECT COUNT(*), MIN(date), MAX(date) FROM noaa_daily").fetchone()
+    return count, first, last
+
+
+def noaa_days_between(db: sqlite3.Connection, start: str, end: str) -> list[tuple[str, dict]]:
+    return [(d, json.loads(data)) for d, data in db.execute(
+        "SELECT date, data FROM noaa_daily WHERE date >= ? AND date <= ? ORDER BY date", (start, end))]
 
 
 def strikes_between(db: sqlite3.Connection, start_ts: float, end_ts: float) -> list[tuple[int, float]]:

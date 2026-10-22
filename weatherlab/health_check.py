@@ -100,6 +100,22 @@ def evaluate(f: dict, now: float) -> list[dict]:
     else:
         add("Air quality", "info", "No AirNow key saved. It's optional.")
 
+    if f.get("nws_on"):
+        if f.get("nws_error"):
+            add("Weather warnings", "warn", f"Couldn't check the National Weather Service: {f['nws_error']}")
+        else:
+            add("Weather warnings", "ok", "Checking the National Weather Service every 15 minutes.")
+    if f.get("reports_on"):
+        if f.get("report_error"):
+            add("Automatic reports", "warn", f"Couldn't make a report: {f['report_error']}")
+        else:
+            add("Automatic reports", "ok", "Monthly and yearly PDFs are made on their own.")
+    if f.get("archive_days"):
+        if f.get("archive_error"):
+            add("Reading archive", "warn", f"Couldn't move old readings: {f['archive_error']}")
+        else:
+            add("Reading archive", "ok", f"Readings older than {f['archive_days']} days move to the archive.")
+
     if f.get("allow_network"):
         add("Phone and device access", "info", "Phones and devices on your network can open Weather Lab.")
     if f.get("update_available"):

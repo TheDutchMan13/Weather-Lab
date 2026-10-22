@@ -13,7 +13,7 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from weatherlab import alert_rules, airquality, backup, cwop, mqtt_publish, pwsweather, uploads, weathercloud, wunderground, daily, digest, fire, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
@@ -35,6 +35,9 @@ SENSOR_SECONDS = 1800  # how often to check sensor batteries and signal
 FORECAST_SECONDS = 10800  # how often to save the forecast, so accuracy can be checked later
 STUCK_SECONDS = 1800  # how often to check for an outdoor sensor that has stopped changing
 ENV_SECONDS = 300  # how often to check UV, air quality and fire danger
+NWS_SECONDS = 900  # how often to check National Weather Service warnings
+REPORTS_SECONDS = 21600  # how often to check whether an automatic PDF report is due
+ARCHIVE_SECONDS = 86400  # how often to move old raw readings into the archive table
 UPDATE_SECONDS = 86400  # how often to check for a newer version
 
 
@@ -60,6 +63,9 @@ class PollStatus:
     backup_error: str = ""
     sensor_error: str = ""
     forecast_error: str = ""
+    nws_error: str = ""
+    report_error: str = ""
+    archive_error: str = ""
     update_available: str = ""
     skipped_log: list = field(default_factory=list)  # (timestamp, reason), newest first
 
@@ -98,6 +104,9 @@ class Poller(threading.Thread):
         self._last_env = 0.0
         self._last_update = 0.0
         self._update_sent: set = set()
+        self._last_nws = 0.0
+        self._last_reports = 0.0
+        self._last_archive = 0.0
 
     def stop(self) -> None:
         """Ask the collector to finish its current pass and exit."""
@@ -145,6 +154,12 @@ class Poller(threading.Thread):
                     self._stuck(db, s)
                 if time.time() - self._last_env > ENV_SECONDS:
                     self._environment(db, s)
+                if s.nws_alerts and s.latitude is not None and s.longitude is not None and time.time() - self._last_nws > NWS_SECONDS:
+                    self._nws_alerts(s)
+                if s.auto_reports and time.time() - self._last_reports > REPORTS_SECONDS:
+                    self._auto_reports(db, s)
+                if s.archive_after_days > 0 and time.time() - self._last_archive > ARCHIVE_SECONDS:
+                    self._archive(db, s)
                 if s.update_url.strip() and time.time() - self._last_update > UPDATE_SECONDS:
                     if self.station == "main": self._update_check(s)
             except Exception as exc:  # keep the thread alive no matter what
@@ -171,7 +186,9 @@ class Poller(threading.Thread):
         now = time.time()
         storage.store_reading(db, reading, now)
         self._prev = (now, reading)
-        for text in alert_rules.evaluate(s.alert_rules, reading, now, self._fired, units.is_metric(s.units)):
+        context = alert_rules.rates(storage.readings_between(db, now - alert_rules.RATE_WINDOW_S, now + 1), now)
+        for text in alert_rules.evaluate(s.alert_rules, reading, now, self._fired, units.is_metric(s.units),
+                                         _zone(s), context):
             self._announce(text, severe=True)
         self._records(db, s, reading, now)
         self._rain_notice(s, reading)
@@ -209,6 +226,58 @@ class Poller(threading.Thread):
         today = datetime.now(tz).date()
         days = [today - timedelta(days=i) for i in range(1, ROLLUP_DAYS_BACK + 1)]
         daily.rollup_days(db, days, s.latitude or 0.0, s.longitude or 0.0, s.elevation_m, tz, today)
+
+    def _nws_alerts(self, s) -> None:
+        """Send each new National Weather Service warning or advisory once. The first check only remembers them."""
+        from weatherlab import nws_push
+        self._last_nws = time.time()
+        try:
+            active = nws.alerts(s.latitude, s.longitude, s.nws_contact)
+        except nws.NwsError as exc:
+            self.status.nws_error = str(exc)
+            return
+        self.status.nws_error = ""
+        seen = nws_push.load_seen()
+        if seen is None:
+            nws_push.save_seen([nws_push.alert_id(a) for a in active])
+            return
+        fresh, updated = nws_push.new_alerts(active, seen)
+        nws_push.save_seen(updated)
+        for alert in fresh:
+            self._announce(nws_push.message(alert), severe=nws_push.is_urgent(alert))
+
+    def _auto_reports(self, db, s) -> None:
+        """Write last month's PDF, and last year's in January, into the reports folder. Each is written once."""
+        from weatherlab import auto_reports, report
+        self._last_reports = time.time()
+        today = datetime.now(_zone(s)).date()
+        folder = auto_reports.folder()
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            existing = {path.name for path in folder.iterdir()}
+            metric = units.is_metric(s.units)
+            for name, kind, year, month in auto_reports.due(today, existing):
+                if kind == "monthly":
+                    rows = history.daily_between(db, *auto_reports.month_range(year, month))
+                    data = report.monthly_pdf(year, month, rows, metric) if rows else None
+                else:
+                    rows = history.daily_between(db, date(year, 1, 1), date(year, 12, 31))
+                    data = report.yearly_pdf(year, rows, metric) if rows else None
+                if data is not None:
+                    (folder / name).write_bytes(data)
+            self.status.report_error = ""
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            self.status.report_error = f"Automatic report failed: {exc}"
+
+    def _archive(self, db, s) -> None:
+        """Move raw readings older than the chosen number of days into the archive table. Nothing is deleted."""
+        self._last_archive = time.time()
+        try:
+            # At least a week stays raw, so the last few days can still be summarized from their readings.
+            storage.archive_before(db, time.time() - max(7, s.archive_after_days) * 86400)
+            self.status.archive_error = ""
+        except sqlite3.Error as exc:
+            self.status.archive_error = f"Archiving readings failed: {exc}"
 
     def _backup(self, s) -> None:
         """Copy the database once a day and keep the newest few copies."""
