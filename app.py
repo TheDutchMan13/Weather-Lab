@@ -18,6 +18,7 @@ import streamlit.components.v1 as components
 from weatherlab import (alert_map, alert_rules, astro, auth, autofit, autostart, charts, comfort, daily, dials, ecowitt_import, gateway_sensors, gauges, health, hero, heat_safety, history, history_compare, airquality, importer, coverage, backup, ask, dew, digest, discover, forecast_check, parse, rain_events, motion, network, nws, rain_calendar, replay, report, secrets, sparks, station_status, storage, sun_uv, theme, tropics, units, whats_new, wind_rose, wx_icons, yearly)
 from weatherlab.config import APP_NAME, APP_VERSION, CARD_LABELS, RISK_COLORS
 from weatherlab import forecast_view, health_check, lightning_history, mqtt_publish, pwsweather, push, stations, updates, weathercloud, wunderground
+from weatherlab import exports
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 
@@ -2000,14 +2001,62 @@ def _daily_export(db, today: date) -> None:
                        file_name=f"weather_daily_{start.isoformat()}_{end.isoformat()}.csv", mime="text/csv")
 
 
-def export_page() -> None:
-    s = load_settings()
-    tz = _tz(s)
+MONTH_NAMES = [datetime(2000, m, 1).strftime("%B") for m in range(1, 13)]
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _all_history(tz_name: str, today: date) -> dict:
+    """Every reading and daily summary as CSV. Kept for ten minutes, because the full history is large."""
     db = storage.connect()
-    today = datetime.now(tz).date()
-    st.markdown(theme.title_html("Export"), unsafe_allow_html=True)
-    _daily_export(db, today)
-    st.divider()
+    tz = ZoneInfo(tz_name)
+    readings = storage.readings_between(db, 0.0, exports.day_start(today + timedelta(days=1), tz))
+    daily = history.daily_between(db, date(2000, 1, 1), today - timedelta(days=1))
+    return {"readings": importer.export_csv(readings, tz) if readings else None, "readings_count": len(readings),
+            "daily": history.daily_csv(daily) if daily else None, "daily_count": len(daily)}
+
+
+def _all_history_section(s: Settings, today: date) -> None:
+    files = _all_history(_tz(s).key, today)
+    st.caption("Everything the station has collected. The files are rebuilt at most every ten minutes.")
+    if not files["readings_count"] and not files["daily_count"]:
+        st.info("No readings have been collected yet.")
+        return
+    left, right = st.columns(2)
+    if files["readings"]:
+        left.download_button("Download all readings (CSV)", data=files["readings"],
+                             file_name=f"weather_readings_all_{today.isoformat()}.csv", mime="text/csv")
+    if files["daily"]:
+        right.download_button("Download all daily summaries (CSV)", data=files["daily"],
+                              file_name=f"weather_daily_all_{today.isoformat()}.csv", mime="text/csv")
+
+
+def _monthly_section(db, tz: ZoneInfo, today: date) -> None:
+    years = list(range(today.year, today.year - 10, -1))
+    year_col, month_col = st.columns(2)
+    year = int(year_col.selectbox("Year", years, key="export_year"))
+    month = int(month_col.selectbox("Month", range(1, 13), index=today.month - 1,
+                                    format_func=lambda m: MONTH_NAMES[m - 1], key="export_month"))
+    first, last = exports.month_bounds(year, month)
+    if first > today:
+        st.info("That month hasn't started yet.")
+        return
+    readings = storage.readings_between(db, *exports.day_range_ts(first, last, tz))
+    daily = history.daily_between(db, first, min(last, today - timedelta(days=1)))
+    label = f"{MONTH_NAMES[month - 1]} {year}"
+    if not readings and not daily:
+        st.info(f"No data for {label}.")
+        return
+    left, right = st.columns(2)
+    if readings:
+        left.download_button(f"Readings for {label} (CSV)", data=importer.export_csv(readings, tz),
+                             file_name=f"weather_readings_{year}_{month:02d}.csv", mime="text/csv")
+    if daily:
+        right.download_button(f"Daily summaries for {label} (CSV)", data=history.daily_csv(daily),
+                              file_name=f"weather_daily_{year}_{month:02d}.csv", mime="text/csv")
+
+
+def _readings_export(db, tz: ZoneInfo, today: date) -> None:
+    """Download readings for a date range, in the same format the CSV Import page reads."""
     st.markdown("**Readings as CSV**")
     st.write("Download readings as a CSV file. It uses the same format as the CSV Import page, so you can "
              "import it on another computer. Times are in the timezone on the Setup page.")
@@ -2016,15 +2065,31 @@ def export_page() -> None:
     if end < start:
         st.error("The end date is before the start date.")
         return
-    start_ts = datetime.combine(start, datetime.min.time(), tzinfo=tz).timestamp()
-    end_ts = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=tz).timestamp()
-    rows = storage.readings_between(db, start_ts, end_ts)
+    rows = storage.readings_between(db, *exports.day_range_ts(start, end, tz))
     if not rows:
         st.info("No readings in that range. Try a wider range, or check that the station has been reporting.")
         return
     st.write(f"{len(rows)} readings ready.")
     st.download_button("Download CSV", data=importer.export_csv(rows, tz),
                        file_name=f"weather_readings_{start.isoformat()}_{end.isoformat()}.csv", mime="text/csv")
+
+
+def export_page() -> None:
+    s = load_settings()
+    tz = _tz(s)
+    db = storage.connect()
+    today = datetime.now(tz).date()
+    st.markdown(theme.title_html("Export"), unsafe_allow_html=True)
+    st.write("Download your readings and daily summaries as CSV files. Values are in US units. "
+             "Times use the timezone on the Setup page.")
+    with st.expander("Download all history"):
+        _all_history_section(s, today)
+    with st.expander("Download by month", expanded=True):
+        _monthly_section(db, tz, today)
+    with st.expander("Download a custom range"):
+        _daily_export(db, today)
+        st.divider()
+        _readings_export(db, tz, today)
 
 
 # ---------------------------------------------------------------- Sensors

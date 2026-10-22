@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.17.0",
+        "date": "October 21, 2026",
+        "items": [
+            "Export page: downloads are grouped into dropdowns. Download all history gives every reading and daily summary in one file each.",
+            "Download by month: pick a year and month to download that month's readings or daily summaries. Custom range is still there, in its own dropdown.",
+        ],
+    },
+    {
         "version": "0.16.0",
         "date": "October 21, 2026",
         "items": [
