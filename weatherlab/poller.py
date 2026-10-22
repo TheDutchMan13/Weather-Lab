@@ -29,6 +29,7 @@ UPLOAD_SECONDS = 300  # Weather Underground, PWSweather and Weathercloud: one up
 MQTT_SECONDS = 60  # MQTT: readings are published once a minute
 DISCOVERY_SECONDS = 3600  # Home Assistant discovery messages are sent once an hour
 ROLLUP_DAYS_BACK = 3
+HEAT_BATCH_DAYS = 60  # older daily summaries rebuilt with the heat index per rollup
 RECORD_REFRESH_SECONDS = 3600  # how often the all-time records reload from the daily summaries
 BACKUP_CHECK_SECONDS = 3600  # how often to check whether a daily database backup is due
 SENSOR_SECONDS = 1800  # how often to check sensor batteries and signal
@@ -226,6 +227,17 @@ class Poller(threading.Thread):
         today = datetime.now(tz).date()
         days = [today - timedelta(days=i) for i in range(1, ROLLUP_DAYS_BACK + 1)]
         daily.rollup_days(db, days, s.latitude or 0.0, s.longitude or 0.0, s.elevation_m, tz, today)
+        self._fill_heat_index(db, s, tz, today)
+
+    def _fill_heat_index(self, db, s, tz, today) -> None:
+        """Summaries made before the heat index was kept are rebuilt from their stored readings, newest first,
+        a batch of HEAT_BATCH_DAYS at a time. Imported days are left alone."""
+        rows = db.execute("SELECT date, data FROM daily ORDER BY date DESC LIMIT 3000").fetchall()
+        missing = [date.fromisoformat(d) for d, data in rows
+                   if "heat_checked" not in data and not daily._imported(data) and date.fromisoformat(d) < today]
+        if missing:
+            daily.rollup_days(db, missing[:HEAT_BATCH_DAYS], s.latitude or 0.0, s.longitude or 0.0,
+                              s.elevation_m, tz, today)
 
     def _nws_alerts(self, s) -> None:
         """Send each new National Weather Service warning or advisory once. The first check only remembers them."""

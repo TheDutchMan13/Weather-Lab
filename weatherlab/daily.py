@@ -11,6 +11,8 @@ import json
 import math
 from datetime import date, datetime, timedelta, timezone, tzinfo
 
+from weatherlab import comfort
+
 MIN_ROWS_FOR_DAY = 20  # fewer readings than this and the day is not summarized
 
 
@@ -57,6 +59,11 @@ def summarize_day(rows, lat: float, lon: float, elev_m: float, tz: tzinfo):
            "humidity_min": min(hum) if hum else None, "humidity_max": max(hum) if hum else None,
            "sun_hours": round(sun, 1), "solar_rad": max(vals("solarradiation") or [0.0]),
            "uvi": max(vals("uv") or [0.0])}
+    heat = [comfort.heat_index_f(r["tempf"], r["humidity"]) for _, r in rows
+            if r.get("tempf") is not None and r.get("humidity") is not None]
+    out["heat_checked"] = 1  # marks summaries made with the heat index, so older ones are filled in once
+    if heat:
+        out["heat_index_max"] = round(max(heat), 1)
     tin, hin = vals("tempinf"), vals("humidityin")
     if tin:
         out.update(indoor_tempf_max=max(tin), indoor_tempf_min=min(tin), indoor_tempf_avg=round(sum(tin) / len(tin), 1))

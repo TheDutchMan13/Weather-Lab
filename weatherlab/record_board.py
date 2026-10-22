@@ -13,7 +13,7 @@ GROUPS = ["Temperature", "Rain", "Wind", "Humidity and pressure"]
 HIGHLIGHTS = [  # (label, icon, record name)
     ("Hottest day", "🔥", "hi_temp"),
     ("Coldest night", "❄️", "lo_temp"),
-    ("Highest UV", "☀️", "uv_hi"),
+    ("Highest heat index", "🥵", "heat_hi"),
     ("Wettest day", "💧", "wet_day"),
     ("Highest gust", "💨", "gust_hi"),
     ("Longest dry spell", "🏜️", "dry_spell"),
@@ -96,6 +96,7 @@ def board(days, today: date) -> dict:
     temp, rain, wind, hum = "Temperature", "Rain", "Wind", "Humidity and pressure"
     add("hi_temp", "Highest temperature", temp, _best(days, "tempf_max", True), True, "tempf", dec=1)
     add("lo_temp", "Lowest temperature", temp, _best(days, "tempf_min", False), False, "tempf", dec=1)
+    add("heat_hi", "Highest heat index", temp, _best(days, "heat_index_max", True), True, "heat_index", dec=1)
     add("warm_night", "Warmest night (highest low)", temp, _best(days, "tempf_min", True), True, "tempf", dec=1)
     add("cool_aft", "Coolest afternoon (lowest high)", temp, _best(days, "tempf_max", False), False, "tempf", dec=1)
     swings = [(d["tempf_max"] - d["tempf_min"], day) for day, d in days
@@ -126,7 +127,6 @@ def board(days, today: date) -> dict:
     add("baro_hi", "Highest pressure", hum, _best(days, "baro_max", True), True, "baromrelin", dec=2)
     add("baro_lo", "Lowest pressure", hum, _best(days, "baro_min", False), False, "baromrelin", dec=2)
 
-    add("uv_hi", "Highest UV", None, _best(days, "uvi", True), True, plain="", dec=1)
 
     by_name = {r["name"]: r for r in records}
     highlights = [dict(by_name[name], icon=icon, title=title)

@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.6",
+        "date": "October 22, 2026",
+        "items": [
+            "Each day now records its heat index, the highest feels-like heat from the day's readings. Records has a Highest heat index record in Temperature.",
+            "Highest heat index replaces Highest UV among the six record highlights.",
+            "Days from before this update are filled in automatically, 60 days every 5 minutes, from the readings already stored.",
+        ],
+    },
+    {
         "version": "0.22.5",
         "date": "October 22, 2026",
         "items": [

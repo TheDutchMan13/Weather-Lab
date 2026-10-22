@@ -272,11 +272,12 @@ class RecordBoardTests(unittest.TestCase):
             out.append((start + timedelta(days=i), {"rain_in": 0.0, "tempf_max": 90.0 + i, "tempf_min": 60.0,
                                                     "gust_max": 10.0 + i, "humidity_max": 50.0, "humidity_min": 20.0,
                                                     "baro_max": 29.9, "baro_min": 29.8, "uvi": 9.0,
+                                                    "heat_index_max": 95.0 + i,
                                                     "wind_run_mi": 20.0, "wind_max": 8.0, "rainrate_max": 0.0}))
         out.append((date(2026, 6, 11), {"rain_in": 0.5, "tempf_max": 80.0, "tempf_min": 65.0, "rainrate_max": 1.0}))
         out.append((date(2026, 6, 12), {"rain_in": 0.2, "tempf_max": 82.0, "tempf_min": 66.0, "rainrate_max": 0.4}))
         out.append((date(2026, 6, 13), {"rain_in": 0.1, "tempf_max": 84.0, "tempf_min": 64.0, "rainrate_max": 0.3}))
-        out.append((date(2026, 6, 14), {"rain_in": 0.0, "tempf_max": 99.0, "tempf_min": 61.0}))
+        out.append((date(2026, 6, 14), {"rain_in": 0.0, "tempf_max": 99.0, "tempf_min": 61.0, "heat_index_max": 118.4}))
         out.append((date(2026, 9, 5), {"rain_in": 1.25, "tempf_max": 95.0, "tempf_min": 70.0}))
         out.append((date(2026, 10, 3), {"rain_in": 0.75, "tempf_max": 88.0, "tempf_min": 62.0}))
         return out
@@ -284,9 +285,15 @@ class RecordBoardTests(unittest.TestCase):
     def test_highlights_and_groups(self):
         got = record_board.board(self._days(), self.TODAY)
         names = [h["name"] for h in got["highlights"]]
-        self.assertEqual(names, ["hi_temp", "lo_temp", "uv_hi", "wet_day", "gust_hi", "dry_spell"])
+        self.assertEqual(names, ["hi_temp", "lo_temp", "heat_hi", "wet_day", "gust_hi", "dry_spell"])
         self.assertEqual([title for title, _ in got["groups"]], ["Temperature", "Rain", "Wind", "Humidity and pressure"])
         self.assertTrue(all(r["group"] for r in got["records"]))
+
+    def test_highest_heat_index_is_a_record(self):
+        got = {r["name"]: r for r in record_board.board(self._days(), self.TODAY)["records"]}
+        self.assertEqual(got["heat_hi"]["value"], 118.4)
+        self.assertEqual(got["heat_hi"]["unit_key"], "heat_index")
+        self.assertEqual(got["heat_hi"]["group"], "Temperature")
 
     def test_highest_temperature_has_its_day(self):
         got = {r["name"]: r for r in record_board.board(self._days(), self.TODAY)["records"]}
