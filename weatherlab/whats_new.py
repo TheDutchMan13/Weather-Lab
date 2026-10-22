@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.7",
+        "date": "October 22, 2026",
+        "items": [
+            "Every page in the sidebar has a colour emoji icon, like the dashboard's menu, instead of a plain line icon.",
+        ],
+    },
+    {
         "version": "0.22.6",
         "date": "October 22, 2026",
         "items": [

@@ -58,21 +58,19 @@ def access_gate() -> bool:
     return False
 
 
-PAGE_ICONS = {
-    "Live": ":material/speed:", "Sensors": ":material/sensors:", "Alert history": ":material/notifications:",
-    "Daily": ":material/calendar_today:", "History": ":material/show_chart:", "Records": ":material/emoji_events:",
-    "Coverage": ":material/fact_check:", "Rankings": ":material/leaderboard:", "Rewind": ":material/history:",
-    "Climate charts": ":material/bar_chart:", "My year": ":material/event:",
-    "Rain calendar": ":material/rainy:", "Rain events": ":material/water_drop:", "Ask": ":material/search:",
-    "Unusual days": ":material/psychology:", "Replay": ":material/replay:",
-    "Forecast": ":material/wb_cloudy:", "Heat": ":material/thermostat:", "Wind": ":material/air:", "Wind map": ":material/explore:",
-    "Sun": ":material/wb_sunny:", "Astronomy": ":material/nights_stay:",
-    "Air": ":material/masks:", "Fire": ":material/local_fire_department:", "Lightning": ":material/bolt:",
-    "Tropics": ":material/tornado:", "Radar": ":material/radar:",
-    "Import": ":material/upload_file:", "Export": ":material/download:", "Reports": ":material/picture_as_pdf:",
-    "Status": ":material/check_circle:", "Health check": ":material/health_and_safety:",
-    "What's New": ":material/new_releases:", "Setup": ":material/build:", "Settings": ":material/settings:",
-    "Stations": ":material/cell_tower:",
+PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
+    "Live": "🌤️", "Sensors": "🌡️", "Alert history": "🚨",
+    "Daily": "🗓️", "History": "📈", "Records": "🏆",
+    "Coverage": "🗂️", "Rankings": "🏅", "Rewind": "⏪",
+    "Climate charts": "📊", "My year": "📅",
+    "Rain calendar": "📆", "Rain events": "💧", "Ask": "💬",
+    "Unusual days": "🧐", "Replay": "▶️",
+    "Forecast": "🔮", "Heat": "🥵", "Wind": "🌬️", "Wind map": "💨",
+    "Sun": "☀️", "Astronomy": "🔭",
+    "Air": "😷", "Fire": "🚒", "Lightning": "⚡", "Tropics": "🌀", "Radar": "📡",
+    "Import": "📥", "Export": "📤", "Reports": "📄",
+    "Status": "✅", "Health check": "🩺",
+    "What's New": "🆕", "Setup": "🧰", "Settings": "⚙️", "Stations": "📍",
 }
 
 

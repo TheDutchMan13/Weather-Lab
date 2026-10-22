@@ -117,5 +117,7 @@ None.
 
 ## Records page look (22 Oct 2026)
 - The layout of the Records page (a gradient highlights card, then record cards grouped by type with a coloured top border, highest and lowest dots, and NEW badges) is copied from the dashboard's records page look. The code is new: weatherlab/record_board.py and screens/history.py records_page.
-- Records that need readings the daily summaries don't keep (most rain in an hour, most rain in 24 hours, heat index, dew point, feels-like, wind chill, humidex) are not shown.
+- Records that need readings the daily summaries don't keep (most rain in an hour, most rain in 24 hours, dew point, feels-like, wind chill, humidex) are not shown.
 
+## Sidebar page icons (22 Oct 2026)
+- The emoji icons for the sidebar pages follow the dashboard's sidebar in dash_pages (app_router.py), where a page matches. The icon choices are the dashboard's; the code that uses them (PAGE_ICONS in app.py) is new.
