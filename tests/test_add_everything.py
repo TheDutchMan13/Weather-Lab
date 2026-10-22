@@ -213,5 +213,19 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(by_name["Reading archive"], "ok")
 
 
+class HealthGroupTests(unittest.TestCase):
+    def test_every_check_is_in_exactly_one_group(self):
+        names = [name for _, names in health_check.GROUPS for name in names]
+        self.assertEqual(len(names), len(set(names)))
+        checks = [{"name": n, "state": "ok", "detail": ""} for n in names] + [{"name": "New one", "state": "ok", "detail": ""}]
+        groups = health_check.grouped(checks)
+        self.assertEqual(sum(len(rows) for _, rows in groups), len(checks))
+        self.assertEqual(groups[-1][0], "Other")
+
+    def test_groups_keep_their_order_and_skip_empty_ones(self):
+        checks = [{"name": "Updates", "state": "info", "detail": ""}, {"name": "Database", "state": "ok", "detail": ""}]
+        self.assertEqual([title for title, _ in health_check.grouped(checks)], ["Storage", "This app"])
+
+
 if __name__ == "__main__":
     unittest.main()

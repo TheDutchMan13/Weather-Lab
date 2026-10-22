@@ -269,6 +269,33 @@ def _wind_grid_html(frame: list, plate: str = "#dfe7ef") -> str:
             f'{marker}</div>')
 
 
+def _wind_summary(frame: list, metric: bool, choice: str) -> None:
+    """The station's own wind now, and the strongest wind in the area for the chosen time."""
+    latest = storage.latest(storage.connect())
+    reading = latest[1] if latest else {}
+
+    def shown(speed: float) -> str:
+        return f"{units.convert('windspeedmph', speed, metric):.0f}{units.suffix('windspeedmph', metric)}"
+
+    speed, gust, direction = reading.get("windspeedmph"), reading.get("windgustmph"), reading.get("winddir")
+    usable = [(sp, d) for sp, d in frame if sp is not None]
+    top = max(usable, key=lambda p: p[0]) if usable else None
+    st.markdown(theme.section_html("Your station", "now" if choice == "Now" else choice.lower()), unsafe_allow_html=True)
+    if speed is None:
+        st.markdown("No wind reading from the station yet.")
+    else:
+        from_dir = nws.compass(direction)
+        st.markdown(f"**{shown(speed)}**" + (f" from the {from_dir}" if from_dir else ""))
+    details = []
+    if gust is not None:
+        details.append(f"Gusts {shown(gust)}")
+    if top is not None:
+        top_dir = nws.compass(top[1])
+        details.append(f"Strongest in the area {shown(top[0])}" + (f", from the {top_dir}" if top_dir else ""))
+    if details:
+        st.caption(". ".join(details) + ".")
+
+
 def wind_map_page() -> None:
     """Wind across the area around the station, now and later, as arrows coloured by speed."""
     s = load_settings()
@@ -295,5 +322,6 @@ def wind_map_page() -> None:
                    for i, (_, colour, _) in enumerate(windmap.BANDS))
     st.markdown(f'<div style="font-size:14px;margin-top:10px">Speed ({units.unit("windspeedmph", metric)}): {keys}</div>',
                 unsafe_allow_html=True)
+    _wind_summary(frame, metric, choice)
     st.caption("Each arrow points the way the wind blows. Colour shows the speed. The middle point is your station. "
                "Data from Open-Meteo, saved for an hour.")

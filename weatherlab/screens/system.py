@@ -530,23 +530,26 @@ def _alert_rules_section() -> None:
     unit_text = "°C, km/h or mm" if metric else "°F, mph or inches"
     default_value = round(units.convert("tempf", 110.0, metric), 1)
     with st.form("new-rule"):
+        st.markdown("**What to watch**")
         name = st.text_input("Name", placeholder="Extreme heat")
         watch = st.selectbox("Watch", names, help="Pressure falling and temperature falling are changes per hour.")
         op = st.selectbox("When it is", list(alert_rules.OPS), format_func=alert_rules.OPS.get)
         value = st.number_input(f"Value ({unit_text})", value=default_value, step=1.0,
                                 key=f"rule_value_{'c' if metric else 'f'}")
-        second = st.checkbox("Add a second condition")
-        watch2 = st.selectbox("Second condition: watch", names, key="rule_watch2")
-        op2 = st.selectbox("Second condition: when it is", list(alert_rules.OPS), format_func=alert_rules.OPS.get,
-                           key="rule_op2")
-        value2 = st.number_input("Second condition: value", value=default_value, step=1.0,
-                                 key=f"rule_value2_{'c' if metric else 'f'}")
-        combine = st.selectbox("With a second condition", ["Both must be true", "Either can be true"])
-        window = st.selectbox("Only apply", list(alert_rules.WINDOWS), format_func=alert_rules.WINDOWS.get)
-        months = st.multiselect("Months", list(range(1, 13)), format_func=lambda m: alert_rules.MONTH_NAMES[m - 1],
-                                help="Used only when Only apply is set to chosen months.")
-        escalate = st.checkbox("Escalate while it lasts",
-                               help="A Warning after an hour, and Severe after three hours, repeated every three hours.")
+        with st.expander("Add a second condition"):
+            second = st.checkbox("Use a second condition")
+            watch2 = st.selectbox("Second condition: watch", names, key="rule_watch2")
+            op2 = st.selectbox("Second condition: when it is", list(alert_rules.OPS), format_func=alert_rules.OPS.get,
+                               key="rule_op2")
+            value2 = st.number_input("Second condition: value", value=default_value, step=1.0,
+                                     key=f"rule_value2_{'c' if metric else 'f'}")
+            combine = st.selectbox("With a second condition", ["Both must be true", "Either can be true"])
+        with st.expander("When it applies"):
+            window = st.selectbox("Only apply", list(alert_rules.WINDOWS), format_func=alert_rules.WINDOWS.get)
+            months = st.multiselect("Months", list(range(1, 13)), format_func=lambda m: alert_rules.MONTH_NAMES[m - 1],
+                                    help="Used only when Only apply is set to chosen months.")
+            escalate = st.checkbox("Escalate while it lasts",
+                                   help="A Warning after an hour, and Severe after three hours, repeated every three hours.")
         if st.form_submit_button("Add rule"):
             conditions = [{"metric": labels[watch], "op": op,
                            "value": alert_rules.to_us_value(labels[watch], float(value), metric)}]
@@ -693,8 +696,10 @@ def health_check_page() -> None:
     else:
         st.success(health_check.summary(checks))
     words = {"ok": "OK", "warn": "Check", "fail": "Problem", "info": "Info"}
-    theme.table([{"Check": c["name"], "Status": theme.state_html(c["state"], words[c["state"]]),
-                  "Details": c["detail"]} for c in checks], html_cols=("Status",))
+    for title, rows in health_check.grouped(checks):
+        st.markdown(theme.section_html(title), unsafe_allow_html=True)
+        theme.table([{"Check": c["name"], "Status": theme.state_html(c["state"], words[c["state"]]),
+                      "Details": c["detail"]} for c in rows], html_cols=("Status",))
     st.caption("Checked each time this page opens.")
 
 

@@ -5,6 +5,16 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.1",
+        "date": "October 22, 2026",
+        "items": [
+            "Wind map has a Your station card: the station's wind now, its gusts, and the strongest wind in the area for the time you picked.",
+            "Live shows the nearest airport's readings as tiles, after the comparison with yesterday and the dew point.",
+            "Alert rules on Setup are in clear sections. A second condition and the time settings sit in their own expanders.",
+            "Health check results are grouped: Station, Storage, Alerts and reports, Online services, and This app.",
+        ],
+    },
+    {
         "version": "0.22.0",
         "date": "October 22, 2026",
         "items": [

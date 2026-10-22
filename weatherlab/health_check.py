@@ -123,6 +123,27 @@ def evaluate(f: dict, now: float) -> list[dict]:
     return out
 
 
+GROUPS = [("Station", ["Background collector", "Station readings", "Station connection"]),
+          ("Storage", ["Database", "Disk space", "Backups", "Second backup folder", "Reading archive", "Settings"]),
+          ("Alerts and reports", ["Windows notifications", "Weather warnings", "Automatic reports"]),
+          ("Online services", ["Forecast", "Air quality"]),
+          ("This app", ["Phone and device access", "Updates"])]
+
+
+def grouped(checks: list[dict]) -> list[tuple[str, list[dict]]]:
+    """The checks in fixed groups, in order. Checks not named in GROUPS go under Other, at the end."""
+    out = []
+    for title, names in GROUPS:
+        rows = [c for c in checks if c["name"] in names]
+        if rows:
+            out.append((title, rows))
+    listed = {name for _, names in GROUPS for name in names}
+    other = [c for c in checks if c["name"] not in listed]
+    if other:
+        out.append(("Other", other))
+    return out
+
+
 def summary(checks: list[dict]) -> str:
     """One line: how many checks need attention."""
     needs = sum(1 for c in checks if c["state"] in ("warn", "fail"))

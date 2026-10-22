@@ -477,29 +477,32 @@ def airport_card(s: Settings) -> None:
         return
     metric = units.is_metric(s.units)
     label = "Airport" if station["airport"] else "Nearest weather station"
-    parts = []
+    tiles = []
     if reading["temp_f"] is not None:
-        parts.append(f"{units.convert('tempf', reading['temp_f'], metric):.0f}{units.suffix('tempf', metric)}")
+        tiles.append(theme.tile_html("Temperature", f"{units.convert('tempf', reading['temp_f'], metric):.0f}{units.suffix('tempf', metric)}"))
     if reading["wind_mph"] is not None:
         direction = nws.compass(reading["direction"])
         speed = f"{units.convert('windspeedmph', reading['wind_mph'], metric):.0f}{units.suffix('windspeedmph', metric)}"
-        wind = f"wind {direction + ' ' if direction else ''}{speed}"
-        if reading["gust_mph"] is not None:
-            wind += f", gusts {units.convert('windgustmph', reading['gust_mph'], metric):.0f}{units.suffix('windgustmph', metric)}"
-        parts.append(wind)
+        tiles.append(theme.tile_html("Wind", speed + (f" {direction}" if direction else "")))
+    if reading["gust_mph"] is not None:
+        tiles.append(theme.tile_html("Gusts", f"{units.convert('windgustmph', reading['gust_mph'], metric):.0f}{units.suffix('windgustmph', metric)}"))
     if reading["humidity"] is not None:
-        parts.append(f"humidity {reading['humidity']:.0f}%")
-    if reading["text"]:
-        parts.append(reading["text"])
+        tiles.append(theme.tile_html("Humidity", f"{reading['humidity']:.0f}%"))
     try:
         age = health_check.age_text(time.time() - datetime.fromisoformat(reading["time"]).timestamp())
     except (TypeError, ValueError):
         age = ""
     st.markdown(theme.section_html(f"{label} nearby", f"{station['name']}, {station['km']:.0f} km away"),
                 unsafe_allow_html=True)
-    st.markdown(" · ".join(parts) or "No readings from this station yet.")
+    if tiles:
+        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    else:
+        st.caption("No readings from this station yet.")
+    notes = [reading["text"]] if reading["text"] else []
     if age:
-        st.caption(f"Read from the National Weather Service, {age}.")
+        notes.append(f"Read from the National Weather Service, {age}")
+    if notes:
+        st.caption(". ".join(notes) + ".")
 
 
 def live_page() -> None:
@@ -509,9 +512,9 @@ def live_page() -> None:
         st.info("Set the station IP on the Setup page.")
         return
     freshness_line()
-    airport_card(s)
     _today_vs_yesterday(s)
     _dew_line(s)
+    airport_card(s)
     live_readings()
 
 
