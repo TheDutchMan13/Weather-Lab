@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.17.1",
+        "date": "October 21, 2026",
+        "items": [
+            "The installer shows the Weather Lab logo: the setup icon, the side panel and the corner image.",
+        ],
+    },
+    {
         "version": "0.17.0",
         "date": "October 21, 2026",
         "items": [

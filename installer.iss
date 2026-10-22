@@ -3,7 +3,7 @@
 ; and are not removed by the uninstaller.
 
 #define AppName "Weather Lab"
-#define AppVersion "0.17.0"
+#define AppVersion "0.17.1"
 
 [Setup]
 AppId={{6F2D8A1E-4B7C-4E0A-9C3D-2A7B5E1F8D42}}
@@ -20,6 +20,9 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\WeatherLab.exe
+SetupIconFile=assets\installer\weatherlab.ico
+WizardImageFile=assets\installer\wizard-large.bmp
+WizardSmallImageFile=assets\installer\wizard-small.bmp
 CloseApplications=yes
 RestartApplications=yes
 
