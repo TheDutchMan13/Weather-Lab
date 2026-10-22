@@ -1,0 +1,506 @@
+"""Pages under Now: live readings, sensors and the alert history."""
+
+import html
+import plotly.graph_objects as go
+import streamlit as st
+import streamlit.components.v1 as components
+import time
+from datetime import datetime, timedelta
+from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, health, hero, history_compare, motion, nws, sparks, stations, storage, theme, units, wind_rose, wx_icons
+from weatherlab.config import CARD_LABELS
+from weatherlab.settings import Settings, load_settings
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, start_poller
+
+
+REFRESH_SECONDS = 30
+
+
+def _comfort_tiles(data: dict) -> list[str]:
+    """Heat index, wind chill and humidex, shown only when they apply."""
+    metric = units.is_metric(load_settings().units)
+    t, rh, wind, dew = data.get("tempf"), data.get("humidity"), data.get("windspeedmph"), data.get("dewpointf")
+    tiles = []
+    if t is not None and rh is not None and t >= 80:
+        tiles.append(_tile("Heat index", units.format_value("heat_index", comfort.heat_index_f(t, rh), metric, 0), "feels hotter than air"))
+    if t is not None and wind is not None and t <= 50 and wind > 3:
+        tiles.append(_tile("Wind chill", units.format_value("tempf", comfort.wind_chill_f(t, wind), metric, 0), "feels colder than air"))
+    if t is not None and dew is not None:
+        tiles.append(_tile("Humidex", f"{comfort.humidex_c(t, dew):.0f}°C", "humid-heat index"))
+    return tiles
+
+
+def _now_sky(s: Settings, data: dict) -> tuple[str, bool]:
+    """The NWS wording for the current hour (empty if unavailable) and whether it is night."""
+    short = ""
+    if s.latitude is not None and s.longitude is not None:
+        try:
+            pts = _points(s.latitude, s.longitude, s.nws_contact)
+            if pts.get("forecastHourly"):
+                hours = _hourly(pts["forecastHourly"], s.nws_contact)
+                if hours:
+                    short = hours[0]["short"]
+        except nws.NwsError:
+            short = ""
+    solar = data.get("solarradiation")
+    hour = datetime.now(_tz(s)).hour
+    night = solar < 5 if solar is not None else (hour < 6 or hour >= 19)
+    return short, night
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _live_alerts(lat: float, lon: float, contact: str) -> list[dict]:
+    """Active NWS warnings. A failure is remembered for 10 minutes, so an offline network can't slow Live down."""
+    try:
+        return nws.alerts(lat, lon, contact)
+    except nws.NwsError:
+        return []
+
+
+def _warnings(s: Settings) -> None:
+    """Recent rule alerts and active NWS warnings, shown at the top of Live."""
+    now = time.time()
+    for ts, text in [(t, m) for t, m in start_poller().status.recent_alerts if now - t < 6 * 3600][:3]:
+        st.warning(f"{_clock(ts)}  {text}")
+    if s.latitude is None or s.longitude is None:
+        return
+    active = _live_alerts(s.latitude, s.longitude, s.nws_contact)
+    if active:
+        st.markdown('<div class="wl-status">Active warnings</div>', unsafe_allow_html=True)
+        st.markdown("".join(_alert_box(a) for a in active[:3]), unsafe_allow_html=True)
+        if len(active) > 3:
+            st.caption(f"{len(active) - 3} more on the Forecast page.")
+
+
+def _naive(dt, tz):
+    """A timezone-aware time as a naive local time (None stays None)."""
+    return dt.astimezone(tz).replace(tzinfo=None) if dt is not None else None
+
+
+def _span(delta) -> str:
+    minutes = max(0, int(delta.total_seconds() // 60))
+    h, m = divmod(minutes, 60)
+    return f"{h} h {m} min" if h else f"{m} min"
+
+
+def _uv_word(uv: float) -> str:
+    return "low" if uv < 3 else "moderate" if uv < 6 else "high" if uv < 8 else "very high" if uv < 11 else "extreme"
+
+
+def _press_word(now_value, old_value) -> str:
+    if now_value is None or old_value is None:
+        return ""
+    ch = now_value - old_value
+    return ("rising fast" if ch > 0.06 else "rising" if ch > 0.02 else
+            "falling fast" if ch < -0.06 else "falling" if ch < -0.02 else "steady")
+
+
+def _hero(s: Settings, row: tuple, short: str, night: bool, alerts: list[dict]) -> None:
+    """The 'right now' panel: sky, temperature, alert, today's range, the last-hour trend and the main readings."""
+    ts, data = row
+    temp = data.get("tempf")
+    if temp is None:
+        return
+    db = storage.connect()
+    tz = _tz(s)
+    metric = units.is_metric(s.units)
+    wall = time.time()
+    now_dt = datetime.now(tz)
+    rise, sset = (None, None)
+    if s.latitude is not None and s.longitude is not None:
+        rise, sset = astro.sun_times(s.latitude, s.longitude, now_dt.date())
+    now_n, rise_n, set_n = now_dt.replace(tzinfo=None), _naive(rise, tz), _naive(sset, tz)
+    strike = storage.latest_strike(db)
+    storm = strike is not None and wall - strike[0] < 1800
+    raining = (data.get("rainratein") or 0) > 0
+    cloudy = "cloud" in short.lower() or "overcast" in short.lower()
+    kind = hero.sky_phase(hero.pick_kind(night, storm, raining, cloudy), now_n, rise_n, set_n)
+
+    alert, tone = "", "warn"
+    if alerts:
+        top = alerts[0]  # nws.alerts puts the most severe first
+        until = top["expires"][:16].replace("T", " ") if top["expires"] else ""
+        alert = f"{top['event']} until {until}" if until else top["event"]
+        if len(alerts) > 1:
+            alert = f"{len(alerts)} alerts · {top['severity']} · {alert}"
+        tone = "bad" if top["severity"] in ("Extreme", "Severe") else "warn"
+
+    state, age_text = health.age_status(ts, wall)
+    live_text = {"ok": f"Live · updated {age_text}", "slow": f"Late · last reading {age_text}",
+                 "silent": f"No data for {age_text} · check the station",
+                 "none": "Waiting for first reading"}[state]
+
+    today = storage.readings_between(db, _start_of_today(s), wall + 1)
+    today_temps = [r["tempf"] for _, r in today if r.get("tempf") is not None]
+    gusts = [r["windgustmph"] for _, r in today if r.get("windgustmph") is not None]
+    lo, hi = (min(today_temps), max(today_temps)) if today_temps else (None, None)
+
+    prior = [r["tempf"] for _, r in storage.readings_between(db, wall - 3900, wall - 3300)
+             if r.get("tempf") is not None]
+    trend, trend_col = "", "#c3cbd8"
+    if prior:
+        delta = units.convert("tempf", temp, metric) - units.convert("tempf", prior[-1], metric)
+        if abs(delta) >= 0.5:
+            trend = f"{'▲' if delta > 0 else '▼'} {abs(delta):.0f}° in the last hour"
+            trend_col = "#fdba74" if delta > 0 else "#93c5fd"
+        else:
+            trend = "– steady over the last hour"
+
+    press = data.get("baromrelin")
+    old_press = [r["baromrelin"] for _, r in storage.readings_between(db, wall - 3 * 3600 - 300, wall - 3 * 3600 + 300)
+                 if r.get("baromrelin") is not None]
+    press_word = _press_word(press, old_press[-1] if old_press else None)
+
+    sun = ""
+    if rise_n and now_n < rise_n:
+        sun = f"Sunrise in {_span(rise_n - now_n)}"
+    elif set_n and now_n < set_n:
+        sun = f"Sunset in {_span(set_n - now_n)}"
+
+    tiles = []
+    ws, wd = data.get("windspeedmph"), data.get("winddir")
+    if ws is not None:
+        prefix = wind_rose.NAMES[round(wd / 22.5) % 16] + " " if wd is not None and ws >= 1 else ""
+        gust_note = f"gusts {units.format_value('windgustmph', max(gusts), metric, 0)} today" if gusts else ""
+        tiles.append(("Wind", prefix + units.format_value("windspeedmph", ws, metric, 0), gust_note))
+    hum, dew = data.get("humidity"), data.get("dewpointf")
+    if hum is not None:
+        dew_note = f"dew point {units.format_value('dewpointf', dew, metric, 0)}" if dew is not None else ""
+        tiles.append(("Humidity", f"{hum:.0f}%", dew_note))
+    if press is not None:
+        tiles.append(("Pressure", units.format_value("baromrelin", press, metric, 2), press_word))
+    uv = data.get("uv")
+    if uv is not None:
+        tiles.append(("UV index", f"{uv:.0f}", _uv_word(uv)))
+    rain = data.get("dailyrainin")
+    if rain is not None:
+        tiles.append(("Rain today", units.format_value("dailyrainin", rain, metric, 2), ""))
+
+    parts = []
+    if hi is not None:
+        parts.append(f"high {units.convert('tempf', hi, metric):.0f}° · low {units.convert('tempf', lo, metric):.0f}°")
+    if rain is not None:
+        parts.append(f"rain {units.format_value('dailyrainin', rain, metric, 2)}")
+    if gusts:
+        parts.append(f"peak gust {units.format_value('windgustmph', max(gusts), metric, 0)}")
+
+    feels = data.get("feelslikef")
+    html_out, height = hero.hero_html({
+        "temp_text": f"{units.convert('tempf', temp, metric):.0f}°",
+        "kind": kind, "icon": wx_icons.now_icon(kind, 84),
+        "feels": units.format_value("feelslikef", feels, metric, 0) if feels is not None else "",
+        "label": short, "place": "",
+        "live_state": state, "live_text": live_text,
+        "alert": alert, "alert_tone": tone,
+        "lo": units.convert("tempf", lo, metric) if lo is not None else None,
+        "hi": units.convert("tempf", hi, metric) if hi is not None else None,
+        "now": units.convert("tempf", temp, metric),
+        "lo_text": units.format_value("tempf", lo, metric, 0) if lo is not None else "",
+        "hi_text": units.format_value("tempf", hi, metric, 0) if hi is not None else "",
+        "tiles": tiles, "trend": trend, "trend_col": trend_col, "sun_note": sun,
+        "today_line": " · ".join(parts),
+    })
+    components.html(motion.add(html_out, s.animate), height=height)
+
+
+def _temp_ring(s: Settings, data: dict) -> None:
+    """The temperature ring with today's high and low, feels like, dew point and humidity."""
+    temp = data.get("tempf")
+    if temp is None:
+        return
+    today = storage.readings_between(storage.connect(), _start_of_today(s), time.time() + 1)
+    temps = [r["tempf"] for _, r in today if r.get("tempf") is not None]
+    html_out, height = gauges.temp_ring_html(
+        temp, high=max(temps) if temps else None, low=min(temps) if temps else None,
+        feels=data.get("feelslikef"), dew=data.get("dewpointf"), hum=data.get("humidity"),
+        dark=theme.is_dark(), metric=units.is_metric(s.units))
+    components.html(motion.add(html_out, s.animate), height=height)
+
+
+SPARK_KEYS = ("tempf", "humidity", "windspeedmph", "baromrelin")
+
+
+ALERT_ZONE_LIMIT = 25  # zones outlined at most, so a statewide warning can't stall the page
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _zone_rings(zone: str, contact: str) -> list:
+    """Outline of one NWS warning zone, remembered for an hour. Failures are not remembered."""
+    return nws.zone_rings(zone, contact)
+
+
+def _alert_map(s: Settings, alerts: list[dict]) -> None:
+    """Warnings drawn on their zones around the station, using NWS zone outlines fetched at run time."""
+    zoned, budget = [], ALERT_ZONE_LIMIT
+    for a in alerts:
+        zones = []
+        for zone in a.get("ugc", []):
+            if budget <= 0:
+                break
+            budget -= 1
+            try:
+                zones.append((zone, _zone_rings(zone, s.nws_contact)))
+            except nws.NwsError:
+                continue
+        zoned.append(dict(a, zones=zones))
+    names = [f"{a['event']} ({a['severity']})" for a in zoned]
+    choice = st.selectbox("Highlight an alert", names, index=None, placeholder="All alerts", key="alert_highlight")
+    highlight = names.index(choice) if choice in names else None
+    dark = theme.is_dark()
+    fig = charts.figure(dark, height=360)
+    for t in alert_map.traces(zoned, highlight):
+        fig.add_trace(go.Scatter(x=t["xs"], y=t["ys"], mode="lines", fill="toself", fillcolor=t["color"],
+                                 line=dict(color=t["color"], width=1.5), opacity=t["opacity"],
+                                 name=t["name"], hoverinfo="name", showlegend=False))
+    fig.add_trace(go.Scatter(x=[s.longitude], y=[s.latitude], mode="markers", name="Your location",
+                             marker=dict(size=12, symbol="star", color=theme.palette(dark)["text"]),
+                             hoverinfo="name", showlegend=False))
+    x0, x1, y0, y1 = alert_map.view_box(s.latitude, s.longitude, span=1.0)
+    fig.update_xaxes(range=[x0, x1], visible=False)
+    fig.update_yaxes(range=[y0, y1], visible=False)
+    fig.update_layout(margin=dict(l=0, r=0, t=8, b=0), hovermode="closest")
+    charts.show(fig)
+    if sum(len(a.get("ugc", [])) for a in alerts) > ALERT_ZONE_LIMIT:
+        st.caption(f"Only the first {ALERT_ZONE_LIMIT} zones are outlined.")
+
+
+def _pressure_change(now_inhg: float) -> float | None:
+    """Pressure change over the last three hours, in inHg. None until there is a reading from about then."""
+    now = time.time()
+    old = [r["baromrelin"] for _, r in storage.readings_between(storage.connect(), now - 3 * 3600 - 300,
+                                                               now - 3 * 3600 + 300)
+           if r.get("baromrelin") is not None]
+    return now_inhg - sum(old) / len(old) if old else None
+
+
+def _feels_dial(s: Settings, data: dict) -> None:
+    feels = data.get("feelslikef")
+    if feels is None:
+        return
+    html_out, height = dials.feels_dial_html(feels, actual_f=data.get("tempf"), humidity=data.get("humidity"),
+                                             dark=theme.is_dark(), metric=units.is_metric(s.units))
+    components.html(motion.add(html_out, s.animate), height=height)
+
+
+def _pressure_dial(s: Settings, data: dict) -> None:
+    now_inhg = data.get("baromrelin")
+    if now_inhg is None:
+        return
+    change = _pressure_change(now_inhg)
+    if change is None:
+        st.caption("The pressure trend appears after three hours of readings.")
+        return
+    html_out, height = dials.pressure_dial_html(now_inhg, change, dark=theme.is_dark(),
+                                                metric=units.is_metric(s.units))
+    components.html(motion.add(html_out, s.animate), height=height)
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _recent_thinned(stamp: int, station: str) -> list:
+    """One reading per ten minutes for the last 31 days, with only the measures the Live cards use. The stamp
+    changes every ten minutes, which is what refreshes this cache."""
+    now = time.time()
+    out, last = [], None
+    for ts, r in storage.readings_between(storage.connect(), now - 31 * 86400, now + 1):
+        bucket = int(ts // 600)
+        kept = (ts, {k: r.get(k) for k in SPARK_KEYS})
+        if bucket == last:
+            out[-1] = kept  # the latest reading in each ten-minute slot wins
+        else:
+            out.append(kept)
+            last = bucket
+    return out
+
+
+def _glance(s: Settings, data: dict, updated: float) -> None:
+    """Temperature, humidity and wind over the last 24 hours, each compared with usual for this hour."""
+    metric = units.is_metric(s.units)
+    now = time.time()
+    rows = _recent_thinned(int(now // 600), stations.current())
+    day = [(ts, r) for ts, r in rows if ts >= now - 86400]
+    specs = [("tempf", "Temperature", units.unit("tempf", metric), 1.5 if metric else 3.0, charts.CHART_COLORS[3]),
+             ("humidity", "Humidity", "%", 5.0, charts.CHART_COLORS[0]),
+             ("windspeedmph", "Wind", units.speed_unit(metric), 5.0 if metric else 3.0, charts.CHART_COLORS[1])]
+    tiles = []
+    for key, label, unit_text, neutral, color in specs:
+        if data.get(key) is None:
+            continue
+        cur = units.convert(key, data[key], metric)
+        series = [units.convert(key, r[key], metric) for _, r in day if r.get(key) is not None]
+        found = sparks.hourly_usual(rows + [(now, data)], key, _tz(s), now)
+        if found:
+            note, direction = sparks.compare_text(cur, units.convert(key, found[1], metric), unit_text, neutral)
+        else:
+            note, direction = "Usual for this hour builds up after five days.", None
+        tiles.append(sparks.tile_html({"label": label, "value": f"{cur:.0f}", "unit": unit_text, "series": series,
+                                       "color": color, "compare": note, "direction": direction}))
+    if tiles:
+        st.markdown(theme.section_html("Last 24 hours", updated=updated), unsafe_allow_html=True)
+        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+
+
+@st.fragment(run_every=REFRESH_SECONDS)
+def live_readings() -> None:
+    """Cards and status line. Streamlit re-runs just this part every REFRESH_SECONDS."""
+    s = load_settings()
+    poller = start_poller()
+    status = poller.status
+
+    if not poller.is_alive():
+        st.error("The background reader has stopped. Restart the app.")
+    elif status.last_error:
+        st.warning(status.last_error)
+    _warnings(s)
+
+    row = storage.latest(storage.connect())
+    if row is None:
+        st.info("Waiting for the first reading from the station. If this doesn't change within a minute, check the station IP on Setup and that the station is on the same network.")
+    else:
+        _, data = row
+        dark = theme.is_dark()
+        short, night = _now_sky(s, data)
+        alerts = _live_alerts(s.latitude, s.longitude, s.nws_contact) if s.latitude is not None and s.longitude is not None else []
+        _hero(s, row, short, night, alerts)
+        if alerts and s.latitude is not None and s.longitude is not None:
+            with st.expander("Alert map", expanded=True):
+                _alert_map(s, alerts)
+        _glance(s, data, row[0])
+        tiles = []
+        metric = units.is_metric(s.units)
+        for key, lo, hi, label, fmt in [("humidity", 0, 100, "Humidity %", "{:.0f}"),
+                                        ("windspeedmph", 0, 40, f"Wind {units.speed_unit(metric)}", "{:.0f}"),
+                                        ("uv", 0, 11, "UV index", "{:.0f}")]:
+            if data.get(key) is not None:
+                tiles.append(theme.gauge_html(units.convert(key, data[key], metric),
+                                              units.convert(key, lo, metric), units.convert(key, hi, metric),
+                                              label, fmt, dark, animate=s.animate))
+        for key in s.live_cards:
+            if key in data:
+                label, unit = CARD_LABELS[key]
+                text = units.format_value(key, data[key], metric) if units.converts(key) else f"{data[key]:g} {unit}".strip()
+                tiles.append(_tile(label, text))
+        tiles.extend(_comfort_tiles(data))
+        compact = st.toggle("Compact sections", key="live_compact", value=False)
+        with st.expander("Details", expanded=not compact):
+            _temp_ring(s, data)
+            left, right = st.columns(2)
+            with left:
+                _feels_dial(s, data)
+            with right:
+                _pressure_dial(s, data)
+            st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+
+    dot = _status_dot(row[0]) if row else ""
+    parts = []
+    if status.last_ok:
+        parts.append(f"Last reading {_clock(status.last_ok)}")
+    if status.last_attempt:
+        parts.append(f"last attempt {_clock(status.last_attempt)}")
+    if status.started:
+        parts.append(f"reader started {_clock(status.started)}")
+    if parts:
+        st.markdown(f'<div class="wl-status">{dot}{" · ".join(parts)}</div>', unsafe_allow_html=True)
+
+
+def _status_dot(ts: float) -> str:
+    state, _ = health.age_status(ts, time.time())
+    return theme.status_dot(state)
+
+
+def _today_vs_yesterday(s: Settings) -> None:
+    """Today so far against yesterday over the same hours."""
+    tz, metric = _tz(s), units.is_metric(s.units)
+    db = storage.connect()
+    now = datetime.now(tz)
+    start = datetime.combine(now.date(), datetime.min.time(), tzinfo=tz)
+    today = storage.readings_between(db, start.timestamp(), now.timestamp() + 1)
+    earlier = storage.readings_between(db, (start - timedelta(days=1)).timestamp(),
+                                       (now - timedelta(days=1)).timestamp() + 1)
+    if not today or not earlier:
+        return
+    compared = history_compare.by_this_time([r for _, r in today], [r for _, r in earlier])
+
+    def pair(key: str, label: str, decimals: int):
+        t, y = compared[key]
+        if t is None:
+            return None
+        text = f"{label} {units.format_value(key, t, metric, decimals)}"
+        if y is not None:
+            text += f" (yesterday by this time: {units.format_value(key, y, metric, decimals)})"
+        return text
+
+    parts = [p for p in (pair("tempf", "High so far", 0), pair("dailyrainin", "Rain today", 2),
+                         pair("windgustmph", "Gust so far", 0)) if p]
+    if parts:
+        st.caption(" · ".join(parts))
+
+
+def _dew_line(s: Settings) -> None:
+    """Dew point in plain words: how muggy it feels right now."""
+    latest = storage.latest(storage.connect())
+    if not latest or latest[1].get("dewpointf") is None:
+        return
+    dew_point = latest[1]["dewpointf"]
+    shown = units.format_value("dewpointf", dew_point, units.is_metric(s.units), 0)
+    st.caption(f"Dew point {shown}: {dew.text(dew_point)}.")
+
+
+def live_page() -> None:
+    s = load_settings()
+    st.markdown(theme.title_html("Live"), unsafe_allow_html=True)
+    if not s.station_ip:
+        st.info("Set the station IP on the Setup page.")
+        return
+    _today_vs_yesterday(s)
+    _dew_line(s)
+    live_readings()
+
+
+def alerts_log_page() -> None:
+    s = load_settings()
+    tz = _tz(s)
+    st.markdown(theme.title_html("Alert history"), unsafe_allow_html=True)
+    rows = storage.recent_alerts(storage.connect(), limit=300)
+    if not rows:
+        st.info("Alerts appear here once Weather Lab sends its first notification.")
+        return
+    query = st.text_input("Search alerts", key="alert_search").strip().lower()
+    body = [[html.escape(datetime.fromtimestamp(ts, tz).strftime("%a %b %d, %I:%M %p")), html.escape(text)]
+            for ts, text in rows if not query or query in text.lower()]
+    if not body:
+        st.info("No alerts match that search.")
+        return
+    st.markdown(_table(["When", "Alert"], body, theme.is_dark()), unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------- Sensors
+def sensors_page() -> None:
+    s = load_settings()
+    tz = _tz(s)
+    db = storage.connect()
+    st.markdown(theme.title_html("Sensors"), unsafe_allow_html=True)
+    now = time.time()
+    rows = health.window(db, now - 24 * 3600, now)
+    if not rows:
+        st.info("No readings in the last 24 hours yet. Check the station's connection on the Live page.")
+        return
+
+    last_ts = rows[-1][0]
+    status, age_text = health.age_status(last_ts, now)
+    gap_list = health.gaps(rows)
+    st.markdown(theme.grid_html([
+        _tile("Completeness (24 h)", f"{health.completeness(rows, 24):.0f}%"),
+        _tile("Last reading", age_text.capitalize(),
+              {"ok": "Good", "slow": "Delayed", "silent": "Offline", "none": ""}[status]),
+        _tile("Gaps over 5 min", str(len(gap_list))),
+    ]), unsafe_allow_html=True)
+
+    tiles = []
+    for sensor in health.sensors(rows):
+        seen = (health.clock(sensor["last_seen"], tz) if sensor["last_seen"] else "never")
+        tiles.append(_tile(sensor["label"], f"{sensor['present_pct']:.0f}%", f"last seen {seen}"))
+    st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+
+    if gap_list:
+        st.markdown("**Recent gaps**")
+        st.table([{"from": health.clock(a, tz), "to": health.clock(b, tz),
+                   "minutes": round((b - a) / 60)} for a, b in gap_list[-10:]])

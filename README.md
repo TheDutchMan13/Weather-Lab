@@ -22,19 +22,19 @@ On the **Setup** page:
 1. Enter the station's IP address.
 2. Choose your timezone, and enter your latitude, longitude, and elevation.
 3. Choose which readings appear on the **Live** page.
-4. Optional: paste a free **AirNow** API key for air quality. It is stored in Windows Credential Manager, not in a file.
-5. Optional: turn on **Start Weather Lab when I sign in to Windows**.
-6. Optional: turn on **CWOP**. This sends your readings to the public Citizen Weather Observer Program, and your station's location becomes public. It is off by default.
-7. Optional: turn on **Weather Underground** under its own tab, with your station ID and key from wunderground.com. The key is stored in Windows Credential Manager. It is off by default.
-8. Optional: turn on **PWSweather** or **Weathercloud** under Other services, with the station ID and key from each account. Each key is stored in Windows Credential Manager. Both are off by default.
-9. Optional: for **Home Assistant**, turn on MQTT under Other services. Enter the broker address (for example, the Mosquitto add-on's address on your network), and the username and password if the broker needs them. Home Assistant then finds the sensors by itself. The password is stored in Windows Credential Manager. The connection isn't encrypted, so use it on your local network only.
+4. Optional, on the **Air and lightning** tab: paste a free **AirNow** API key for air quality. It is stored in Windows Credential Manager, not in a file. If lightning distances look too small, turn on the kilometres switch there.
+5. Optional: turn on **Start Weather Lab when I sign in to Windows**. It is under **Settings > Startup**.
+6. Optional, on the **Uploads** tab: turn on **CWOP**. This sends your readings to the public Citizen Weather Observer Program, and your station's location becomes public. It is off by default.
+7. Optional, on the **Uploads** tab: turn on **Weather Underground**, with your station ID and key from wunderground.com. The key is stored in Windows Credential Manager. It is off by default.
+8. Optional, on the **Uploads** tab: turn on **PWSweather** or **Weathercloud**, with the station ID and key from each account. Each key is stored in Windows Credential Manager. Both are off by default.
+9. Optional, on the **Uploads** tab: for **Home Assistant**, turn on MQTT. Enter the broker address (for example, the Mosquitto add-on's address on your network), and the username and password if the broker needs them. Home Assistant then finds the sensors by itself. The password is stored in Windows Credential Manager. The connection isn't encrypted, so use it on your local network only.
 10. Click **Save**.
 
 The Live page starts filling in within a minute. History builds up from the time the app starts collecting data, so charts and records grow over the first few days.
 
 ## Stations
 
-If you run more than one station, open **Data and setup > Stations** and add each one by name. Each station keeps its own readings, settings, alerts and backups. Pick the station in the sidebar; the picker appears once a second station exists. A new station starts with default settings, so set its IP address and location on its **Setup** page. Removing a station stops its collection but keeps its folder. Adding a station with the same name again brings its readings back.
+If you run more than one station, open **System > Stations** and add each one by name. Each station keeps its own readings, settings, alerts and backups. Pick the station in the sidebar; the picker appears once a second station exists. A new station starts with default settings, so set its IP address and location on its **Setup** page. Removing a station stops its collection but keeps its folder. Adding a station with the same name again brings its readings back.
 
 ## Updates
 
@@ -46,19 +46,19 @@ Each download is checked against a published checksum before the installer runs.
 
 ## Pages
 
-- **Live:** current readings with heat index, wind chill, and humidex when they apply
-- **Daily:** one day's summary, with a PDF report download
-- **History:** rain totals and daily charts
-- **Records:** highs and lows since the app started collecting data
-- **Forecast:** NWS alerts, an Overview of the next 24 hours with rain streaks when rain is likely, and the next 7 days with rain chance and wind (United States only)
-- **Air:** AirNow air quality (needs a key and a location)
-- **Lightning:** recent strikes. If distances look too small, turn on the kilometres switch on the Setup page.
-- **Fire:** Canadian Fire Weather Index and forecast (United States forecast only)
-- **Sensors:** how complete the readings are, and any gaps
+The sidebar groups the pages into seven sections: Now, History, Explore, Outlook, Hazards, Data and System.
+
+- **Now:** **Live** (current readings with heat index, wind chill, and humidex when they apply), **Sensors** (how complete the readings are, and any gaps), and **Alert history**.
+- **History:** **Daily** (one day's summary, with a PDF report download), **History** (rain totals and daily charts), **Records** (highs and lows since the app started collecting data), **Coverage**, **Rankings**, **Rewind**, **Climate charts**, and **My year**.
+- **Explore:** **Rain calendar**, **Rain events**, **Ask**, **Unusual days**, and **Replay**.
+- **Outlook:** **Forecast** (NWS alerts, an Overview of the next 24 hours with rain streaks when rain is likely, and the next 7 days with rain chance and wind; United States only), **Heat**, **Wind**, **Sun**, and **Astronomy**.
+- **Hazards:** **Air** (AirNow air quality; needs a key and a location), **Fire** (Canadian Fire Weather Index and forecast; United States forecast only), **Lightning** (recent strikes), **Tropics**, and **Radar**.
+- **Data:** **Import**, **Export** (downloads of readings and daily summaries, plus the database backups), and **Reports** (monthly and yearly PDF reports).
+- **System:** **Status**, **Health check**, **What's New**, **Setup**, **Settings**, and **Stations**.
 
 ## Phone and other devices
 
-On the **Setup** page, turn on "Let phones and other devices on my home network open Weather Lab", then restart Weather Lab. Open the address shown on Setup from a phone on the same Wi-Fi. Other devices must sign in with the password you set on Setup. Only turn this on for a network you trust. If Windows asks about the firewall, allow Private networks.
+On the **Setup** page, open the **Network access** tab and turn on "Let phones and other devices on my home network open Weather Lab", then restart Weather Lab. Open the address shown on Setup from a phone on the same Wi-Fi. Other devices must sign in with the password you set on Setup. Only turn this on for a network you trust. If Windows asks about the firewall, allow Private networks.
 
 ## Where your data lives
 
@@ -68,7 +68,7 @@ The first station's settings and history are stored in `%APPDATA%\WeatherLab`. O
 
 - **"Can't reach the station":** check the IP address on the Setup page, and make sure the PC and the gateway are on the same network.
 - **Nothing on the Live page:** the reader needs a minute after you save the IP address.
-- **Lightning distances look too small:** some firmware labels kilometres as miles. Turn on the kilometres switch on the Setup page.
+- **Lightning distances look too small:** some firmware labels kilometres as miles. Turn on the kilometres switch on the Setup page, under **Air and lightning**.
 - **Forecast or fire weather says it's unavailable:** the National Weather Service covers the United States only.
 
 ## For developers
@@ -93,13 +93,13 @@ Build the app and installer (activate `.venv` first):
 
 ### Publishing a release
 
-1. Set `APP_VERSION` in `weatherlab/config.py` and add a What's New entry in `weatherlab/whats_new.py`.
-2. Commit, then tag the commit and push the tag, for example `git tag v0.13.0` and `git push origin v0.13.0`.
-3. GitHub Actions runs the tests, builds the installer and publishes the release with `latest.json`. The tag must match `APP_VERSION`, or the build stops.
+1. Set `APP_VERSION` in `weatherlab/config.py` and the matching `AppVersion` in `installer.iss`. Add a What's New entry in `weatherlab/whats_new.py`.
+2. Commit and push to `main`. GitHub Actions runs the tests, builds the installer and publishes a release tagged with the new version, with `latest.json`. Pushes that don't change the version do nothing.
+3. Pushing a tag by hand, such as `git tag v0.18.0` and `git push origin v0.18.0`, publishes that version too. The tag must match `APP_VERSION`, or the build stops.
 
 To build without publishing, run the **Release** workflow by hand from the Actions tab and download the installer from the run.
 
-Project layout: `app.py` (pages), `launcher.py` (desktop window), `weatherlab/` (readers, storage, and calculations), `tests/`, `.github/workflows/` (release build). `SOURCES.md` lists every piece copied from the author's dashboard. `PLAN.md` tracks the phases.
+Project layout: `app.py` (sidebar and start-up), `weatherlab/screens/` (the pages, one module for each sidebar section), `launcher.py` (desktop window), `weatherlab/` (readers, storage, and calculations), `tests/` (including `static_check.py`, which checks names and imports without running Streamlit), `.github/workflows/` (release build). `SOURCES.md` lists every piece copied from the author's dashboard. `PLAN.md` tracks the phases.
 
 ## License
 

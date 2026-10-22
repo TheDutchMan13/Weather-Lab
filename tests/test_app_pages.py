@@ -14,6 +14,10 @@ class PageTableTests(unittest.TestCase):
         for node in self.tree.body:
             if isinstance(node, ast.FunctionDef):
                 self.defined.setdefault(node.name, node.lineno)
+            elif isinstance(node, ast.ImportFrom):
+                # page functions live in weatherlab/screens and reach app.py through imports
+                for alias in node.names:
+                    self.defined.setdefault(alias.asname or alias.name, node.lineno)
 
     def test_page_table_entries_are_defined_before_use(self) -> None:
         problems = []

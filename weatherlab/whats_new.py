@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.18.0",
+        "date": "October 21, 2026",
+        "items": [
+            "The sidebar is grouped into seven sections: Now, History, Explore, Outlook, Hazards, Data and System. Each page is in one place.",
+            "Setup has four tabs: Station, Air and lightning, Uploads and Network access. CWOP, Weather Underground, PWSweather, Weathercloud and Home Assistant are all under Uploads. Phone access is now Network access.",
+            "Database backups moved from Settings to Export, next to the downloads. Settings now has Appearance, Alerts, Phone alerts, Updates and Startup.",
+        ],
+    },
+    {
         "version": "0.17.1",
         "date": "October 21, 2026",
         "items": [
