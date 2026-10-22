@@ -241,6 +241,19 @@ def tile_html(label: str, value: str) -> str:
             f'<div class="wl-value">{value}</div></div>')
 
 
+STRIP_NEUTRAL = "#9aa3b0"
+
+
+def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = None) -> str:
+    """A summary tile with a coloured left edge: ok, warn, bad or info (HEALTH_DOT), or grey with no tone."""
+    colour = HEALTH_DOT.get(tone, STRIP_NEUTRAL) if tone else STRIP_NEUTRAL
+    body = tile_html(_html.escape(label), _html.escape(value)).replace(
+        'class="wl-tile"', f'class="wl-tile" style="border-left:4px solid {colour}"', 1)
+    if note:
+        body = body.replace("</div></div>", f'</div><div class="wl-label">{_html.escape(note)}</div></div>')
+    return body
+
+
 def grid_html(tiles: list[str]) -> str:
     return f'<div class="wl-grid">{"".join(tiles)}</div>'
 

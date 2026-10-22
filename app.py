@@ -20,7 +20,7 @@ from weatherlab.screens.system import health_check_page, settings_page, setup_pa
 
 GROUPS = {  # sidebar sections, each with its pages
     "Now": ["Live", "Sensors", "Alert history"],
-    "History": ["Daily", "History", "Records", "Coverage", "Rankings", "Rewind", "Climate charts", "My year"],
+    "History": ["Daily", "Daily history", "Records", "Coverage", "Rankings", "Rewind", "Climate charts", "My year"],
     "Explore": ["Rain calendar", "Rain events", "Ask", "Unusual days", "Replay"],
     "Outlook": ["Forecast", "Heat", "Wind", "Wind map", "Sun", "Astronomy"],
     "Hazards": ["Air", "Fire", "Lightning", "Tropics", "Radar"],
@@ -60,7 +60,7 @@ def access_gate() -> bool:
 
 PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
     "Live": "🌤️", "Sensors": "🌡️", "Alert history": "🚨",
-    "Daily": "🗓️", "History": "📈", "Records": "🏆",
+    "Daily": "📋", "Daily history": "🗓️", "Records": "🏆",
     "Coverage": "🗂️", "Rankings": "🏅", "Rewind": "⏪",
     "Climate charts": "📊", "My year": "📅",
     "Rain calendar": "📆", "Rain events": "💧", "Ask": "💬",
@@ -82,7 +82,7 @@ SIDEBAR_CSS = """<style>
 
 
 PAGE_FUNCS = {"Live": live_page, "Sensors": sensors_page, "Status": status_page, "Health check": health_check_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, "Daily": daily_page,
-              "History": history_page, "Records": records_page, "Coverage": coverage_page, "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page, "Rankings": rankings_page, "Rewind": rewind_page,
+              "Daily history": history_page, "Records": records_page, "Coverage": coverage_page, "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page, "Rankings": rankings_page, "Rewind": rewind_page,
               "Climate charts": climate_page, "My year": my_year_page, "Rain calendar": rain_calendar_page,
               "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,
               "Wind": wind_page, "Wind map": wind_map_page, "Sun": sun_page, "Astronomy": astronomy_page, "Air": air_page,

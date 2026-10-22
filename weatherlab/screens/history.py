@@ -3,10 +3,12 @@
 import calendar
 import html
 import json
+import time
+from zoneinfo import ZoneInfo
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date, datetime, timedelta
-from weatherlab import charts, coverage, daily, history, history_compare, record_board, report, stations, storage, theme, units, yearly
+from weatherlab import charts, coverage, daily, history, history_compare, record_board, report, stations, storage, theme, units, wind_rose, yearly
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _all_days, _table, _tile, _tz, empty_card
 
@@ -109,16 +111,196 @@ def daily_page() -> None:
 
 
 # ---------------------------------------------------------------- History
+HISTORY_RANGES = {"Last 30 days": 30, "Last 90 days": 90, "Last year": 365, "All": None}
+SUN_COLOUR = "#f4a259"  # the dashboard's sunshine orange
+
+
+def _date_text(day: date) -> str:
+    return f"{day:%b %d, %Y}"
+
+
+def _highlight_tiles(rows: list, metric: bool) -> list[str]:
+    """The summary strip: hottest day, coldest night, average high, rain, wettest day and highest gust."""
+    tiles = []
+
+    def best(key, pick):
+        found = [(s[key], d) for d, s in rows if s.get(key) is not None]
+        return pick(found) if found else None
+
+    hot = best("tempf_max", max)
+    if hot:
+        tiles.append(theme.strip_tile_html("Hottest day", units.format_value("tempf", hot[0], metric, 1),
+                                           _date_text(hot[1]), "bad"))
+    cold = best("tempf_min", min)
+    if cold:
+        tiles.append(theme.strip_tile_html("Coldest night", units.format_value("tempf", cold[0], metric, 1),
+                                           _date_text(cold[1]), "info"))
+    highs = [s["tempf_max"] for _, s in rows if s.get("tempf_max") is not None]
+    if highs:
+        hot_days = sum(1 for v in highs if v >= 100)
+        tiles.append(theme.strip_tile_html("Average high", units.format_value("tempf", sum(highs) / len(highs), metric, 1),
+                                           f"{hot_days} days at {units.format_value('tempf', 100, metric, 0)} or more"))
+    rain = [(s["rain_in"], d) for d, s in rows if s.get("rain_in") is not None]
+    if rain:
+        total = sum(v for v, _ in rain)
+        wet_days = sum(1 for v, _ in rain if v > 0)
+        tiles.append(theme.strip_tile_html("Total rain", units.format_value("dailyrainin", total, metric, 2),
+                                           f"{wet_days} rainy days", "info"))
+        wettest = max(rain, key=lambda x: x[0])
+        if wettest[0] > 0:
+            tiles.append(theme.strip_tile_html("Wettest day", units.format_value("dailyrainin", wettest[0], metric, 2),
+                                               _date_text(wettest[1])))
+    gust = best("gust_max", max)
+    if gust:
+        tiles.append(theme.strip_tile_html("Highest gust", units.format_value("windgustmph", gust[0], metric, 0),
+                                           _date_text(gust[1]), "warn"))
+    return tiles
+
+
+def _daily_lines(days: list, series: list, title: str, unit_text: str, dark: bool) -> go.Figure:
+    """One line per (values, name). Colours follow the dashboard's palette in order."""
+    fig = charts.figure(dark)
+    for i, (values, name) in enumerate(series):
+        fig.add_trace(go.Scatter(x=days, y=values, name=name, mode="lines",
+                                 line=dict(color=charts.CHART_COLORS[i % len(charts.CHART_COLORS)], width=1.6)))
+    fig.update_layout(title=dict(text=title, x=0, xanchor="left", font=dict(size=13)))
+    fig.update_yaxes(title_text=unit_text)
+    return fig
+
+
+def _daily_bars(days: list, values: list, title: str, unit_text: str, colour: str, dark: bool) -> go.Figure:
+    fig = charts.figure(dark)
+    fig.add_trace(go.Bar(x=days, y=values, name=unit_text, marker_color=colour))
+    fig.update_layout(title=dict(text=title, x=0, xanchor="left", font=dict(size=13)))
+    fig.update_yaxes(title_text=unit_text)
+    return fig
+
+
+def _history_charts(rows: list, dark: bool, metric: bool) -> None:
+    days = [d for d, _ in rows]
+
+    def col(key: str, conv: str | None = None) -> list:
+        values = [s.get(key) for _, s in rows]
+        return _conv(conv, values, metric) if conv else values
+
+    st.markdown(theme.section_html("Temperature and rain"), unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        charts.show(_daily_lines(days, [(col("tempf_max", "tempf"), "High"), (col("tempf_avg", "tempf"), "Average"),
+                                        (col("tempf_min", "tempf"), "Low")],
+                                 "Daily temperature", units.unit("tempf", metric), dark))
+    with c2:
+        charts.show(_daily_bars(days, col("rain_in", "dailyrainin"), "Daily rainfall",
+                                units.unit("dailyrainin", metric), charts.MEASURE["rain"], dark))
+
+    st.markdown(theme.section_html("Humidity and pressure"), unsafe_allow_html=True)
+    c3, c4 = st.columns(2)
+    with c3:
+        charts.show(_daily_lines(days, [(col("humidity_max"), "Max"), (col("humidity_min"), "Min")],
+                                 "Daily humidity", "%", dark))
+    with c4:
+        charts.show(_daily_lines(days, [(col("baro_max", "baromrelin"), "Max"), (col("baro_min", "baromrelin"), "Min")],
+                                 "Daily pressure", units.unit("baromrelin", metric), dark))
+
+    st.markdown(theme.section_html("Indoors"), unsafe_allow_html=True)
+    c5, c6 = st.columns(2)
+    with c5:
+        if any(s.get("indoor_tempf_max") is not None for _, s in rows):
+            charts.show(_daily_lines(days, [(col("indoor_tempf_max", "tempf"), "High"),
+                                            (col("indoor_tempf_avg", "tempf"), "Average"),
+                                            (col("indoor_tempf_min", "tempf"), "Low")],
+                                     "Daily indoor temperature", units.unit("tempf", metric), dark))
+        else:
+            st.info("Daily indoor temperature: no readings for this period. Check that the indoor sensor is connected.")
+    with c6:
+        if any(s.get("indoor_humidity_max") is not None for _, s in rows):
+            charts.show(_daily_lines(days, [(col("indoor_humidity_max"), "Max"), (col("indoor_humidity_min"), "Min")],
+                                     "Daily indoor humidity", "%", dark))
+        else:
+            st.info("Daily indoor humidity: no readings for this period. Check that the indoor sensor is connected.")
+
+    st.markdown(theme.section_html("Wind and sunshine"), unsafe_allow_html=True)
+    c7, c8 = st.columns(2)
+    with c7:
+        charts.show(_daily_lines(days, [(col("gust_max", "windgustmph"), "Max gust"),
+                                        (col("wind_max", "windspeedmph"), "Max wind")],
+                                 "Daily wind", units.speed_unit(metric), dark))
+    with c8:
+        if any(s.get("sun_hours") is not None for _, s in rows):
+            charts.show(_daily_bars(days, col("sun_hours"), "Sunshine hours", "hours", SUN_COLOUR, dark))
+
+
+@st.cache_data(ttl=1800, show_spinner="Working out wind patterns...")  # the wind rows are many; patterns move slowly
+def _wind_patterns(start_ts: int, end_ts: int, stamp: int, tz_name: str) -> dict:
+    db = storage.connect()
+    return wind_rose.patterns(storage.readings_sampled(db, start_ts, end_ts), ZoneInfo(tz_name))
+
+
+def _wind_section(rows: list, tz, metric: bool, all_time: bool, today: date, dark: bool) -> None:
+    """The wind rose for the period, and the prevailing wind for each month. Readings run up to today's midnight."""
+    first = rows[0][0]
+    start_ts = 0 if all_time else int(datetime(first.year, first.month, first.day, tzinfo=tz).timestamp())
+    end_ts = int(datetime(today.year, today.month, today.day, tzinfo=tz).timestamp())
+    info = _wind_patterns(start_ts, end_ts, int(time.time() // 1800), tz.key)
+    if not info["total"]:
+        return
+    counts, total = info["counts"], info["total"]
+    pct = wind_rose.percentages(counts, total)
+    fig = charts.figure(dark, height=420)
+    for i in range(len(wind_rose.SPEED_BINS)):
+        fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric),
+                         marker_color=charts.CHART_COLORS[i % len(charts.CHART_COLORS)])
+    fig.update_layout(title=dict(text="Wind rose for this period", x=0, xanchor="left", font=dict(size=13)),
+                      polar=dict(barmode="stack", angularaxis=dict(direction="clockwise", rotation=90),
+                                 radialaxis=dict(ticksuffix="%")))
+    c1, c2 = st.columns(2)
+    with c1:
+        charts.show(fig)
+        top = wind_rose.dominant(counts)
+        top_share = round(100 * max(sum(row[i] for row in counts) for i in range(len(wind_rose.NAMES))) / total, 1)
+        st.caption(f"Bars point to where the wind comes from. Most often from the {top} ({top_share:g}% of readings). "
+                   f"Based on {total:,} readings, about one every ten minutes.")
+    with c2:
+        st.markdown("**Prevailing wind by month**")
+        theme.table([{"Month": m["month"], "Prevailing from": m["from"] or "--",
+                      "Share of windy readings (%)": f"{m['share']:.1f}" if m["share"] is not None else "--",
+                      "Average speed": units.format_value("windspeedmph", m["avg_mph"], metric, 1)}
+                     for m in info["months"]])
+
+
 def history_page() -> None:
     s = load_settings()
     tz = _tz(s)
     db = storage.connect()
+    metric = units.is_metric(s.units)
     today = datetime.now(tz).date()
-    st.markdown(theme.title_html("History"), unsafe_allow_html=True)
+    yesterday = today - timedelta(days=1)
+    st.markdown(theme.title_html("Daily history"), unsafe_allow_html=True)
+
+    choice = st.radio("Time range", list(HISTORY_RANGES), index=2, horizontal=True, key="history_range")
+    n = HISTORY_RANGES[choice]
+    if n is None:
+        rows = [(d, s_) for d, s_ in history.all_daily(db) if d <= yesterday]
+    else:
+        rows = history.daily_between(db, yesterday - timedelta(days=n - 1), yesterday)
+    if not rows:
+        empty_card("No daily summaries yet", "Each day's summary is written once that day's readings are in, so the first ones appear after Weather Lab has run for a day.")
+        _compare_periods(db, today)
+        return
+
+    st.caption(f"{len(rows)} days: {_date_text(rows[0][0])} to {_date_text(rows[-1][0])}")
+    tiles = _highlight_tiles(rows, metric)
+    with st.container(border=True):
+        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+
+    dark = theme.is_dark()
+    _history_charts(rows, dark, metric)
+    _wind_section(rows, tz, metric, all_time=n is None, today=today, dark=dark)
 
     latest = storage.latest(db)
     live_rain = latest[1].get("dailyrainin") if latest else None
     totals = history.rain_totals(db, today, live_rain)
+    st.markdown(theme.section_html("Rain totals"), unsafe_allow_html=True)
     st.markdown(theme.grid_html([
         _tile("Rain today", f"{totals['today']:.2f} in"),
         _tile("Last 7 days", f"{totals['last_7_days']:.2f} in"),
@@ -126,48 +308,31 @@ def history_page() -> None:
         _tile("This year", f"{totals['this_year']:.2f} in"),
     ]), unsafe_allow_html=True)
 
-    options = {"7 days": 7, "30 days": 30, "90 days": 90, "1 year": 365}
-    choice = st.radio("Range", list(options), index=1, horizontal=True)
-    n = options[choice]
-    rows = history.daily_between(db, today - timedelta(days=n), today - timedelta(days=1))
-    if not rows:
-        empty_card("No daily summaries yet", "Each day's summary is written once that day's readings are in, so the first ones appear after Weather Lab has run for a day.")
-    else:
-        _history_charts(rows, theme.is_dark())
+    monthly: dict[str, float] = {}
+    for d, s_ in rows:
+        if s_.get("rain_in") is not None:
+            key = d.strftime("%Y-%m")
+            monthly[key] = monthly.get(key, 0.0) + s_["rain_in"]
+    with st.expander("Monthly rainfall"):
+        theme.table([{"Month": datetime.strptime(k, "%Y-%m").strftime("%b %Y"),
+                      "Rain": units.format_value("dailyrainin", v, metric, 2)} for k, v in sorted(monthly.items())])
+    with st.expander("Daily table"):
+        table_rows = []
+        for d, s_ in reversed(rows):
+            humidity = (f"{s_['humidity_min']:.0f}–{s_['humidity_max']:.0f}%"
+                        if s_.get("humidity_min") is not None and s_.get("humidity_max") is not None else "--")
+            table_rows.append({"Date": _date_text(d),
+                               "High": units.format_value("tempf", s_.get("tempf_max"), metric, 0),
+                               "Low": units.format_value("tempf", s_.get("tempf_min"), metric, 0),
+                               "Average": units.format_value("tempf", s_.get("tempf_avg"), metric, 1),
+                               "Rain": units.format_value("dailyrainin", s_.get("rain_in"), metric, 2),
+                               "Gust max": units.format_value("windgustmph", s_.get("gust_max"), metric, 0),
+                               "Sun hours": "--" if s_.get("sun_hours") is None else f"{s_['sun_hours']:.1f}",
+                               "Humidity": humidity})
+        theme.table(table_rows)
+        st.download_button("Download CSV", history.daily_csv(rows).encode(), "weather_daily.csv", "text/csv")
+
     _compare_periods(db, today)
-
-
-def _history_charts(rows: list, dark: bool) -> None:
-    metric = units.is_metric(load_settings().units)
-    tu, ru = units.unit("tempf", metric), units.unit("dailyrainin", metric)
-    days = [d for d, _ in rows]
-    temps = charts.figure(dark)
-    temps.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("tempf_max") for _, r in rows], metric),
-                               name=f"High ({tu})", line=dict(color=charts.MEASURE["temp"])))
-    temps.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("tempf_min") for _, r in rows], metric),
-                               name=f"Low ({tu})", line=dict(color=charts.MEASURE["temp"])))
-    charts.show(temps)
-
-    rain = charts.figure(dark)
-    rain.add_trace(go.Bar(x=days, y=_conv("dailyrainin", [r.get("rain_in", 0.0) for _, r in rows], metric),
-                          name=f"Rain ({ru})", marker_color=charts.MEASURE["rain"]))
-    charts.show(rain)
-    if any(r.get("indoor_tempf_avg") is not None for _, r in rows):
-        indoor = charts.figure(dark)
-        indoor.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("indoor_tempf_max") for _, r in rows], metric),
-                                    name=f"Indoor high ({tu})", line=dict(color=charts.MEASURE["temp"])))
-        indoor.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("indoor_tempf_avg") for _, r in rows], metric),
-                                    name=f"Indoor average ({tu})", line=dict(color=charts.CHART_COLORS[3])))
-        indoor.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("indoor_tempf_min") for _, r in rows], metric),
-                                    name=f"Indoor low ({tu})", line=dict(color=charts.MEASURE["temp"])))
-        charts.show(indoor)
-    if any(r.get("indoor_humidity_max") is not None for _, r in rows):
-        damp = charts.figure(dark)
-        damp.add_trace(go.Scatter(x=days, y=[r.get("indoor_humidity_max") for _, r in rows], name="Indoor humidity high (%)",
-                                  line=dict(color=charts.MEASURE["humidity"])))
-        damp.add_trace(go.Scatter(x=days, y=[r.get("indoor_humidity_min") for _, r in rows], name="Indoor humidity low (%)",
-                                  line=dict(color=charts.MEASURE["humidity"], dash="dash")))
-        charts.show(damp)
 
 
 def _compare_periods(db, today: date) -> None:

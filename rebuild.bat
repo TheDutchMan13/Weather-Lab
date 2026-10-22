@@ -14,7 +14,7 @@ if errorlevel 1 goto failed
 echo.
 echo Done.
 echo   Exe:       dist\WeatherLab\WeatherLab.exe
-echo   Installer: installer\WeatherLabSetup-0.22.8.exe
+echo   Installer: installer\WeatherLabSetup-0.22.9.exe
 pause
 exit /b 0
 

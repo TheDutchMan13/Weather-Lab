@@ -552,17 +552,8 @@ BATT_WORD = {"good": "Good", "ok": "OK", "watch": "Getting low", "low": "Low", "
 BATT_TONE = {"good": "ok", "ok": "ok", "watch": "warn", "low": "bad", "dc": "ok", "unknown": "info"}
 SIG_WORD = {"good": "Strong", "fair": "Fair", "weak": "Weak", "none": "None", "unknown": "Unknown"}
 SIG_TONE = {"good": "ok", "fair": "ok", "weak": "warn", "none": "bad", "unknown": "info"}
-TONE_COLOUR = {"ok": theme.HEALTH_DOT["ok"], "warn": theme.HEALTH_DOT["warn"],
-               "bad": theme.HEALTH_DOT["fail"], "info": theme.HEALTH_DOT["info"]}
-
-
 def _strip_tile(label: str, value: str, note: str, tone: str) -> str:
-    """A summary tile with a coloured left edge, so its state reads at a glance."""
-    body = theme.tile_html(html.escape(label), html.escape(value)).replace(
-        'class="wl-tile"', f'class="wl-tile" style="border-left:4px solid {TONE_COLOUR[tone]}"', 1)
-    if note:
-        body = body.replace("</div></div>", f'</div><div class="wl-label">{html.escape(note)}</div></div>')
-    return body
+    return theme.strip_tile_html(label, value, note, tone)
 
 
 @st.cache_data(ttl=300, show_spinner=False)

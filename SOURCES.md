@@ -125,3 +125,7 @@ None.
 ## Sensors page look (22 Oct 2026)
 - The layout of the Sensors page (summary strip, Sensor status table, "See a sensor's history" chips, batteries and radio signal, completeness and gaps side by side, data quality alerts, sensor activity) follows the dashboard's Sensor health page (wxdash/sensor_health.py). The code is new: weatherlab/screens/now.py sensors_page, and the sensor list in weatherlab/health.py.
 - The sensor order and names follow the dashboard's Sensor health table.
+
+## Daily history page look (22 Oct 2026)
+- The layout of the Daily history page (summary strip, chart sections, wind rose with prevailing wind by month, monthly rainfall and daily table expanders) follows the dashboard's daily history page (wxdash/history.py). The code is new: weatherlab/screens/history.py history_page and helpers, weatherlab/wind_rose.py patterns, and weatherlab/storage.py readings_sampled.
+- The sunshine bar colour (#f4a259) is the dashboard's orange (BAR_COLORS in wxdash/history.py).

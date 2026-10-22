@@ -5,6 +5,16 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.9",
+        "date": "October 22, 2026",
+        "items": [
+            "Daily history is laid out like the dashboard's page: a summary strip of hottest day, coldest night, average high, total rain, wettest day and highest gust, then charts grouped by temperature and rain, humidity and pressure, indoors, and wind and sunshine.",
+            "The wind rose for the period comes with the prevailing wind for each month. It's worked out from one reading every ten minutes, and refreshes every 30 minutes.",
+            "The page opens on the last year. Choose the last 30 days, the last 90 days, or all of the record.",
+            "The sidebar entry is now Daily history, so it's not confused with the single-day Daily page.",
+        ],
+    },
+    {
         "version": "0.22.8",
         "date": "October 22, 2026",
         "items": [

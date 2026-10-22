@@ -92,6 +92,17 @@ def readings_between(db: sqlite3.Connection, start_ts: float, end_ts: float) -> 
         (int(start_ts), int(end_ts), int(start_ts), int(end_ts)))]
 
 
+def readings_sampled(db: sqlite3.Connection, start_ts: float, end_ts: float, every_s: int = 600) -> list[tuple[int, dict]]:
+    """The first reading in each every_s-second slot of a time range, in time order, including the archive. Enough
+    for a wind pattern, and far quicker than reading every row."""
+    s, e = int(start_ts), int(end_ts)
+    rows = db.execute(
+        "SELECT MIN(ts), data FROM readings WHERE ts >= ? AND ts < ? GROUP BY ts / ? "
+        "UNION ALL SELECT MIN(ts), data FROM readings_archive WHERE ts >= ? AND ts < ? GROUP BY ts / ? ORDER BY 1",
+        (s, e, every_s, s, e, every_s)).fetchall()
+    return [(ts, json.loads(data)) for ts, data in rows]
+
+
 def archive_before(db: sqlite3.Connection, cutoff_ts: float) -> int:
     """Move raw readings older than the cutoff into the archive table. Nothing is deleted from the data. Returns the
     number of readings moved."""
