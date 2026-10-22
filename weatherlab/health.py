@@ -8,16 +8,19 @@ from weatherlab.poller import POLL_SECONDS
 
 GAP_SECONDS = 300  # a gap longer than this is reported
 
-# (label, reading key) for each sensor the Live page can show
+# (label, reading key) for each sensor, in the order the Sensors page shows them
 SENSORS = [
-    ("Outdoor temperature", "tempf"),
+    ("Outdoor temp", "tempf"),
+    ("Dew point", "dewpointf"),
     ("Humidity", "humidity"),
-    ("Wind", "windspeedmph"),
-    ("Rain", "dailyrainin"),
-    ("Solar", "solarradiation"),
-    ("UV", "uv"),
-    ("Indoor temperature", "tempinf"),
     ("Pressure", "baromrelin"),
+    ("Wind", "windspeedmph"),
+    ("Gust", "windgustmph"),
+    ("Rain today", "dailyrainin"),
+    ("Solar", "solarradiation"),
+    ("UV index", "uv"),
+    ("Indoor temp", "tempinf"),
+    ("Indoor humidity", "humidityin"),
 ]
 
 

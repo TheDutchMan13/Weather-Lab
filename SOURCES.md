@@ -121,3 +121,7 @@ None.
 
 ## Sidebar page icons (22 Oct 2026)
 - The emoji icons for the sidebar pages follow the dashboard's sidebar in dash_pages (app_router.py), where a page matches. The icon choices are the dashboard's; the code that uses them (PAGE_ICONS in app.py) is new.
+
+## Sensors page look (22 Oct 2026)
+- The layout of the Sensors page (summary strip, Sensor status table, "See a sensor's history" chips, batteries and radio signal, completeness and gaps side by side, data quality alerts, sensor activity) follows the dashboard's Sensor health page (wxdash/sensor_health.py). The code is new: weatherlab/screens/now.py sensors_page, and the sensor list in weatherlab/health.py.
+- The sensor order and names follow the dashboard's Sensor health table.

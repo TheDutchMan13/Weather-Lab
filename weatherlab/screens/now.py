@@ -6,7 +6,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import time
 from datetime import datetime, timedelta
-from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, theme, units, wind_rose, wx_icons
+from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, theme, units, wind_rose, wx_icons
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
@@ -547,34 +547,136 @@ def alerts_log_page() -> None:
 
 
 # ---------------------------------------------------------------- Sensors
+SENSOR_KEY_BY_LABEL = {label: key for label, key in health.SENSORS}
+BATT_WORD = {"good": "Good", "ok": "OK", "watch": "Getting low", "low": "Low", "dc": "Mains", "unknown": "Unknown"}
+BATT_TONE = {"good": "ok", "ok": "ok", "watch": "warn", "low": "bad", "dc": "ok", "unknown": "info"}
+SIG_WORD = {"good": "Strong", "fair": "Fair", "weak": "Weak", "none": "None", "unknown": "Unknown"}
+SIG_TONE = {"good": "ok", "fair": "ok", "weak": "warn", "none": "bad", "unknown": "info"}
+TONE_COLOUR = {"ok": theme.HEALTH_DOT["ok"], "warn": theme.HEALTH_DOT["warn"],
+               "bad": theme.HEALTH_DOT["fail"], "info": theme.HEALTH_DOT["info"]}
+
+
+def _strip_tile(label: str, value: str, note: str, tone: str) -> str:
+    """A summary tile with a coloured left edge, so its state reads at a glance."""
+    body = theme.tile_html(html.escape(label), html.escape(value)).replace(
+        'class="wl-tile"', f'class="wl-tile" style="border-left:4px solid {TONE_COLOUR[tone]}"', 1)
+    if note:
+        body = body.replace("</div></div>", f'</div><div class="wl-label">{html.escape(note)}</div></div>')
+    return body
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _sensor_batteries(ip: str) -> list[dict] | None:
+    """Battery and signal for each paired sensor, or None when the station can't be read."""
+    try:
+        return gateway_sensors.read(ip)
+    except (OSError, ValueError):
+        return None
+
+
+def _pick_sensor() -> None:
+    """A sensor chip was tapped: ask live_history for its window, which sensors_page then draws."""
+    choice = st.session_state.get("sensor_pick")
+    st.session_state["sensor_pick"] = None
+    if choice in SENSOR_KEY_BY_LABEL:
+        live_history.request(SENSOR_KEY_BY_LABEL[choice])
+
+
 def sensors_page() -> None:
     s = load_settings()
     tz = _tz(s)
     db = storage.connect()
     st.markdown(theme.title_html("Sensors"), unsafe_allow_html=True)
+    st.caption("How fresh and complete the station's data is, sensor by sensor")
     now = time.time()
     rows = health.window(db, now - 24 * 3600, now)
     if not rows:
         empty_card("No readings in the last 24 hours yet", "Check the station's connection on the Live page.")
         return
 
-    last_ts = rows[-1][0]
+    last_ts, latest = rows[-1][0], rows[-1][1]
     status, age_text = health.age_status(last_ts, now)
+    age_min = max(0.0, (now - last_ts) / 60)
+    fresh, ftone = (("Fresh", "ok") if age_min < 1 else ("Recent", "ok") if age_min < 5
+                    else ("Stale", "warn") if age_min < 10 else ("Old", "bad"))
+    completeness = health.completeness(rows, 24)
+    sensors = health.sensors(rows)
+    seen_now = [latest.get(x["key"]) is not None for x in sensors]
+    online, offline = sum(seen_now), len(sensors) - sum(seen_now)
     gap_list = health.gaps(rows)
+
     st.markdown(theme.grid_html([
-        _tile("Completeness (24 h)", f"{health.completeness(rows, 24):.0f}%"),
-        _tile("Last reading", age_text.capitalize(),
-              {"ok": "Good", "slow": "Delayed", "silent": "Offline", "none": ""}[status]),
-        _tile("Gaps over 5 min", str(len(gap_list))),
+        _strip_tile("Data freshness", fresh, f"{age_min:.1f} min old", ftone),
+        _strip_tile("Completeness", f"{completeness:.1f}%", "last 24 hours",
+                    "ok" if completeness >= 95 else "warn" if completeness >= 80 else "bad"),
+        _strip_tile("Sensors online", f"{online}/{len(sensors)}",
+                    f"{offline} offline" if offline else "all reporting", "warn" if offline else "ok"),
+        _strip_tile("Readings", f"{len(rows):,} readings", "last 24 hours", "info"),
     ]), unsafe_allow_html=True)
 
-    tiles = []
-    for sensor in health.sensors(rows):
-        seen = (health.clock(sensor["last_seen"], tz) if sensor["last_seen"] else "never")
-        tiles.append(_tile(sensor["label"], f"{sensor['present_pct']:.0f}%", f"last seen {seen}"))
-    st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    st.markdown(theme.section_html("Sensor status"), unsafe_allow_html=True)
+    theme.table([{"Sensor": x["label"], "Status": "✓" if on else "✗",
+                  "Completeness": f"{x['present_pct']:.1f}%" if x["last_seen"] is not None else "—",
+                  "State": theme.state_html("ok", "Online") if on else theme.state_html("fail", "Offline")}
+                 for x, on in zip(sensors, seen_now)], html_cols=("State",))
 
-    if gap_list:
-        st.markdown(theme.section_html("Recent gaps"), unsafe_allow_html=True)
-        theme.table([{"from": health.clock(a, tz), "to": health.clock(b, tz),
-                      "minutes": round((b - a) / 60)} for a, b in gap_list[-10:]])
+    st.pills("See a sensor's history", list(SENSOR_KEY_BY_LABEL), selection_mode="single",
+             key="sensor_pick", on_change=_pick_sensor)
+    live_history.show_pending()
+
+    ip = s.station_ip.strip()
+    batteries = _sensor_batteries(ip) if ip else []
+    st.markdown(theme.section_html("Batteries and radio signal"), unsafe_allow_html=True)
+    if not ip:
+        empty_card("Set the station IP on the Setup page to see sensor battery and signal.")
+    elif batteries is None:
+        st.caption("Battery and signal aren't available right now. The station may be off or offline.")
+    elif not batteries:
+        st.caption("No paired sensors were found.")
+    else:
+        tiles = []
+        for b in batteries:
+            bs, bt = gateway_sensors.battery_state(b["batt"])
+            ss, sg = gateway_sensors.signal_state(b["signal"], b["rssi"])
+            tiles.append(_strip_tile(f"{b['name']}: battery", BATT_WORD.get(bs, "?"), bt, BATT_TONE.get(bs, "info")))
+            tiles.append(_strip_tile(f"{b['name']}: radio signal", SIG_WORD.get(ss, "?"), sg, SIG_TONE.get(ss, "info")))
+        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    st.caption("Battery level runs 0 to 5 (5 full, 0 empty). Battery and signal refresh about every five minutes.")
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown(theme.section_html("Completeness by sensor"), unsafe_allow_html=True)
+        theme.table([{"Sensor": x["label"], "Completeness": f"{x['present_pct']:.1f}%"}
+                     for x in sorted(sensors, key=lambda x: x["present_pct"], reverse=True)])
+    with right:
+        st.markdown(theme.section_html("Gaps in the data"), unsafe_allow_html=True)
+        if gap_list:
+            theme.table([{"From": health.clock(a, tz), "To": health.clock(b, tz),
+                          "Minutes": round((b - a) / 60)} for a, b in gap_list[-10:]])
+        else:
+            st.success("No data gaps detected!")
+
+    st.markdown(theme.section_html("Data quality alerts"), unsafe_allow_html=True)
+    issues = []
+    if status in ("silent", "slow"):
+        issues.append(("error" if status == "silent" else "warning", "Station not reporting" if status == "silent"
+                       else "Readings are delayed", f"Last reading {age_text}."))
+    if completeness < 95:
+        issues.append(("warning", "Completeness is low", f"{completeness:.1f}% of expected readings over 24 hours."))
+    for x in sensors:
+        if x["last_seen"] is None or latest.get(x["key"]) is None:
+            issues.append(("warning", f"{x['label']} is not reporting", "It was missing from the latest reading."))
+    for text in gateway_sensors.warnings(batteries or []):
+        issues.append(("warning", "Sensor warning", text))
+    if issues:
+        for kind, title, message in issues:
+            (st.error if kind == "error" else st.warning)(f"**{title}** {message}")
+    else:
+        st.success("✅ All data quality checks passed!")
+
+    st.markdown(theme.section_html("Sensor activity"), unsafe_allow_html=True)
+    st.caption("When each sensor last reported, and how many readings in the last 24 hours included it.")
+    theme.table([{"Sensor": x["label"],
+                  "Readings": f"{sum(1 for _, r in rows if r.get(x['key']) is not None):,}",
+                  "Last reading": health.clock(x["last_seen"], tz) if x["last_seen"] is not None else "never"}
+                 for x in sensors])

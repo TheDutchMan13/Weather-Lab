@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.8",
+        "date": "October 22, 2026",
+        "items": [
+            "Sensors is laid out like the dashboard's Sensor health page: a summary strip, a sensor status table, batteries and radio signal, completeness and gaps side by side, data quality alerts, and sensor activity.",
+            "See a sensor's history: tap a sensor to open its history over 24 hours, 7 days or 30 days, with its highest, lowest and average.",
+            "History windows also cover gust, rain today, solar, indoor temperature and indoor humidity. Humidity history shows a percent sign.",
+        ],
+    },
+    {
         "version": "0.22.7",
         "date": "October 22, 2026",
         "items": [

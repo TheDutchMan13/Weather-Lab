@@ -21,7 +21,14 @@ MEASURES = {
     "baromrelin": ("Pressure", "pressure", 2),
     "dewpointf": ("Dew point", "dew", 1),
     "uv": ("UV index", "uv", 1),
+    "windgustmph": ("Gust", "gust", 1),
+    "dailyrainin": ("Rain today", "rain", 2),
+    "solarradiation": ("Solar", "uv", 0),
+    "tempinf": ("Indoor temp", "temp", 1),
+    "humidityin": ("Indoor humidity", "humidity", 0),
 }
+# Units that units.suffix doesn't cover
+SUFFIX = {"humidity": "%", "humidityin": "%", "solarradiation": " W/m²"}
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -63,7 +70,7 @@ def _open(key: str) -> None:
     if found is None:
         empty_card(f"No {label.lower()} readings for this period yet.")
         return
-    suffix = units.suffix(key, metric)
+    suffix = SUFFIX.get(key, units.suffix(key, metric))
 
     def shown(v: float) -> str:
         return f"{v:.{decimals}f}{suffix}"
