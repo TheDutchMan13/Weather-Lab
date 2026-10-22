@@ -58,7 +58,8 @@ def tile_html(t: dict) -> str:
     up_color, down_color."""
     colour = {"up": t.get("up_color", "#dc2626"), "down": t.get("down_color", "#2563eb")}.get(t.get("direction"), "inherit")
     note = _h.escape(t["compare"]) if t.get("compare") else "&nbsp;"
-    return ('<div class="wl-tile">'
+    edge = f' style="border-left:4px solid {t["edge"]}"' if t.get("edge") else ""
+    return (f'<div class="wl-tile"{edge}>'
             f'<div class="wl-label">{_h.escape(t["label"])}</div>'
             f'<div class="wl-value">{_h.escape(str(t["value"]))}'
             f'<span style="font-size:13px;font-weight:400;opacity:.7"> {_h.escape(t.get("unit", ""))}</span></div>'

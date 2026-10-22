@@ -7,14 +7,14 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 from weatherlab import ask, charts, history, history_compare, rain_calendar, rain_events, replay, stations, storage, theme, units
 from weatherlab.settings import load_settings
-from weatherlab.screens.common import _all_days, _table, _tile, _tz, empty_card
+from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
 
 def ask_page() -> None:
     s = load_settings()
     metric = units.is_metric(s.units)
     today = datetime.now(_tz(s)).date()
-    st.markdown(theme.title_html("Ask"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Ask", "Ask a question about your history, such as the wettest month."), unsafe_allow_html=True)
     question = st.text_input("Ask about your history", key="ask_question",
                              placeholder="for example: wettest month, or rain in March 2026")
     if not question.strip():
@@ -39,7 +39,7 @@ def _unusual_days(metric: bool = False, station: str = "main") -> list:
 
 
 def unusual_page() -> None:
-    st.markdown(theme.title_html("Unusual days"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Unusual days", "Days that stand out from the usual values for their date, over the last year."), unsafe_allow_html=True)
     metric = units.is_metric(load_settings().units)
     if metric:
         st.caption("A day is listed when its high or low is 5.6 °C or more from the usual value for that date, "
@@ -53,8 +53,7 @@ def unusual_page() -> None:
     if not found:
         empty_card("Nothing stands out in the last year.")
         return
-    body = [[html.escape(day.strftime("%a %b %d, %Y")), html.escape("; ".join(reasons))] for day, reasons in found]
-    st.markdown(_table(["Day", "Why it stands out"], body, theme.is_dark()), unsafe_allow_html=True)
+    theme.table([{"Day": day.strftime("%a %b %d, %Y"), "Why it stands out": "; ".join(reasons)} for day, reasons in found])
 
 
 def rain_events_page() -> None:
@@ -63,7 +62,7 @@ def rain_events_page() -> None:
     metric = units.is_metric(s.units)
     db = storage.connect()
     today = datetime.now(tz).date()
-    st.markdown(theme.title_html("Rain events"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Rain events", "Each spell of rain, with its length, total and peak rate."), unsafe_allow_html=True)
     options = {"7 days": 7, "30 days": 30}
     choice = st.radio("Range", list(options), index=1, horizontal=True, key="rain_events_range")
     start = datetime.combine(today - timedelta(days=options[choice]), datetime.min.time(), tzinfo=tz).timestamp()
@@ -86,10 +85,10 @@ def rain_events_page() -> None:
         length = f"{minutes // 60} h {minutes % 60} min" if minutes >= 60 else f"{minutes} min"
         peak = units.convert("dailyrainin", e["peak_rate"], metric)
         peak_text = f"{peak:.{1 if metric else 2}f} {units.unit('dailyrainin', metric)}/hr"
-        body.append([html.escape(datetime.fromtimestamp(e["start"], tz).strftime("%a %b %d, %I:%M %p")),
-                     html.escape(length), html.escape(units.format_value("dailyrainin", e["inches"], metric, 2)),
-                     html.escape(peak_text)])
-    st.markdown(_table(["Started", "Length", "Rain", "Peak rate"], body, theme.is_dark()), unsafe_allow_html=True)
+        body.append({"Started": datetime.fromtimestamp(e["start"], tz).strftime("%a %b %d, %I:%M %p"),
+                     "Length": length, "Rain": units.format_value("dailyrainin", e["inches"], metric, 2),
+                     "Peak rate": peak_text})
+    theme.table(body)
 
 
 # ---------------------------------------------------------------- Rain calendar
@@ -153,7 +152,7 @@ def rain_calendar_page() -> None:
     dark = theme.is_dark()
     p = theme.palette(dark, s.color_scheme)
     metric = units.is_metric(s.units)
-    st.markdown(theme.title_html("Rain calendar"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Rain calendar", "Each day's rain, laid out on a calendar."), unsafe_allow_html=True)
     rain = {day: data.get("rain_in") for day, data in history.all_daily(db)}
     if not any(v is not None for v in rain.values()):
         empty_card("The rain calendar fills in once there are daily summaries.", "Each day's rain is added after that day's readings are in.")
@@ -222,7 +221,7 @@ def replay_page() -> None:
     tz = _tz(s)
     db = storage.connect()
     metric = units.is_metric(s.units)
-    st.markdown(theme.title_html("Replay"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Replay", "Replay any day from your readings, one moment at a time."), unsafe_allow_html=True)
     today = datetime.now(tz).date()
     day = st.date_input("Day", value=today, max_value=today, key="replay-day")
     start, end = replay.day_bounds(day, tz)

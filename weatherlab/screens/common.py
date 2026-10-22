@@ -123,17 +123,6 @@ def _all_days(station: str) -> list:
     return history.all_daily(storage.connect())
 
 
-def _table(headers: list, rows: list, dark: bool) -> str:
-    """A plain table in the theme's colours. Cell text must already be escaped."""
-    p = theme.palette(dark)
-    head = "".join(f'<th style="text-align:left;padding:6px 8px;font-weight:600;color:{p["muted"]}">{h}</th>'
-                   for h in headers)
-    body = "".join("<tr>" + "".join(f'<td style="padding:6px 8px;border-top:1px solid {p["line"]}">{c}</td>'
-                                    for c in row) + "</tr>" for row in rows)
-    return (f'<table style="width:100%;border-collapse:collapse;color:{p["text"]};font-size:14px">'
-            f"<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>")
-
-
 # ---------------------------------------------------------------- Forecast
 @st.cache_data(ttl=86400, show_spinner=False)
 def _points(lat: float, lon: float, contact: str) -> dict:

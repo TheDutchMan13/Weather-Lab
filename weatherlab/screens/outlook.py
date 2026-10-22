@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from weatherlab import astro, charts, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose
 from weatherlab.settings import Settings, load_settings
-from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, empty_card, start_poller
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -43,11 +43,9 @@ def _forecast_accuracy(db, s: Settings) -> None:
         _tile("Average miss", delta(stats["mae"]), f"last {stats['days']} days"),
         _tile("Forecast bias", sign + delta(stats["bias"]), "plus means it ran high"),
     ]), unsafe_allow_html=True)
-    body = [[html.escape(d.strftime("%a %b %d")), html.escape(units.format_value("tempf", f, metric, 0)),
-             html.escape(units.format_value("tempf", a, metric, 0)), html.escape(delta(diff))]
-            for d, f, a, diff in rows[:14]]
-    st.markdown(_table(["Day", "Forecast high", "Actual high", "Forecast minus actual"], body, theme.is_dark()),
-                unsafe_allow_html=True)
+    theme.table([{"Day": d.strftime("%a %b %d"), "Forecast high": units.format_value("tempf", f, metric, 0),
+                  "Actual high": units.format_value("tempf", a, metric, 0), "Forecast minus actual": delta(diff)}
+                 for d, f, a, diff in rows[:14]])
 
 
 def _rain_accuracy(db, s: Settings) -> None:
@@ -64,10 +62,25 @@ def _rain_accuracy(db, s: Settings) -> None:
     ]), unsafe_allow_html=True)
 
 
+def _heat_tone(index) -> str | None:
+    """Colour for a heat index, from the heat safety levels."""
+    if index is None:
+        return None
+    level, _ = heat_safety.level_for(index)
+    return {"Comfortable": "ok", "Caution": "info", "Extreme caution": "warn"}.get(level, "bad")
+
+
+def _uv_tone(uv) -> str | None:
+    """Colour for a UV index, with the same breaks as the Live page: low, moderate, high, very high."""
+    if uv is None:
+        return None
+    return "ok" if uv < 3 else "info" if uv < 6 else "warn" if uv < 8 else "bad"
+
+
 def forecast_page() -> None:
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.title_html("Forecast"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Forecast", "The National Weather Service forecast for your location, and how close past forecasts came."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
         empty_card("Set your latitude and longitude on the Setup page.")
         return
@@ -78,7 +91,8 @@ def forecast_page() -> None:
         if alerts:
             st.markdown("".join(_alert_box(a) for a in alerts), unsafe_allow_html=True)
         else:
-            st.markdown(theme.grid_html([_tile("Weather alerts", "None active")]), unsafe_allow_html=True)
+            st.markdown(theme.grid_html([theme.strip_tile_html("Weather alerts", "None active", tone="ok")]),
+                        unsafe_allow_html=True)
         pts = _points(s.latitude, s.longitude, contact)
         periods = _daily(pts["forecast"], contact)
         hourly = _hourly(pts["forecastHourly"], contact) if pts.get("forecastHourly") else []
@@ -104,7 +118,7 @@ def heat_page() -> None:
     dark = theme.is_dark()
     metric = units.is_metric(s.units)
     db = storage.connect()
-    st.markdown(theme.title_html("Heat safety"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Heat safety", "Heat index now and today's peak, against the heat safety levels."), unsafe_allow_html=True)
     latest = storage.latest(db)
     if latest is None:
         empty_card("No readings yet", "Heat safety fills in once the station has reported.")
@@ -115,10 +129,11 @@ def heat_page() -> None:
     series = [(ts, r.get("tempf"), heat_safety.heat_index(r.get("tempf"), r.get("humidity"))) for ts, r in today]
     peak = max((x for x in series if x[2] is not None), key=lambda x: x[2], default=None)
     st.markdown(theme.grid_html([
-        _tile("Heat index now", units.format_value("heat_index", now["heat_index"], metric, 0), now["level"]),
-        _tile("Air temperature", units.format_value("tempf", data.get("tempf"), metric, 0), "right now"),
-        _tile("Highest heat index today", units.format_value("heat_index", peak[2] if peak else None, metric, 0),
-              _clock(peak[0]) if peak else "no data yet"),
+        theme.strip_tile_html("Heat index now", units.format_value("heat_index", now["heat_index"], metric, 0),
+                              now["level"], _heat_tone(now["heat_index"])),
+        theme.strip_tile_html("Air temperature", units.format_value("tempf", data.get("tempf"), metric, 0), "right now"),
+        theme.strip_tile_html("Highest heat index today", units.format_value("heat_index", peak[2] if peak else None, metric, 0),
+                              _clock(peak[0]) if peak else "no data yet", _heat_tone(peak[2] if peak else None)),
     ]), unsafe_allow_html=True)
     if now["advice"]:
         show = st.warning if now["level"] in ("Extreme caution", "Danger", "Extreme danger") else st.info
@@ -138,7 +153,7 @@ def wind_page() -> None:
     dark = theme.is_dark()
     metric = units.is_metric(s.units)
     db = storage.connect()
-    st.markdown(theme.title_html("Wind"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Wind", "Where the wind came from and how strong it was, for the period you pick."), unsafe_allow_html=True)
     period = st.segmented_control("Period", list(WIND_PERIODS), default="Last 24 hours",
                                   key="wind_period", label_visibility="collapsed") or "Last 24 hours"
     end = time.time()
@@ -169,7 +184,7 @@ def sun_page() -> None:
     s = load_settings()
     dark = theme.is_dark()
     db = storage.connect()
-    st.markdown(theme.title_html("Sun and UV"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Sun and UV", "Sunshine, UV and sunburn times at your station."), unsafe_allow_html=True)
     latest = storage.latest(db)
     if latest is None:
         empty_card("No readings yet", "Sun and UV fill in once the station has reported.")
@@ -184,10 +199,10 @@ def sun_page() -> None:
     uv_peak = max((u for _, u in uv_today if u is not None), default=None)
     uv_now = data.get("uv")
     st.markdown(theme.grid_html([
-        _tile("UV index now", "--" if uv_now is None else f"{uv_now:.1f}"),
-        _tile("UV peak today", "--" if uv_peak is None else f"{uv_peak:.1f}"),
-        _tile("Sunshine today", f"{sun_uv.sunshine_hours(sun_today):.1f} h"),
-        _tile("Sunshine, last 7 days", f"{sun_uv.sunshine_hours(sun_week):.1f} h"),
+        theme.strip_tile_html("UV index now", "--" if uv_now is None else f"{uv_now:.1f}", "", _uv_tone(uv_now)),
+        theme.strip_tile_html("UV peak today", "--" if uv_peak is None else f"{uv_peak:.1f}", "", _uv_tone(uv_peak)),
+        theme.strip_tile_html("Sunshine today", f"{sun_uv.sunshine_hours(sun_today):.1f} h"),
+        theme.strip_tile_html("Sunshine, last 7 days", f"{sun_uv.sunshine_hours(sun_week):.1f} h"),
     ]), unsafe_allow_html=True)
     st.markdown(theme.section_html("Sunburn time at this UV index"), unsafe_allow_html=True)
     theme.table([{"Skin type": k, "Minutes until sunburn": "--" if m is None else f"{m:.0f}"}
@@ -207,7 +222,7 @@ def _local_time(dt, tz) -> str:
 def astronomy_page() -> None:
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.title_html("Astronomy"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Astronomy", "Sunrise, sunset, moon phases and daylight for your location."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
         empty_card("Set your location on the Setup page to see sunrise, sunset and the moon.")
         return
@@ -300,7 +315,7 @@ def wind_map_page() -> None:
     """Wind across the area around the station, now and later, as arrows coloured by speed."""
     s = load_settings()
     metric = units.is_metric(s.units)
-    st.markdown(theme.title_html("Wind map"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Wind map", "Wind across the area around the station, now and later, as arrows coloured by speed."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
         empty_card("Set your location first", "The wind map is centred on your latitude and longitude, on the Setup page.")
         return

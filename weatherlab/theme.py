@@ -199,6 +199,7 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
         # Card tiles and headings (utils/page_look.py, utils/live_cards.py)
         _rule(".wl-title", f"font-family:{FONT};font-size:26px;font-weight:700;letter-spacing:-.4px;"
                            f"color:{p['text']};margin:4px 0 14px"),
+        _rule(".wl-sub", f"font-family:{FONT};font-size:15px;color:{p['muted']};margin:-6px 0 18px"),
         _rule(".wl-grid", "display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px"),
         _rule(".wl-tile", f"font-family:{FONT};background:{p['card']};border:1px solid {p['line']};"
                           "border-radius:12px;padding:10px 14px;min-width:0"),
@@ -236,6 +237,12 @@ def title_html(text: str) -> str:
     return f'<div class="wl-title">{text}</div>'
 
 
+def page_head(title: str, subtitle: str = "") -> str:
+    """A page's title, with one line under it saying what the page shows."""
+    sub = f'<div class="wl-sub">{_html.escape(subtitle)}</div>' if subtitle else ""
+    return f'<div class="wl-title">{title}</div>{sub}'
+
+
 def tile_html(label: str, value: str) -> str:
     return (f'<div class="wl-tile"><div class="wl-label">{label}</div>'
             f'<div class="wl-value">{value}</div></div>')
@@ -245,8 +252,9 @@ STRIP_NEUTRAL = "#9aa3b0"
 
 
 def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = None) -> str:
-    """A summary tile with a coloured left edge: ok, warn, bad or info (HEALTH_DOT), or grey with no tone."""
-    colour = HEALTH_DOT.get(tone, STRIP_NEUTRAL) if tone else STRIP_NEUTRAL
+    """A summary tile with a coloured left edge: ok, warn, bad (red), info, or grey with no tone."""
+    key = "fail" if tone == "bad" else tone
+    colour = HEALTH_DOT.get(key, STRIP_NEUTRAL) if key else STRIP_NEUTRAL
     body = tile_html(_html.escape(label), _html.escape(value)).replace(
         'class="wl-tile"', f'class="wl-tile" style="border-left:4px solid {colour}"', 1)
     if note:

@@ -14,7 +14,7 @@ from weatherlab.screens.common import _clock, _tile, _tz, empty_card, start_poll
 def air_page() -> None:
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.title_html("Air quality"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Air quality", "Air quality for your area from AirNow, with the pollutant levels."), unsafe_allow_html=True)
     if not secrets.get_key("airnow"):
         empty_card("Add a free AirNow API key on the Setup page to see air quality.")
         return
@@ -54,7 +54,7 @@ def lightning_page() -> None:
     db = storage.connect()
     now = datetime.now(tz)
     metric = units.is_metric(s.units)
-    st.markdown(theme.title_html("Lightning"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Lightning", "Strikes the app saw while it was running, today and over time."), unsafe_allow_html=True)
     start_of_day = datetime.combine(now.date(), datetime.min.time(), tzinfo=tz).timestamp()
     today = storage.strikes_between(db, start_of_day, now.timestamp())
     last = storage.latest_strike(db)
@@ -113,7 +113,7 @@ def _fire_day_note(f: dict, metric: bool) -> str:
 
 def fire_page() -> None:
     db = storage.connect()
-    st.markdown(theme.title_html("Fire weather"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Fire weather", "Fire danger from your station's readings and the National Weather Service forecast."), unsafe_allow_html=True)
     rec = storage.latest_fire(db)
     if rec is None:
         empty_card("Fire weather appears once the station has sent readings for an hour.", "It updates every hour.")
@@ -157,7 +157,7 @@ def _moving(x: dict, metric: bool) -> str:
 def tropics_page() -> None:
     s = load_settings()
     metric = units.is_metric(s.units)
-    st.markdown(theme.title_html("Tropics"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Tropics", "Tropical storms from the National Hurricane Center, and how far each is from you."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
         empty_card("Set your latitude and longitude on the Setup page to see how far each storm is from you.")
         return
@@ -199,7 +199,7 @@ def _radar_station(lat: float, lon: float, contact: str) -> str:
 
 def radar_page() -> None:
     s = load_settings()
-    st.markdown(theme.title_html("Radar"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Radar", "The radar and satellite picture around your station."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
         empty_card("Set your latitude and longitude on the Setup page to show the radar for your area.")
         return

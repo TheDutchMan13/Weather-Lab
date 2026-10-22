@@ -16,7 +16,7 @@ def reports_page() -> None:
     s = load_settings()
     today = datetime.now(_tz(s)).date()
     db = storage.connect()
-    st.markdown(theme.title_html("Reports"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Reports", "Monthly and yearly PDF reports for your station."), unsafe_allow_html=True)
     auto = st.checkbox("Make reports automatically", value=s.auto_reports, key="auto_reports_on",
                        help="Last month's PDF is made each month, and last year's in January. Each file is made once.")
     if auto != s.auto_reports:
@@ -48,10 +48,10 @@ def reports_page() -> None:
 
 
 # ---------------------------------------------------------------- Import
-def _import_flow(title: str, file_types: list[str], default_units: str, intro: str) -> None:
+def _import_flow(title: str, file_types: list[str], default_units: str, intro: str, subtitle: str) -> None:
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.title_html(title), unsafe_allow_html=True)
+    st.markdown(theme.page_head(title, subtitle), unsafe_allow_html=True)
     st.write(intro)
     up = st.file_uploader("File", type=file_types, key=f"{title}-file")
     if up is None:
@@ -108,19 +108,22 @@ def _import_flow(title: str, file_types: list[str], default_units: str, intro: s
 def csv_import_page() -> None:
     _import_flow("CSV Import", ["csv"], "imperial",
                  "Upload a CSV file of past readings. Columns are matched to readings automatically. "
-                 "Check the matches, then import. Only the file you choose is read.")
+                 "Check the matches, then import. Only the file you choose is read.",
+                 "Bring in past readings from a CSV file.")
 
 
 def excel_import_page() -> None:
     _import_flow("Excel Import", ["xlsx"], "imperial",
                  "Upload an Excel (.xlsx) file of past readings. The first sheet is used. "
-                 "Columns are matched automatically. Check the matches, then import.")
+                 "Columns are matched automatically. Check the matches, then import.",
+                 "Bring in past readings from an Excel file.")
 
 
 def weather_underground_page() -> None:
     _import_flow("Weather Underground", ["csv"], "imperial",
                  "Upload a history CSV downloaded from Weather Underground. Its column names are matched "
-                 "automatically, and its units are imperial by default.")
+                 "automatically, and its units are imperial by default.",
+                 "Bring in a history CSV downloaded from Weather Underground.")
 
 
 # ---------------------------------------------------------------- Export
@@ -274,7 +277,7 @@ def export_page() -> None:
     tz = _tz(s)
     db = storage.connect()
     today = datetime.now(tz).date()
-    st.markdown(theme.title_html("Export"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Export", "Download your readings and daily summaries as CSV files."), unsafe_allow_html=True)
     st.write("Download your readings and daily summaries as CSV files. Values are in US units. "
              "Times use the timezone on the Setup page.")
     with st.expander("Download all history"):
@@ -311,7 +314,7 @@ def _archive_section(s: Settings) -> None:
 # ---------------------------------------------------------------- Ecowitt export import
 def ecowitt_import_page() -> None:
     db = storage.connect()
-    st.markdown(theme.title_html("Ecowitt export"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Ecowitt export", "Import history exports from ecowitt.net, for days Weather Lab doesn't have yet."), unsafe_allow_html=True)
     st.write("Upload one or more history exports from ecowitt.net (.xlsx): daily, 5-minute or 4-hour. Only days Weather "
              "Lab doesn't have yet are added; days already stored are never changed. The values must be in US units "
              "(°F, mph, inches).")
@@ -344,7 +347,7 @@ def noaa_page() -> None:
     """Daily rain and temperatures from NOAA's nearest station, for years before this app collected data."""
     s = load_settings()
     db = storage.connect()
-    st.markdown(theme.title_html("NOAA history"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("NOAA history", "Daily rain and temperatures from NOAA's nearest station, for years before this app collected data."), unsafe_allow_html=True)
     st.write("NOAA keeps daily rain and temperatures for many weather stations, going back decades. Weather Lab can fetch "
              "the nearest station's last 10 years. They show on the Explore page, in the year totals, beside your own "
              "readings. NOAA needs a free token from its Climate Data Online website.")

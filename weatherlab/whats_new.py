@@ -5,6 +5,18 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.23.0",
+        "date": "October 22, 2026",
+        "items": [
+            "Every page has a one-line subtitle under its title that says what the page shows.",
+            "Tables look the same on every page: a shaded header row, numbers lined up on the right, and the same spacing.",
+            "The summary tiles on Forecast, Heat, Sun, Sensors and Daily history have a coloured edge. Green is good, amber needs a look, red is a problem, and blue is information. A tile with nothing to flag stays grey.",
+            "The 24-hour tiles on Live have the same coloured edge. Only a tile well above or below its usual level is coloured.",
+            "The Wind and UV dials on Live have a History button, and so does the Dew point line. Humidity's History button is in the 24-hour section.",
+            "On a phone, the Daily history table shows the date, high, low and rain so it fits. Average, gust, sun hours and humidity show on a wider screen, and the CSV download has every column.",
+        ],
+    },
+    {
         "version": "0.22.9",
         "date": "October 22, 2026",
         "items": [

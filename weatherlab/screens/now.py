@@ -10,7 +10,7 @@ from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, ga
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
-from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, empty_card, freshness_line, start_poller
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, freshness_line, start_poller
 
 
 REFRESH_SECONDS = 30
@@ -334,8 +334,10 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
             note, direction = sparks.compare_text(cur, units.convert(key, found[1], metric), unit_text, neutral)
         else:
             note, direction = "Usual for this hour builds up after five days.", None
+        # Near usual is grey: only a tile well above or below usual gets a colour.
+        edge = {"up": theme.HEALTH_DOT["fail"], "down": theme.HEALTH_DOT["info"]}.get(direction, theme.STRIP_NEUTRAL)
         tiles.append(sparks.tile_html({"label": label, "value": f"{cur:.0f}", "unit": unit_text, "series": series,
-                                       "color": color, "compare": note, "direction": direction}))
+                                       "color": color, "compare": note, "direction": direction, "edge": edge}))
     if tiles:
         st.markdown(theme.section_html("Last 24 hours", updated=updated), unsafe_allow_html=True)
         st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
@@ -371,14 +373,15 @@ def live_readings() -> None:
                 _alert_map(s, alerts)
         _glance(s, data, row[0])
         tiles = []
+        dials = []
         metric = units.is_metric(s.units)
         for key, lo, hi, label, fmt in [("humidity", 0, 100, "Humidity %", "{:.0f}"),
                                         ("windspeedmph", 0, 40, f"Wind {units.speed_unit(metric)}", "{:.0f}"),
                                         ("uv", 0, 11, "UV index", "{:.0f}")]:
             if data.get(key) is not None:
-                tiles.append(theme.gauge_html(units.convert(key, data[key], metric),
-                                              units.convert(key, lo, metric), units.convert(key, hi, metric),
-                                              label, fmt, dark, animate=s.animate))
+                dials.append((key, theme.gauge_html(units.convert(key, data[key], metric),
+                                                    units.convert(key, lo, metric), units.convert(key, hi, metric),
+                                                    label, fmt, dark, animate=s.animate)))
         for key in s.live_cards:
             if key in data:
                 label, unit = CARD_LABELS[key]
@@ -397,6 +400,12 @@ def live_readings() -> None:
                 _pressure_dial(s, data)
                 if st.button("Pressure history", key="hist-baromrelin"):
                     live_history.request("baromrelin")
+            if dials:
+                st.markdown(theme.grid_html([html for _, html in dials]), unsafe_allow_html=True)
+                for col, (key, _) in zip(st.columns(len(dials)), dials):
+                    # Humidity already has its History button in the 24-hour section above.
+                    if key != "humidity" and col.button(f"{live_history.MEASURES[key][0]} history", key=f"hist-dial-{key}"):
+                        live_history.request(key)
             st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
 
     live_history.show_pending()
@@ -453,6 +462,8 @@ def _dew_line(s: Settings) -> None:
     dew_point = latest[1]["dewpointf"]
     shown = units.format_value("dewpointf", dew_point, units.is_metric(s.units), 0)
     st.caption(f"Dew point {shown}: {dew.text(dew_point)}.")
+    if st.button("Dew point history", key="hist-dewpointf"):
+        live_history.request("dewpointf")
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -518,7 +529,7 @@ def airport_card(s: Settings) -> None:
 
 def live_page() -> None:
     s = load_settings()
-    st.markdown(theme.title_html("Live"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Live", "Right now at your station, with the last 24 hours and any active alerts."), unsafe_allow_html=True)
     if not s.station_ip:
         empty_card("Set the station IP on the Setup page.")
         return
@@ -532,18 +543,18 @@ def live_page() -> None:
 def alerts_log_page() -> None:
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.title_html("Alert history"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Alert history", "Every alert Weather Lab has sent, newest first. Search to filter them."), unsafe_allow_html=True)
     rows = storage.recent_alerts(storage.connect(), limit=300)
     if not rows:
         empty_card("Alerts appear here once Weather Lab sends its first notification.")
         return
     query = st.text_input("Search alerts", key="alert_search").strip().lower()
-    body = [[html.escape(datetime.fromtimestamp(ts, tz).strftime("%a %b %d, %I:%M %p")), html.escape(text)]
+    body = [{"When": datetime.fromtimestamp(ts, tz).strftime("%a %b %d, %I:%M %p"), "Alert": text}
             for ts, text in rows if not query or query in text.lower()]
     if not body:
         empty_card("No alerts match that search")
         return
-    st.markdown(_table(["When", "Alert"], body, theme.is_dark()), unsafe_allow_html=True)
+    theme.table(body)
 
 
 # ---------------------------------------------------------------- Sensors
@@ -577,8 +588,7 @@ def sensors_page() -> None:
     s = load_settings()
     tz = _tz(s)
     db = storage.connect()
-    st.markdown(theme.title_html("Sensors"), unsafe_allow_html=True)
-    st.caption("How fresh and complete the station's data is, sensor by sensor")
+    st.markdown(theme.page_head("Sensors", "How fresh and complete the station's data is, sensor by sensor."), unsafe_allow_html=True)
     now = time.time()
     rows = health.window(db, now - 24 * 3600, now)
     if not rows:

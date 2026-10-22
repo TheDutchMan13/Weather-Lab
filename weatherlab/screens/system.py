@@ -186,7 +186,7 @@ def _updates_section(s: Settings) -> None:
 
 def settings_page() -> None:
     s = load_settings()
-    st.markdown(theme.title_html("Settings"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Settings", "Appearance, alerts, phone alerts, updates and startup."), unsafe_allow_html=True)
     look_tab, alerts_tab, phone_tab, updates_tab, start_tab = st.tabs(
         ["Appearance", "Alerts", "Phone alerts", "Updates", "Startup"])
     with look_tab:
@@ -224,7 +224,7 @@ def _upload_note(error: str, last: float | None, action: str) -> None:
 
 
 def setup_page() -> None:
-    st.markdown(theme.title_html("Setup"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Setup", "Where the station is, and the optional services that use it."), unsafe_allow_html=True)
     s = load_settings()
     _station_tools(s)
     (station_tab, air_tab, uploads_tab, network_tab) = st.tabs(["Station", "Air", "Uploads", "Access"])
@@ -585,7 +585,7 @@ def _gateway_sensors(ip: str) -> list[dict] | None:
 
 
 def whats_new_page() -> None:
-    st.markdown(theme.title_html("What's New"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("What's New", "What changed in each version, newest first."), unsafe_allow_html=True)
     for i, entry in enumerate(whats_new.ENTRIES):
         note = f"{entry['date']} · latest" if i == 0 else entry["date"]
         with st.container(border=True):
@@ -598,7 +598,7 @@ def status_page() -> None:
     db = storage.connect()
     poller = start_poller()
     now = time.time()
-    st.markdown(theme.title_html("Status"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Status", "Whether the station is reporting, and the battery and signal of each sensor."), unsafe_allow_html=True)
 
     latest = storage.latest(db)
     last_ts = latest[0] if latest else None
@@ -691,7 +691,7 @@ def health_check_page() -> None:
         "archive_error": poller.status.archive_error,
     }
     checks = health_check.evaluate(facts, now)
-    st.markdown(theme.title_html("Health check"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Health check", "Whether the collector, database, disk, backups, notifications and settings are all working."), unsafe_allow_html=True)
     counts = {state: sum(1 for c in checks if c["state"] == state) for state in ("ok", "warn", "fail", "info")}
     for col, (label, state) in zip(st.columns(4), [("OK", "ok"), ("Check", "warn"), ("Problem", "fail"), ("Info", "info")]):
         col.metric(label, counts[state])
@@ -709,7 +709,7 @@ def health_check_page() -> None:
 
 def stations_page() -> None:
     """Add, rename or remove weather stations. Each one keeps its own readings, settings, alerts and backups."""
-    st.markdown(theme.title_html("Stations"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Stations", "Add, rename or remove weather stations. Each keeps its own readings, settings, alerts and backups."), unsafe_allow_html=True)
     st.caption("Each station keeps its own readings, settings, phone topic and backups. Pick a station in the sidebar "
                "to see it. A new station starts with default settings, so set its Ecowitt address and location under "
                "Setup and Settings after you add it.")

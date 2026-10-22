@@ -42,7 +42,7 @@ def access_gate() -> bool:
     if not auth.password_set():
         st.error("Other devices can't open Weather Lab until a password is set. Set one on the Setup page on this PC.")
         return False
-    st.markdown(theme.title_html("Sign in"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Sign in", "Enter the password you set on the Setup page."), unsafe_allow_html=True)
     password = st.text_input("Password", type="password")
     if st.button("Sign in"):
         wait = auth.locked_for()

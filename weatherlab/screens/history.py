@@ -10,7 +10,7 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 from weatherlab import charts, coverage, daily, history, history_compare, record_board, report, stations, storage, theme, units, wind_rose, yearly
 from weatherlab.settings import load_settings
-from weatherlab.screens.common import _all_days, _table, _tile, _tz, empty_card
+from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
 
 def _conv(key: str, values: list, metric: bool) -> list:
@@ -43,7 +43,7 @@ def daily_page() -> None:
     tz = _tz(s)
     db = storage.connect()
     today = datetime.now(tz).date()
-    st.markdown(theme.title_html("Daily"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Daily", "One day from your readings. Today shows what has been recorded so far."), unsafe_allow_html=True)
     day = st.date_input("Day", value=today - timedelta(days=1), max_value=today)
 
     rows = daily.day_rows(db, day, tz)
@@ -275,7 +275,7 @@ def history_page() -> None:
     metric = units.is_metric(s.units)
     today = datetime.now(tz).date()
     yesterday = today - timedelta(days=1)
-    st.markdown(theme.title_html("Daily history"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Daily history", "Each day's high, low, rain, wind and humidity over the range you choose."), unsafe_allow_html=True)
 
     choice = st.radio("Time range", list(HISTORY_RANGES), index=2, horizontal=True, key="history_range")
     n = HISTORY_RANGES[choice]
@@ -329,6 +329,11 @@ def history_page() -> None:
                                "Gust max": units.format_value("windgustmph", s_.get("gust_max"), metric, 0),
                                "Sun hours": "--" if s_.get("sun_hours") is None else f"{s_['sun_hours']:.1f}",
                                "Humidity": humidity})
+        if theme.is_phone():
+            # A phone is too narrow for every column: the table scrolls, but these are the least useful ones.
+            # The CSV below still has them all.
+            table_rows = [{k: v for k, v in r.items() if k not in ("Average", "Gust max", "Sun hours", "Humidity")}
+                          for r in table_rows]
         theme.table(table_rows)
         st.download_button("Download CSV", history.daily_csv(rows).encode(), "weather_daily.csv", "text/csv")
 
@@ -376,9 +381,9 @@ def _compare_periods(db, today: date) -> None:
         else:
             change = units.convert_change(conv, delta, metric) if conv else delta
             delta_text = ("+" if delta > 0 else "") + fmt.format(change) + (units.suffix(conv, metric) if conv else unit)
-        body.append([html.escape(label), html.escape(shown(a[key], fmt, conv, unit)),
-                     html.escape(shown(b[key], fmt, conv, unit)), html.escape(delta_text)])
-    st.markdown(_table(["", "First period", "Second period", "Change"], body, theme.is_dark()), unsafe_allow_html=True)
+        body.append({"Measure": label, "First period": shown(a[key], fmt, conv, unit),
+                     "Second period": shown(b[key], fmt, conv, unit), "Change": delta_text})
+    theme.table(body)
     st.caption("Change is the first period minus the second.")
 
 
@@ -387,7 +392,7 @@ def coverage_page() -> None:
     tz = _tz(s)
     db = storage.connect()
     yesterday = datetime.now(tz).date() - timedelta(days=1)
-    st.markdown(theme.title_html("Coverage"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Coverage", "How many days have an exact summary, an estimate or nothing at all."), unsafe_allow_html=True)
     days = dict(history.all_daily(db))
     if not days:
         empty_card("Coverage appears once Weather Lab has a finished day to record.")
@@ -411,9 +416,7 @@ def coverage_page() -> None:
         st.success("Every day in this range has an exact summary.")
         return
     shown_gaps = gaps[:200]
-    body = [[html.escape(day.strftime("%a %b %d, %Y")), html.escape(coverage.LABELS[state])]
-            for day, state in shown_gaps]
-    st.markdown(_table(["Day", "Status"], body, theme.is_dark()), unsafe_allow_html=True)
+    theme.table([{"Day": day.strftime("%a %b %d, %Y"), "Status": coverage.LABELS[state]} for day, state in shown_gaps])
     if len(gaps) > len(shown_gaps):
         st.caption(f"Showing the newest 200 of {len(gaps)} days that are not exact.")
 
@@ -425,11 +428,9 @@ def _heat_days_section(db, metric: bool) -> None:
     if not by_year:
         return
     st.markdown(theme.section_html("Hot days by year"), unsafe_allow_html=True)
-    body = [[html.escape(str(year)), html.escape(str(counts[100])), html.escape(str(counts[110]))]
-            for year, counts in by_year.items()]
-    st.markdown(_table(["Year", f"At or above {units.format_value('tempf', 100, metric, 0)}",
-                        f"At or above {units.format_value('tempf', 110, metric, 0)}"], body, theme.is_dark()),
-                unsafe_allow_html=True)
+    h100 = f"At or above {units.format_value('tempf', 100, metric, 0)}"
+    h110 = f"At or above {units.format_value('tempf', 110, metric, 0)}"
+    theme.table([{"Year": str(year), h100: str(counts[100]), h110: str(counts[110])} for year, counts in by_year.items()])
 
 
 def _on_this_day(db, today: date) -> None:
@@ -439,11 +440,10 @@ def _on_this_day(db, today: date) -> None:
     if not earlier:
         return
     st.markdown(theme.section_html(f"On {today:%B} {today.day} in earlier years"), unsafe_allow_html=True)
-    body = [[html.escape(str(d.year)), html.escape(units.format_value("tempf", s.get("tempf_max"), metric, 0)),
-             html.escape(units.format_value("tempf", s.get("tempf_min"), metric, 0)),
-             html.escape(units.format_value("dailyrainin", s.get("rain_in"), metric, 2))]
-            for d, s in earlier]
-    st.markdown(_table(["Year", "High", "Low", "Rain"], body, theme.is_dark()), unsafe_allow_html=True)
+    theme.table([{"Year": str(d.year), "High": units.format_value("tempf", s.get("tempf_max"), metric, 0),
+                  "Low": units.format_value("tempf", s.get("tempf_min"), metric, 0),
+                  "Rain": units.format_value("dailyrainin", s.get("rain_in"), metric, 2)}
+                 for d, s in earlier])
 
 
 # Colours for the record groups (the dashboard's measure colours) and the dots (highest and lowest).
@@ -512,7 +512,7 @@ def records_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
     db = storage.connect()
-    st.markdown(theme.title_html("Weather records"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Weather records", "All-time records for your station, with the day each one happened."), unsafe_allow_html=True)
     days = history.all_daily(db)
     if not days:
         empty_card("Records aren't ready yet", "Records appear once there are a few days of summaries to compare. They fill in as Weather Lab keeps collecting.")
@@ -552,8 +552,8 @@ RANKINGS = {  # label: (summary key, "max" or "min", units key or None, unit tex
 
 def rankings_page() -> None:
     s = load_settings()
-    metric, dark = units.is_metric(s.units), theme.is_dark()
-    st.markdown(theme.title_html("Rankings"), unsafe_allow_html=True)
+    metric = units.is_metric(s.units)
+    st.markdown(theme.page_head("Rankings", "The top 10 days for the measure you choose."), unsafe_allow_html=True)
     days = _all_days(stations.current())
     if not days:
         empty_card("Rankings appear once there are daily summaries.", "Each day's summary is written once that day's readings are in.")
@@ -567,15 +567,15 @@ def rankings_page() -> None:
     rows = []
     for i, (day, value) in enumerate(top, 1):
         text = _fmt(unit_key, value, metric, decimals) if unit_key else f"{value:.{decimals}f} {unit_text}".strip()
-        rows.append([str(i), day.strftime("%a %b %d, %Y"), text])
-    st.markdown(_table(["#", "Day", choice], rows, dark), unsafe_allow_html=True)
+        rows.append({"#": str(i), "Day": day.strftime("%a %b %d, %Y"), choice: text})
+    theme.table(rows)
 
 
 def rewind_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
     today = datetime.now(_tz(s)).date()
-    st.markdown(theme.title_html("Rewind"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Rewind", "What the same day looked like in earlier years."), unsafe_allow_html=True)
     days = _all_days(stations.current())
     picked = st.date_input("Day and month to look up", value=today, max_value=today, key="rewind_day")
     rows = yearly.on_this_day(days, picked.month, picked.day)
@@ -620,7 +620,7 @@ def _year_over_year(dark: bool, metric: bool) -> None:
 def climate_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
-    st.markdown(theme.title_html("Climate charts"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Climate charts", "Monthly averages and totals across all of your years of data."), unsafe_allow_html=True)
     table = yearly.monthly(_all_days(stations.current()))
     if not table:
         empty_card("Monthly charts appear once there are daily summaries.", "Each day's summary is written once that day's readings are in.")
@@ -653,7 +653,7 @@ def climate_page() -> None:
 def my_year_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
-    st.markdown(theme.title_html("My year"), unsafe_allow_html=True)
+    st.markdown(theme.page_head("My year", "A review of one calendar year at a time."), unsafe_allow_html=True)
     days = _all_days(stations.current())
     years = sorted({day.year for day, _ in days}, reverse=True)
     if not years:
