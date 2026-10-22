@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.5",
+        "date": "October 22, 2026",
+        "items": [
+            "Records has a new look: six record highlights on a gradient card, then every record grouped into Temperature, Rain, Wind, and Humidity and pressure.",
+            "Each record shows its date, or how long a dry or wet spell lasted and when it ended. Records set in the last 30 days are marked NEW.",
+            "Wettest month and the longest dry and wet spells are now records too. The current month is left out of the wettest month until it ends.",
+        ],
+    },
+    {
         "version": "0.22.4",
         "date": "October 22, 2026",
         "items": [

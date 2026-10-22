@@ -115,3 +115,7 @@ None.
 ## Click for history (22 Oct 2026)
 - The idea of clicking a Live reading for its history window (24 hours, 7 days, 30 days, with highest, lowest and average) is from the dashboard's wxdash/detail_view.py. The code is new: weatherlab/screens/live_history.py and weatherlab/history_series.py.
 
+## Records page look (22 Oct 2026)
+- The layout of the Records page (a gradient highlights card, then record cards grouped by type with a coloured top border, highest and lowest dots, and NEW badges) is copied from the dashboard's records page look. The code is new: weatherlab/record_board.py and screens/history.py records_page.
+- Records that need readings the daily summaries don't keep (most rain in an hour, most rain in 24 hours, heat index, dew point, feels-like, wind chill, humidex) are not shown.
+

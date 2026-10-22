@@ -6,7 +6,7 @@ import json
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date, datetime, timedelta
-from weatherlab import charts, coverage, daily, history, history_compare, report, stations, storage, theme, units, yearly
+from weatherlab import charts, coverage, daily, history, history_compare, record_board, report, stations, storage, theme, units, yearly
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _all_days, _table, _tile, _tz, empty_card
 
@@ -281,28 +281,93 @@ def _on_this_day(db, today: date) -> None:
     st.markdown(_table(["Year", "High", "Low", "Rain"], body, theme.is_dark()), unsafe_allow_html=True)
 
 
-def _record_text(r: dict, metric: bool) -> str:
-    """A record in the chosen units, such as "95°F" or "35.0°C"."""
-    key = history.RECORD_UNIT.get(r["key"])
-    if key is None:
-        return f"{r['value']:g}{r['unit']}"
-    shown = units.convert(key, r["value"], metric)
-    return (f"{shown:.1f}" if metric else f"{r['value']:g}") + units.suffix(key, metric)
+# Colours for the record groups (the dashboard's measure colours) and the dots (highest and lowest).
+GROUP_STYLE = {  # group: (icon, top border colour)
+    "Temperature": ("🌡️", "#e8a53c"),
+    "Rain": ("🌧️", "#4ea1ff"),
+    "Wind": ("🌬️", "#3ddc84"),
+    "Humidity and pressure": ("💧", "#8a5cf0"),
+}
+HIGH_DOT, LOW_DOT = "#f07a3c", "#4ea1ff"
+
+
+def _record_value(r: dict, metric: bool) -> str:
+    """A record in the chosen units, such as 118.4°F, 0.62 in, 64 days or 29.53 inHg."""
+    if r["unit_key"]:
+        shown = units.convert(r["unit_key"], r["value"], metric)
+        return f"{shown:.{r['dec']}f}{units.suffix(r['unit_key'], metric)}"
+    return f"{r['value']:.{r['dec']}f}{r['plain']}"
+
+
+def _highlights_html(items: list, metric: bool) -> str:
+    """The six numbers that sum up the station, on a gradient card."""
+    tiles = "".join(
+        '<div style="background:rgba(8,14,24,0.28);border:1px solid rgba(255,255,255,0.14);border-radius:12px;'
+        'padding:12px 14px;min-height:96px">'
+        f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;opacity:0.9">'
+        f'<span>{html.escape(r["title"])}</span><span>{r["icon"]}</span></div>'
+        f'<div style="font-size:28px;font-weight:650;margin-top:6px">{html.escape(_record_value(r, metric))}</div>'
+        f'<div style="font-size:13px;opacity:0.85;margin-top:2px">'
+        f'{html.escape(r["when"])}</div></div>'
+        for r in items)
+    return ('<div style="background:linear-gradient(120deg,#1f3d5e 0%,#3c5878 45%,#b8683a 100%);border-radius:16px;'
+            'padding:18px 18px 16px;color:#ffffff;margin:8px 0 18px">'
+            '<div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85">Record highlights</div>'
+            '<div style="font-size:22px;font-weight:650;margin:2px 0 14px">Six numbers that sum up your station</div>'
+            f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">{tiles}</div>'
+            '</div>')
+
+
+def _group_html(title: str, rows: list, metric: bool, dark: bool) -> str:
+    """One card of records: a coloured top border, a dot for highest or lowest, the value and the date."""
+    p = theme.palette(dark)
+    icon, colour = GROUP_STYLE[title]
+    body = []
+    for r in rows:
+        dot = HIGH_DOT if r["high"] else LOW_DOT
+        badge = ('<span style="margin-left:8px;background:#2fbf71;color:#ffffff;font-size:10px;font-weight:700;'
+                 'letter-spacing:0.06em;border-radius:999px;padding:2px 7px;vertical-align:middle">NEW</span>'
+                 if r["new"] else "")
+        body.append(
+            f'<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid {p["line"]}">'
+            f'<span style="width:8px;height:8px;border-radius:50%;background:{dot};flex:none"></span>'
+            f'<span style="flex:1;font-size:15px">{html.escape(r["label"])}{badge}</span>'
+            f'<span style="font-weight:700;font-size:16px;white-space:nowrap">{html.escape(_record_value(r, metric))}</span>'
+            f'<span style="font-size:13px;color:{p["muted"]};text-align:right;min-width:96px">'
+            f'{html.escape(r["when"])}</span></div>')
+    return (f'<div style="background:{p["card"]};border:1px solid {p["line"]};border-top:4px solid {colour};'
+            f'border-radius:14px;padding:14px 16px 6px">'
+            f'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
+            f'<span style="font-size:18px;font-weight:650">{icon} {html.escape(title)}</span>'
+            f'<span style="font-size:13px;color:{p["muted"]}">{len(rows)} records</span></div>'
+            + "".join(body) + '</div>')
 
 
 def records_page() -> None:
-    st.markdown(theme.title_html("Records"), unsafe_allow_html=True)
-    items = history.records(storage.connect())
-    if not items:
+    s = load_settings()
+    metric, dark = units.is_metric(s.units), theme.is_dark()
+    db = storage.connect()
+    st.markdown(theme.title_html("Weather records"), unsafe_allow_html=True)
+    days = history.all_daily(db)
+    if not days:
         empty_card("Records aren't ready yet", "Records appear once there are a few days of summaries to compare. They fill in as Weather Lab keeps collecting.")
         return
-    metric = units.is_metric(load_settings().units)
-    tiles = [_tile(r["label"], _record_text(r, metric),
-                   r["date"].strftime("%b %d, %Y") + (" · estimate" if r.get("estimated") else "")) for r in items]
-    st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    today = datetime.now(_tz(s)).date()
+    board = record_board.board(days, today)
+    st.caption(f"All-time records for your station · {len(board['records'])} records")
+    if board["highlights"]:
+        st.markdown(_highlights_html(board["highlights"], metric), unsafe_allow_html=True)
+    st.markdown(theme.section_html("Every record", "grouped by type · NEW = set in the last 30 days"),
+                unsafe_allow_html=True)
+    cards = "".join(_group_html(title, rows, metric, dark) for title, rows in board["groups"])
+    st.markdown('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">'
+                + cards + '</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:13px;color:{theme.palette(dark)["muted"]};margin:10px 0 4px">'
+                f'<span style="color:{HIGH_DOT}">●</span> highest / most &nbsp; '
+                f'<span style="color:{LOW_DOT}">●</span> lowest / least</div>', unsafe_allow_html=True)
     st.caption("Records cover only the time since this app started collecting data. Records marked estimate come from 4-hour readings.")
-    _on_this_day(storage.connect(), datetime.now(_tz(load_settings())).date())
-    _heat_days_section(storage.connect(), units.is_metric(load_settings().units))
+    _on_this_day(storage.connect(), datetime.now(_tz(s)).date())
+    _heat_days_section(storage.connect(), units.is_metric(s.units))
 
 
 def _fmt(key: str, value, metric: bool, decimals: int = 0) -> str:

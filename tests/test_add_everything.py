@@ -3,11 +3,11 @@ the regional wind map, and the nearby airport reading. Nothing here calls the ne
 
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
 
-from weatherlab import auto_reports, health_check, history_series, noaa, nws, nws_push, storage, windmap
+from weatherlab import auto_reports, health_check, history_series, noaa, nws, nws_push, record_board, storage, windmap
 
 
 class NwsPushTests(unittest.TestCase):
@@ -259,6 +259,66 @@ class HistorySeriesTests(unittest.TestCase):
         self.assertEqual(got["low"], (30, 50.0))
         self.assertAlmostEqual(got["average"], 61.6667, places=3)
         self.assertIsNone(history_series.summary([]))
+
+
+class RecordBoardTests(unittest.TestCase):
+    TODAY = date(2026, 10, 22)
+
+    def _days(self):
+        # 10 dry days, a 3-day wet spell ending Jun 14, then 2 dry days; plus a rainy September and an October so far
+        out = []
+        start = date(2026, 6, 1)
+        for i in range(10):
+            out.append((start + timedelta(days=i), {"rain_in": 0.0, "tempf_max": 90.0 + i, "tempf_min": 60.0,
+                                                    "gust_max": 10.0 + i, "humidity_max": 50.0, "humidity_min": 20.0,
+                                                    "baro_max": 29.9, "baro_min": 29.8, "uvi": 9.0,
+                                                    "wind_run_mi": 20.0, "wind_max": 8.0, "rainrate_max": 0.0}))
+        out.append((date(2026, 6, 11), {"rain_in": 0.5, "tempf_max": 80.0, "tempf_min": 65.0, "rainrate_max": 1.0}))
+        out.append((date(2026, 6, 12), {"rain_in": 0.2, "tempf_max": 82.0, "tempf_min": 66.0, "rainrate_max": 0.4}))
+        out.append((date(2026, 6, 13), {"rain_in": 0.1, "tempf_max": 84.0, "tempf_min": 64.0, "rainrate_max": 0.3}))
+        out.append((date(2026, 6, 14), {"rain_in": 0.0, "tempf_max": 99.0, "tempf_min": 61.0}))
+        out.append((date(2026, 9, 5), {"rain_in": 1.25, "tempf_max": 95.0, "tempf_min": 70.0}))
+        out.append((date(2026, 10, 3), {"rain_in": 0.75, "tempf_max": 88.0, "tempf_min": 62.0}))
+        return out
+
+    def test_highlights_and_groups(self):
+        got = record_board.board(self._days(), self.TODAY)
+        names = [h["name"] for h in got["highlights"]]
+        self.assertEqual(names, ["hi_temp", "lo_temp", "uv_hi", "wet_day", "gust_hi", "dry_spell"])
+        self.assertEqual([title for title, _ in got["groups"]], ["Temperature", "Rain", "Wind", "Humidity and pressure"])
+        self.assertTrue(all(r["group"] for r in got["records"]))
+
+    def test_highest_temperature_has_its_day(self):
+        got = {r["name"]: r for r in record_board.board(self._days(), self.TODAY)["records"]}
+        self.assertEqual(got["hi_temp"]["value"], 99.0)
+        self.assertEqual(got["hi_temp"]["when"], "Jun 14, 2026")
+        self.assertTrue(got["hi_temp"]["high"])
+        self.assertFalse(got["lo_temp"]["high"])
+
+    def test_longest_dry_spell_ends_when_the_rain_came(self):
+        got = {r["name"]: r for r in record_board.board(self._days(), self.TODAY)["records"]}
+        self.assertEqual(got["dry_spell"]["value"], 10)
+        self.assertEqual(got["dry_spell"]["when"], "ended Jun 11, 2026")
+        self.assertEqual(got["wet_spell"]["value"], 3)
+        self.assertEqual(got["wet_spell"]["when"], "ended Jun 14, 2026")
+
+    def test_wettest_month_leaves_out_the_month_so_far(self):
+        got = {r["name"]: r for r in record_board.board(self._days(), self.TODAY)["records"]}
+        self.assertEqual(got["wet_month"]["when"], "Sep 2026")
+        self.assertAlmostEqual(got["wet_month"]["value"], 1.25)
+
+    def test_new_means_set_in_the_last_30_days(self):
+        got = {r["name"]: r for r in record_board.board(self._days(), self.TODAY)["records"]}
+        self.assertTrue(got["wet_month"]["new"] is False)
+        self.assertTrue(got["hi_temp"]["new"] is False)
+        recent = self._days() + [(date(2026, 10, 20), {"rain_in": 1.5})]
+        got = {r["name"]: r for r in record_board.board(recent, self.TODAY)["records"]}
+        self.assertTrue(got["wet_day"]["new"])
+
+    def test_no_days_gives_no_records(self):
+        got = record_board.board([], self.TODAY)
+        self.assertEqual(got["records"], [])
+        self.assertEqual(got["highlights"], [])
 
 
 if __name__ == "__main__":
