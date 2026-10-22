@@ -80,7 +80,7 @@ def _uv_tone(uv) -> str | None:
 def forecast_page() -> None:
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.page_head("Forecast", "The National Weather Service forecast for your location, and how close past forecasts came."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Forecast", "The National Weather Service forecast, and how close past forecasts were."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
         empty_card("Set your latitude and longitude on the Setup page.")
         return

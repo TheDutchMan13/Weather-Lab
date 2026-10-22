@@ -5,6 +5,16 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.24.0",
+        "date": "October 22, 2026",
+        "items": [
+            "The 24-hour tiles on Live are coloured by what the number means. Temperature and wind above usual are amber, humidity above usual is grey, and anything below usual is blue. Red is kept for real problems.",
+            "The Wind tile in the 24-hour section has no History button now. The Wind dial below has one, so there's a single way in.",
+            "Until a station has five days of readings, the usual-for-this-hour note shows how many days it has so far, with a count of five.",
+            "The subtitles on Forecast, Health check and Stations are shorter, so they fit on a phone.",
+        ],
+    },
+    {
         "version": "0.23.0",
         "date": "October 22, 2026",
         "items": [

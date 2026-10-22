@@ -129,3 +129,10 @@ None.
 ## Daily history page look (22 Oct 2026)
 - The layout of the Daily history page (summary strip, chart sections, wind rose with prevailing wind by month, monthly rainfall and daily table expanders) follows the dashboard's daily history page (wxdash/history.py). The code is new: weatherlab/screens/history.py history_page and helpers, weatherlab/wind_rose.py patterns, and weatherlab/storage.py readings_sampled.
 - The sunshine bar colour (#f4a259) is the dashboard's orange (BAR_COLORS in wxdash/history.py).
+
+## Live dial History, tile colours and summary strips (22 Oct 2026)
+- The History buttons under the Wind and UV dials, and the Dew point button, follow the dashboard's click-for-history on its Live page (wxdash/detail_view.py render_detail_opener, called from wxdash/live.py). The code is new: weatherlab/screens/now.py live_readings and _dew_line.
+- The Wind tile in the Last 24 hours section has no History button, because the Wind dial has one. Humidity and temperature keep theirs.
+- The colour rules for the 24-hour tiles (amber for temperature and wind above usual, grey for humidity above usual, blue below usual) are new. Red is kept for real problems.
+- The "usual for this hour" progress note (days so far, out of five) extends the comparison ported from the dashboard's utils/visuals.py. Code: weatherlab/sparks.py usual_days.
+- Summary strip edges, the table style and page subtitles are new, written for this app. They use the dashboard palette above. Code: weatherlab/theme.py (strip_tile_html, table, page_head).

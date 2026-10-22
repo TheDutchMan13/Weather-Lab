@@ -20,10 +20,11 @@ def spark_svg(values: list, color: str, w: int = 160, h: int = 38) -> str:
             f'<circle cx="{pts[-1][0]:.1f}" cy="{pts[-1][1]:.1f}" r="3" fill="{color}"/></svg>')
 
 
-def hourly_usual(rows: list, key: str, tz, now_ts: float, hours_back: int = 24, min_days: int = 5):
-    """rows: (ts, reading) pairs over the past weeks, in time order. Returns (current, usual, days): the latest value,
-    the average of this hour of the day on earlier days (before the last hours_back hours), and how many days that
-    average uses. None when there are fewer than min_days earlier days."""
+USUAL_DAYS = 5  # earlier days of readings needed before "usual for this hour" is shown
+
+
+def _hour_matches(rows: list, key: str, tz, now_ts: float, hours_back: int = 24):
+    """(current, base, days): the latest value, this hour's values on earlier days, and the set of those days."""
     now_hour = datetime.fromtimestamp(now_ts, tz).hour
     cutoff = now_ts - hours_back * 3600
     current, base, days = None, [], set()
@@ -37,9 +38,22 @@ def hourly_usual(rows: list, key: str, tz, now_ts: float, hours_back: int = 24, 
             if local.hour == now_hour:
                 base.append(value)
                 days.add(local.date())
+    return current, base, days
+
+
+def hourly_usual(rows: list, key: str, tz, now_ts: float, hours_back: int = 24, min_days: int = USUAL_DAYS):
+    """rows: (ts, reading) pairs over the past weeks, in time order. Returns (current, usual, days): the latest value,
+    the average of this hour of the day on earlier days (before the last hours_back hours), and how many days that
+    average uses. None when there are fewer than min_days earlier days."""
+    current, base, days = _hour_matches(rows, key, tz, now_ts, hours_back)
     if current is None or len(days) < min_days or not base:
         return None
     return current, sum(base) / len(base), len(days)
+
+
+def usual_days(rows: list, key: str, tz, now_ts: float, hours_back: int = 24) -> int:
+    """How many earlier days have a reading for this hour, counted toward USUAL_DAYS for the progress note."""
+    return len(_hour_matches(rows, key, tz, now_ts, hours_back)[2])
 
 
 def compare_text(cur: float, usual: float, unit: str, neutral: float, decimals: int = 0):

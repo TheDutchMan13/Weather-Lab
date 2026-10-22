@@ -312,6 +312,11 @@ def _recent_thinned(stamp: int, station: str) -> list:
     return out
 
 
+# Above usual: amber for heat and wind, neutral grey for humidity (more muggy, not a warning). Below usual is blue.
+ABOVE_USUAL = {"tempf": theme.HEALTH_DOT["warn"], "humidity": theme.STRIP_NEUTRAL, "windspeedmph": theme.HEALTH_DOT["warn"]}
+BELOW_USUAL = theme.HEALTH_DOT["info"]
+
+
 def _glance(s: Settings, data: dict, updated: float) -> None:
     """Temperature, humidity and wind over the last 24 hours, each compared with usual for this hour."""
     metric = units.is_metric(s.units)
@@ -333,17 +338,24 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
         if found:
             note, direction = sparks.compare_text(cur, units.convert(key, found[1], metric), unit_text, neutral)
         else:
-            note, direction = "Usual for this hour builds up after five days.", None
-        # Near usual is grey: only a tile well above or below usual gets a colour.
-        edge = {"up": theme.HEALTH_DOT["fail"], "down": theme.HEALTH_DOT["info"]}.get(direction, theme.STRIP_NEUTRAL)
+            so_far = min(sparks.usual_days(rows + [(now, data)], key, _tz(s), now), sparks.USUAL_DAYS)
+            dots = "●" * so_far + "○" * (sparks.USUAL_DAYS - so_far)
+            note, direction = f"Usual for this hour: {so_far} of {sparks.USUAL_DAYS} days {dots}", None
+        # Colour says what the number means. Near usual stays grey, and red is kept for real problems.
+        above = ABOVE_USUAL[key]
+        edge = {"up": above, "down": BELOW_USUAL}.get(direction, theme.STRIP_NEUTRAL)
         tiles.append(sparks.tile_html({"label": label, "value": f"{cur:.0f}", "unit": unit_text, "series": series,
-                                       "color": color, "compare": note, "direction": direction, "edge": edge}))
+                                       "color": color, "compare": note, "direction": direction, "edge": edge,
+                                       "up_color": above, "down_color": BELOW_USUAL}))
     if tiles:
         st.markdown(theme.section_html("Last 24 hours", updated=updated), unsafe_allow_html=True)
         st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
-        for col, key in zip(st.columns(len(keys)), keys):
-            if col.button(f"{live_history.MEASURES[key][0]} history", key=f"hist-{key}"):
-                live_history.request(key)
+        # The Wind dial further down has the Wind History button, so the Wind tile doesn't add a second one.
+        button_keys = [k for k in keys if k != "windspeedmph"]
+        if button_keys:
+            for col, key in zip(st.columns(len(button_keys)), button_keys):
+                if col.button(f"{live_history.MEASURES[key][0]} history", key=f"hist-{key}"):
+                    live_history.request(key)
 
 
 @st.fragment(run_every=REFRESH_SECONDS)

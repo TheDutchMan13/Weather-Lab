@@ -691,7 +691,7 @@ def health_check_page() -> None:
         "archive_error": poller.status.archive_error,
     }
     checks = health_check.evaluate(facts, now)
-    st.markdown(theme.page_head("Health check", "Whether the collector, database, disk, backups, notifications and settings are all working."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Health check", "Whether everything Weather Lab needs to run is working."), unsafe_allow_html=True)
     counts = {state: sum(1 for c in checks if c["state"] == state) for state in ("ok", "warn", "fail", "info")}
     for col, (label, state) in zip(st.columns(4), [("OK", "ok"), ("Check", "warn"), ("Problem", "fail"), ("Info", "info")]):
         col.metric(label, counts[state])
@@ -709,7 +709,7 @@ def health_check_page() -> None:
 
 def stations_page() -> None:
     """Add, rename or remove weather stations. Each one keeps its own readings, settings, alerts and backups."""
-    st.markdown(theme.page_head("Stations", "Add, rename or remove weather stations. Each keeps its own readings, settings, alerts and backups."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Stations", "Add, rename or remove stations. Each keeps its own data and alerts."), unsafe_allow_html=True)
     st.caption("Each station keeps its own readings, settings, phone topic and backups. Pick a station in the sidebar "
                "to see it. A new station starts with default settings, so set its Ecowitt address and location under "
                "Setup and Settings after you add it.")
