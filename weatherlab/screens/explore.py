@@ -7,7 +7,7 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 from weatherlab import ask, charts, history, history_compare, rain_calendar, rain_events, replay, stations, storage, theme, units
 from weatherlab.settings import load_settings
-from weatherlab.screens.common import _all_days, _table, _tile, _tz
+from weatherlab.screens.common import _all_days, _table, _tile, _tz, empty_card
 
 
 def ask_page() -> None:
@@ -70,7 +70,7 @@ def rain_events_page() -> None:
     end = datetime.combine(today + timedelta(days=1), datetime.min.time(), tzinfo=tz).timestamp()
     found = rain_events.events(storage.readings_between(db, start, end))
     if not found:
-        st.info("No rain in this range.")
+        empty_card("No rain in this range")
         return
     wettest = max(found, key=lambda e: e["inches"])
     total = sum(e["inches"] for e in found)
@@ -210,7 +210,7 @@ def replay_page() -> None:
     start, end = replay.day_bounds(day, tz)
     rows = storage.readings_between(db, start, end)
     if not rows:
-        st.info(f"No readings for {day:%b %d, %Y}. Pick another day.")
+        empty_card(f"No readings for {day:%b %d, %Y}", "Pick another day.")
         return
     if len(rows) > 1:
         index = st.slider("Move through the day", 0, len(rows) - 1, len(rows) - 1,

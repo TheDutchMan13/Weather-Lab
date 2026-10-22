@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, health, hero, history_compare, motion, nws, sparks, stations, storage, theme, units, wind_rose, wx_icons
 from weatherlab.config import CARD_LABELS
 from weatherlab.settings import Settings, load_settings
-from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, start_poller
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, empty_card, freshness_line, start_poller
 
 
 REFRESH_SECONDS = 30
@@ -450,6 +450,7 @@ def live_page() -> None:
     if not s.station_ip:
         st.info("Set the station IP on the Setup page.")
         return
+    freshness_line()
     _today_vs_yesterday(s)
     _dew_line(s)
     live_readings()
@@ -467,7 +468,7 @@ def alerts_log_page() -> None:
     body = [[html.escape(datetime.fromtimestamp(ts, tz).strftime("%a %b %d, %I:%M %p")), html.escape(text)]
             for ts, text in rows if not query or query in text.lower()]
     if not body:
-        st.info("No alerts match that search.")
+        empty_card("No alerts match that search")
         return
     st.markdown(_table(["When", "Alert"], body, theme.is_dark()), unsafe_allow_html=True)
 
@@ -481,7 +482,7 @@ def sensors_page() -> None:
     now = time.time()
     rows = health.window(db, now - 24 * 3600, now)
     if not rows:
-        st.info("No readings in the last 24 hours yet. Check the station's connection on the Live page.")
+        empty_card("No readings in the last 24 hours yet", "Check the station's connection on the Live page.")
         return
 
     last_ts = rows[-1][0]
@@ -501,6 +502,6 @@ def sensors_page() -> None:
     st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
 
     if gap_list:
-        st.markdown("**Recent gaps**")
+        st.subheader("Recent gaps")
         st.table([{"from": health.clock(a, tz), "to": health.clock(b, tz),
                    "minutes": round((b - a) / 60)} for a, b in gap_list[-10:]])

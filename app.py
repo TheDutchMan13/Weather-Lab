@@ -78,6 +78,8 @@ PAGE_ICONS = {
 
 SIDEBAR_CSS = """<style>
 [data-testid="stSidebarNavLink"] { gap: .6rem; }
+.st-key-setup_save { position: sticky; bottom: 0; z-index: 5; padding: .75rem 0; background: rgba(128, 128, 128, .12);
+  backdrop-filter: blur(8px); border-top: 1px solid rgba(128, 128, 128, .3); }
 </style>"""
 
 

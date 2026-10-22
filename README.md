@@ -28,7 +28,7 @@ On the **Setup** page:
 7. Optional, on the **Uploads** tab: turn on **Weather Underground**, with your station ID and key from wunderground.com. The key is stored in Windows Credential Manager. It is off by default.
 8. Optional, on the **Uploads** tab: turn on **PWSweather** or **Weathercloud**, with the station ID and key from each account. Each key is stored in Windows Credential Manager. Both are off by default.
 9. Optional, on the **Uploads** tab: for **Home Assistant**, turn on MQTT. Enter the broker address (for example, the Mosquitto add-on's address on your network), and the username and password if the broker needs them. Home Assistant then finds the sensors by itself. The password is stored in Windows Credential Manager. The connection isn't encrypted, so use it on your local network only.
-10. Click **Save**.
+10. Click **Save**. The bar at the bottom of the Setup page shows how many changes are waiting.
 
 The Live page starts filling in within a minute. History builds up from the time the app starts collecting data, so charts and records grow over the first few days.
 

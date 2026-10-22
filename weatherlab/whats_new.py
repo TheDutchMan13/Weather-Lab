@@ -5,6 +5,17 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.20.0",
+        "date": "October 22, 2026",
+        "items": [
+            "Setup has a save bar at the bottom of the page. It stays in view and shows how many changes are waiting.",
+            "Live shows a line under the title: whether the station is reporting, and when its last reading came in.",
+            "Health check opens with counts of OK, check, problem and info results.",
+            "Section headings look the same on every page.",
+            "Phone alerts is now titled Phone notifications with the ntfy app, so the name is explained where it appears.",
+        ],
+    },
+    {
         "version": "0.19.0",
         "date": "October 21, 2026",
         "items": [

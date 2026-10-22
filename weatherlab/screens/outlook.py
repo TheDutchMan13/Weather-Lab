@@ -107,7 +107,7 @@ def heat_page() -> None:
     st.markdown(theme.title_html("Heat safety"), unsafe_allow_html=True)
     latest = storage.latest(db)
     if latest is None:
-        st.info("No readings yet. Heat safety fills in once the station has reported.")
+        empty_card("No readings yet", "Heat safety fills in once the station has reported.")
         return
     _, data = latest
     now = heat_safety.status(data.get("tempf"), data.get("humidity"))
@@ -172,7 +172,7 @@ def sun_page() -> None:
     st.markdown(theme.title_html("Sun and UV"), unsafe_allow_html=True)
     latest = storage.latest(db)
     if latest is None:
-        st.info("No readings yet. Sun and UV fill in once the station has reported.")
+        empty_card("No readings yet", "Sun and UV fill in once the station has reported.")
         return
     _, data = latest
     end = time.time()

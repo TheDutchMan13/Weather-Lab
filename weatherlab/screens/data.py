@@ -26,14 +26,14 @@ def reports_page() -> None:
         last = date(int(year) + (month == 12), month % 12 + 1, 1) - timedelta(days=1)
         rows = history.daily_between(db, first, last)
         if not rows:
-            st.info("No daily summaries for that month yet.")
+            empty_card("No daily summaries for that month yet")
             return
         st.download_button("Download monthly report", data=report.monthly_pdf(int(year), month, rows, units.is_metric(load_settings().units)),
                            file_name=f"weather_report_{int(year)}_{month:02d}.pdf", mime="application/pdf")
     else:
         rows = history.daily_between(db, date(int(year), 1, 1), date(int(year), 12, 31))
         if not rows:
-            st.info("No daily summaries for that year yet.")
+            empty_card("No daily summaries for that year yet")
             return
         st.download_button("Download yearly report", data=report.yearly_pdf(int(year), rows, units.is_metric(load_settings().units)),
                            file_name=f"weather_report_{int(year)}.pdf", mime="application/pdf")
@@ -119,7 +119,7 @@ def weather_underground_page() -> None:
 def _backups_section(s: Settings) -> None:
     """Daily database backups: the on/off setting, how many copies are kept, and a button to back up now."""
     folder = backup.folder_for(storage.db_path())
-    st.markdown("**Database backups**")
+    st.subheader("Database backups")
     enabled = st.checkbox("Back up the database once a day", value=s.backup_enabled, key="backup_on")
     keep = int(st.number_input("Backups to keep", min_value=1, max_value=365, value=int(s.backup_keep), step=1,
                                key="backup_keep"))
@@ -161,7 +161,7 @@ def _backups_section(s: Settings) -> None:
 
 def _daily_export(db, today: date) -> None:
     """Download one row per day: the highs, lows, rain, wind and sun for the range you choose."""
-    st.markdown("**Daily summaries as a spreadsheet file**")
+    st.subheader("Daily summaries as a spreadsheet file")
     st.caption("Values are in US units: degrees Fahrenheit, inches, miles per hour, miles and hours.")
     start = st.date_input("Daily summaries from", value=today - timedelta(days=365), max_value=today, key="daily_csv_from")
     end = st.date_input("Daily summaries to", value=today - timedelta(days=1), max_value=today, key="daily_csv_to")
@@ -170,7 +170,7 @@ def _daily_export(db, today: date) -> None:
         return
     rows = history.daily_between(db, start, end)
     if not rows:
-        st.info("No daily summaries in that range.")
+        empty_card("No daily summaries in that range")
         return
     st.download_button("Download daily summaries (CSV)", data=history.daily_csv(rows),
                        file_name=f"weather_daily_{start.isoformat()}_{end.isoformat()}.csv", mime="text/csv")
@@ -244,7 +244,7 @@ def _monthly_section(db, tz: ZoneInfo, today: date) -> None:
 
 def _readings_export(db, tz: ZoneInfo, today: date) -> None:
     """Download readings for a date range, in the same format the CSV Import page reads."""
-    st.markdown("**Readings as CSV**")
+    st.subheader("Readings as CSV")
     st.write("Download readings as a CSV file. It uses the same format as the CSV Import page, so you can "
              "import it on another computer. Times are in the timezone on the Setup page.")
     start = st.date_input("From", value=today - timedelta(days=30), max_value=today)
@@ -254,7 +254,7 @@ def _readings_export(db, tz: ZoneInfo, today: date) -> None:
         return
     rows = storage.readings_between(db, *exports.day_range_ts(start, end, tz))
     if not rows:
-        st.info("No readings in that range. Try a wider range, or check that the station has been reporting.")
+        empty_card("No readings in that range", "Try a wider range, or check that the station has been reporting.")
         return
     st.write(f"{len(rows)} readings ready.")
     st.download_button("Download CSV", data=importer.export_csv(rows, tz),

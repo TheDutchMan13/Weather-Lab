@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from weatherlab import airquality, charts, lightning_history, nws, secrets, storage, theme, tropics, units
 from weatherlab.config import RISK_COLORS
 from weatherlab.settings import load_settings
-from weatherlab.screens.common import _clock, _tile, _tz, start_poller
+from weatherlab.screens.common import _clock, _tile, _tz, empty_card, start_poller
 
 
 # ---------------------------------------------------------------- Air
@@ -25,7 +25,7 @@ def air_page() -> None:
     poller = start_poller()
     row = storage.latest_aqi(storage.connect())
     if row is None:
-        st.info("No air quality reading yet. Weather Lab checks AirNow about every 30 minutes, and AirNow updates about once an hour.")
+        empty_card("No air quality reading yet", "Weather Lab checks AirNow about every 30 minutes, and AirNow updates about once an hour.")
         if poller.status.aqi_error:
             st.warning(poller.status.aqi_error)
         return
@@ -60,7 +60,7 @@ def lightning_page() -> None:
     last = storage.latest_strike(db)
 
     if last is None:
-        st.info("No lightning recorded yet. Strikes appear here when the station reports them.")
+        empty_card("No lightning recorded yet", "Strikes appear here when the station reports them.")
     else:
         last_ts, last_mi = last
         when = datetime.fromtimestamp(last_ts, tz).strftime("%b %d, %H:%M")
@@ -72,7 +72,7 @@ def lightning_page() -> None:
         ]), unsafe_allow_html=True)
 
     if today:
-        st.markdown("**Today**")
+        st.subheader("Today")
         st.table([{"time": datetime.fromtimestamp(ts, tz).strftime("%H:%M"),
                    f"Distance ({units.unit('miles', metric)})": round(units.convert("miles", d, metric), 1)}
                   for ts, d in reversed(today[-20:])])
@@ -84,7 +84,7 @@ def lightning_page() -> None:
     since = datetime.combine(now.date() - timedelta(days=span - 1), datetime.min.time(), tzinfo=tz).timestamp()
     by_day = lightning_history.per_day(storage.strikes_between(db, since, now.timestamp()), tz)
     if not by_day:
-        st.info("No strikes in this range.")
+        empty_card("No strikes in this range")
     else:
         dark = theme.is_dark()
         days = [d for d, _, _ in by_day]
@@ -130,7 +130,7 @@ def fire_page() -> None:
 
     forecast = rec.get("forecast") or []
     if len(forecast) > 1:
-        st.markdown("**Forecast**")
+        st.subheader("Forecast")
         st.markdown(theme.grid_html([
             _tile(f["day"], f"{f['fwi']:.1f}", _fire_day_note(f, units.is_metric(load_settings().units)))
             for f in forecast[1:]

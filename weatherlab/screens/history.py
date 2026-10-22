@@ -54,7 +54,7 @@ def daily_page() -> None:
         note = ""
 
     if not summary:
-        st.info("No summary for this day yet. A day needs at least 20 readings.")
+        empty_card("No summary for this day yet", "A day needs at least 20 readings.")
         return
 
     if summary.get("estimated"):
@@ -131,7 +131,7 @@ def history_page() -> None:
     n = options[choice]
     rows = history.daily_between(db, today - timedelta(days=n), today - timedelta(days=1))
     if not rows:
-        st.info("No daily summaries yet. Each day's summary is written once that day's readings are in, so the first ones appear after Weather Lab has run for a day.")
+        empty_card("No daily summaries yet", "Each day's summary is written once that day's readings are in, so the first ones appear after Weather Lab has run for a day.")
     else:
         _history_charts(rows, theme.is_dark())
     _compare_periods(db, today)
@@ -172,7 +172,7 @@ def _history_charts(rows: list, dark: bool) -> None:
 
 def _compare_periods(db, today: date) -> None:
     """Two date ranges side by side: totals and averages for each, and the change between them."""
-    st.markdown("**Compare two periods**")
+    st.subheader("Compare two periods")
     yesterday = today - timedelta(days=1)
     c1, c2 = st.columns(2)
     with c1:

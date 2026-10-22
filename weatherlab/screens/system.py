@@ -12,7 +12,7 @@ from weatherlab.screens.common import _clock, _tile, start_poller
 
 # ---------------------------------------------------------------- Setup
 def _password_section() -> None:
-    st.markdown("**Password for other devices**")
+    st.subheader("Password for other devices")
     st.caption("A password is set." if auth.password_set()
                else "No password yet. Other devices can't open Weather Lab until you set one.")
     new = st.text_input(f"New password (at least {auth.MIN_LENGTH} characters)", type="password", key="new-password")
@@ -119,7 +119,7 @@ def _tailscale_address() -> str | None:
 
 def _phone_alerts_section(s: Settings) -> None:
     """Alerts on your phone through the free ntfy app. The topic is kept in Windows Credential Manager."""
-    st.subheader("Phone alerts (ntfy)")
+    st.subheader("Phone notifications with the ntfy app")
     st.caption("Install the free ntfy app on your phone, then add the topic below to it. Alerts reach the phone "
                "while this PC is on and online. Anyone who knows the topic can read the alerts, so keep it private.")
     server = st.text_input("ntfy server (leave blank for ntfy.sh)", value=s.ntfy_server, key="ph_server",
@@ -350,7 +350,25 @@ def setup_page() -> None:
                            "account. This address appears here once Tailscale is running.")
             _password_section()
 
-    if st.button("Save"):
+    typed_keys = [airnow_key, wu_key, pws_key, wc_key, mqtt_pass]
+    removed_keys = [remove_key, remove_wu_key, remove_pws_key, remove_wc_key, remove_mqtt_pass]
+    changes = [
+        s.station_ip != ip.strip(), s.timezone != tz, (s.latitude or 0.0) != lat, (s.longitude or 0.0) != lon,
+        s.elevation_m != elev, s.nws_contact != contact.strip(), s.lightning_value_is_km != km,
+        s.cwop_enabled != cwop_on, s.cwop_callsign != cwop_call.strip().upper(),
+        s.wu_enabled != wu_on, s.wu_station_id != wu_id.strip(),
+        s.pws_enabled != pws_on, s.pws_station_id != pws_id.strip(),
+        s.weathercloud_enabled != wc_on, s.weathercloud_id != wc_id.strip(),
+        s.mqtt_enabled != mqtt_on, s.mqtt_host != mqtt_host.strip(), s.mqtt_port != int(mqtt_port),
+        s.mqtt_user != mqtt_user.strip(), s.mqtt_prefix != mqtt_prefix.strip().strip("/"),
+        s.mqtt_discovery != mqtt_discovery, s.allow_network != allow_network,
+    ]
+    waiting = sum(changes) + sum(1 for k in typed_keys if k.strip()) + sum(1 for r in removed_keys if r)
+    with st.container(key="setup_save"):
+        if waiting:
+            st.caption(f"{waiting} unsaved change{'' if waiting == 1 else 's'}")
+        save_clicked = st.button("Save", type="primary")
+    if save_clicked:
         ip = ip.strip()
         if ip and not valid_ip(ip):
             st.error("That isn't a valid IP address.")
@@ -418,7 +436,7 @@ def setup_page() -> None:
 
 def _notifications_section(s: Settings) -> None:
     """Sensor warnings and the morning summary, plus a button to check that Windows notifications show."""
-    st.markdown("**Notifications**")
+    st.subheader("Notifications")
     sensors_on = st.checkbox("Warn about low sensor batteries and weak signal", value=s.sensor_alerts, key="notify_sensors")
     digest_on = st.checkbox("Send a short summary each morning about yesterday", value=s.digest_enabled, key="notify_digest")
     hour = int(st.number_input("Morning summary time (hour, 0 to 23)", min_value=0, max_value=23,
@@ -446,7 +464,7 @@ def _notifications_section(s: Settings) -> None:
 
 def _quiet_section(s: Settings) -> None:
     """Quiet hours, the stuck-sensor check and the lightning notice."""
-    st.markdown("**Quiet hours and more checks**")
+    st.subheader("Quiet hours and more checks")
     quiet_on = st.checkbox("Quiet hours: hold back non-urgent notifications", value=s.quiet_enabled, key="quiet_on",
                            help="Sensor warnings, stuck-sensor warnings and the morning summary wait until quiet hours end. "
                                 "Station offline, freeze and lightning notices still sound.")
@@ -466,7 +484,7 @@ def _quiet_section(s: Settings) -> None:
 
 def _alert_extras_section(s: Settings) -> None:
     """UV, air quality and fire danger notices, rain start and stop, and the optional version check address."""
-    st.markdown("**More notices**")
+    st.subheader("More notices")
     uv_on = st.checkbox("UV index notice", value=s.uv_alerts, key="ex_uv")
     uv_level = float(st.number_input("UV level for the notice", min_value=1.0, max_value=15.0,
                                      value=float(s.uv_alert_level), step=1.0, key="ex_uv_level"))
@@ -521,7 +539,7 @@ def _alert_rules_section() -> None:
                 st.rerun()
     recent = start_poller().status.recent_alerts[:5]
     if recent:
-        st.markdown("**Recent alerts**")
+        st.subheader("Recent alerts")
         for ts, text in recent:
             st.caption(f"{_clock(ts)}  {text}")
 
@@ -636,6 +654,9 @@ def health_check_page() -> None:
     }
     checks = health_check.evaluate(facts, now)
     st.markdown(theme.title_html("Health check"), unsafe_allow_html=True)
+    counts = {state: sum(1 for c in checks if c["state"] == state) for state in ("ok", "warn", "fail", "info")}
+    for col, (label, state) in zip(st.columns(4), [("OK", "ok"), ("Check", "warn"), ("Problem", "fail"), ("Info", "info")]):
+        col.metric(label, counts[state])
     if any(c["state"] in ("warn", "fail") for c in checks):
         st.warning(health_check.summary(checks))
     else:
