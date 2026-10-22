@@ -51,7 +51,7 @@ def unusual_page() -> None:
                    "Temperatures are in °F.")
     found = _unusual_days(metric, stations.current())
     if not found:
-        st.info("Nothing stands out in the last year.")
+        empty_card("Nothing stands out in the last year.")
         return
     body = [[html.escape(day.strftime("%a %b %d, %Y")), html.escape("; ".join(reasons))] for day, reasons in found]
     st.markdown(_table(["Day", "Why it stands out"], body, theme.is_dark()), unsafe_allow_html=True)
@@ -156,7 +156,7 @@ def rain_calendar_page() -> None:
     st.markdown(theme.title_html("Rain calendar"), unsafe_allow_html=True)
     rain = {day: data.get("rain_in") for day, data in history.all_daily(db)}
     if not any(v is not None for v in rain.values()):
-        st.info("The rain calendar fills in once there are daily summaries. Each day's rain is added after that day's readings are in.")
+        empty_card("The rain calendar fills in once there are daily summaries.", "Each day's rain is added after that day's readings are in.")
         return
 
     totals, rainy = rain_calendar.year_totals(rain)
@@ -172,9 +172,9 @@ def rain_calendar_page() -> None:
               "" if wettest is None else f"{wettest[0]:%b %d}"),
     ]), unsafe_allow_html=True)
 
-    st.subheader("Year at a glance")
+    st.markdown(theme.section_html("Year at a glance"), unsafe_allow_html=True)
     charts.show(_year_heatmap(year, rain, p, dark, metric))
-    st.subheader("Month by month")
+    st.markdown(theme.section_html("Month by month"), unsafe_allow_html=True)
     st.caption(f"Each day shows its rain in {'millimetres' if metric else 'inches'}. Darker days got more rain.")
     for first in (1, 4, 7, 10):
         cols = st.columns(3)
@@ -182,7 +182,7 @@ def rain_calendar_page() -> None:
             with col:
                 st.markdown(_month_html(year, month, rain, p, metric), unsafe_allow_html=True)
 
-    st.subheader("Year totals")
+    st.markdown(theme.section_html("Year totals"), unsafe_allow_html=True)
     rain_dec = 1 if metric else 2
     noaa_rain = _noaa_rain_by_year(storage.connect())
     unit = units.unit("dailyrainin", metric)

@@ -5,6 +5,17 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.2",
+        "date": "October 22, 2026",
+        "items": [
+            "What's New shows each version as a card, and marks the latest one.",
+            "Every page with nothing to show yet uses the same card: what is missing, and why.",
+            "Section headings look the same on every page.",
+            "Removing an alert rule, the phone topic, the password or a station asks you to confirm first.",
+            "Clearing a saved key is marked on the page and only happens when you press Save. Keep the key undoes the mark.",
+        ],
+    },
+    {
         "version": "0.22.1",
         "date": "October 22, 2026",
         "items": [

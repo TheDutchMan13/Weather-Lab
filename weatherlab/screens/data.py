@@ -127,7 +127,7 @@ def weather_underground_page() -> None:
 def _backups_section(s: Settings) -> None:
     """Daily database backups: the on/off setting, how many copies are kept, and a button to back up now."""
     folder = backup.folder_for(storage.db_path())
-    st.subheader("Database backups")
+    st.markdown(theme.section_html("Database backups"), unsafe_allow_html=True)
     enabled = st.checkbox("Back up the database once a day", value=s.backup_enabled, key="backup_on")
     keep = int(st.number_input("Backups to keep", min_value=1, max_value=365, value=int(s.backup_keep), step=1,
                                key="backup_keep"))
@@ -169,7 +169,7 @@ def _backups_section(s: Settings) -> None:
 
 def _daily_export(db, today: date) -> None:
     """Download one row per day: the highs, lows, rain, wind and sun for the range you choose."""
-    st.subheader("Daily summaries as a spreadsheet file")
+    st.markdown(theme.section_html("Daily summaries as a spreadsheet file"), unsafe_allow_html=True)
     st.caption("Values are in US units: degrees Fahrenheit, inches, miles per hour, miles and hours.")
     start = st.date_input("Daily summaries from", value=today - timedelta(days=365), max_value=today, key="daily_csv_from")
     end = st.date_input("Daily summaries to", value=today - timedelta(days=1), max_value=today, key="daily_csv_to")
@@ -252,7 +252,7 @@ def _monthly_section(db, tz: ZoneInfo, today: date) -> None:
 
 def _readings_export(db, tz: ZoneInfo, today: date) -> None:
     """Download readings for a date range, in the same format the CSV Import page reads."""
-    st.subheader("Readings as CSV")
+    st.markdown(theme.section_html("Readings as CSV"), unsafe_allow_html=True)
     st.write("Download readings as a CSV file. It uses the same format as the CSV Import page, so you can "
              "import it on another computer. Times are in the timezone on the Setup page.")
     start = st.date_input("From", value=today - timedelta(days=30), max_value=today)

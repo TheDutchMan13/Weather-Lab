@@ -353,7 +353,7 @@ def live_readings() -> None:
 
     row = storage.latest(storage.connect())
     if row is None:
-        st.info("Waiting for the first reading from the station. If this doesn't change within a minute, check the station IP on Setup and that the station is on the same network.")
+        empty_card("Waiting for the first reading from the station.", "If this doesn't change within a minute, check the station IP on Setup and that the station is on the same network.")
     else:
         _, data = row
         dark = theme.is_dark()
@@ -509,7 +509,7 @@ def live_page() -> None:
     s = load_settings()
     st.markdown(theme.title_html("Live"), unsafe_allow_html=True)
     if not s.station_ip:
-        st.info("Set the station IP on the Setup page.")
+        empty_card("Set the station IP on the Setup page.")
         return
     freshness_line()
     _today_vs_yesterday(s)
@@ -524,7 +524,7 @@ def alerts_log_page() -> None:
     st.markdown(theme.title_html("Alert history"), unsafe_allow_html=True)
     rows = storage.recent_alerts(storage.connect(), limit=300)
     if not rows:
-        st.info("Alerts appear here once Weather Lab sends its first notification.")
+        empty_card("Alerts appear here once Weather Lab sends its first notification.")
         return
     query = st.text_input("Search alerts", key="alert_search").strip().lower()
     body = [[html.escape(datetime.fromtimestamp(ts, tz).strftime("%a %b %d, %I:%M %p")), html.escape(text)]
@@ -564,6 +564,6 @@ def sensors_page() -> None:
     st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
 
     if gap_list:
-        st.subheader("Recent gaps")
+        st.markdown(theme.section_html("Recent gaps"), unsafe_allow_html=True)
         theme.table([{"from": health.clock(a, tz), "to": health.clock(b, tz),
                       "minutes": round((b - a) / 60)} for a, b in gap_list[-10:]])

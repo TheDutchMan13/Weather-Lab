@@ -7,12 +7,12 @@ from weatherlab import alert_rules, auth, autostart, backup, discover, gateway_s
 from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
-from weatherlab.screens.common import _clock, _tile, start_poller
+from weatherlab.screens.common import _clock, _tile, clear_key_button, confirm_button, empty_card, start_poller
 
 
 # ---------------------------------------------------------------- Setup
 def _password_section() -> None:
-    st.subheader("Password for other devices")
+    st.markdown(theme.section_html("Password for other devices"), unsafe_allow_html=True)
     st.caption("A password is set." if auth.password_set()
                else "No password yet. Other devices can't open Weather Lab until you set one.")
     new = st.text_input(f"New password (at least {auth.MIN_LENGTH} characters)", type="password", key="new-password")
@@ -28,7 +28,9 @@ def _password_section() -> None:
                 st.success("Password saved.")
             except Exception as exc:
                 st.error(f"Couldn't save the password: {exc}")
-    if auth.password_set() and st.button("Remove password"):
+    if auth.password_set() and confirm_button("Remove password", "rm_password",
+                                              "Weather Lab will open without asking for a password.",
+                                              "Yes, remove password"):
         auth.clear_password()
         st.rerun()
 
@@ -61,7 +63,7 @@ def _station_tools(s: Settings) -> None:
 
 def _appearance_section(s: Settings) -> None:
     """Theme, colours, units, and the Live readings. Saved as soon as a choice changes."""
-    st.subheader("Appearance")
+    st.markdown(theme.section_html("Appearance"), unsafe_allow_html=True)
     modes = ["auto", "light", "dark"]
     theme_mode = st.radio("Theme", modes, index=modes.index(s.theme_mode), horizontal=True, key="ap_theme",
                           format_func=lambda m: {"auto": "Automatic", "light": "Light", "dark": "Dark"}[m])
@@ -98,7 +100,7 @@ def _appearance_section(s: Settings) -> None:
 
 def _startup_section() -> None:
     """Start Weather Lab when Windows signs in. Only available in the Windows app."""
-    st.subheader("Startup")
+    st.markdown(theme.section_html("Startup"), unsafe_allow_html=True)
     can_autostart = autostart.supported()
     current = autostart.is_enabled()
     on = st.checkbox("Start Weather Lab when I sign in to Windows", value=current, disabled=not can_autostart,
@@ -119,7 +121,7 @@ def _tailscale_address() -> str | None:
 
 def _phone_alerts_section(s: Settings) -> None:
     """Alerts on your phone through the free ntfy app. The topic is kept in Windows Credential Manager."""
-    st.subheader("Phone notifications with the ntfy app")
+    st.markdown(theme.section_html("Phone notifications with the ntfy app"), unsafe_allow_html=True)
     st.caption("Install the free ntfy app on your phone, then add the topic below to it. Alerts reach the phone "
                "while this PC is on and online. Anyone who knows the topic can read the alerts, so keep it private.")
     server = st.text_input("ntfy server (leave blank for ntfy.sh)", value=s.ntfy_server, key="ph_server",
@@ -129,7 +131,7 @@ def _phone_alerts_section(s: Settings) -> None:
     topic = secrets.get_key(push.TOPIC_KEY)
     if topic:
         st.code(topic, language=None)
-    left, middle, right = st.columns(3)
+    left, middle = st.columns(2)
     if left.button("Make a new topic", help="Replaces the current topic. Add the new one to the ntfy app."):
         secrets.set_key(push.TOPIC_KEY, push.new_topic())
         st.rerun()
@@ -138,14 +140,15 @@ def _phone_alerts_section(s: Settings) -> None:
             st.success("Sent. Check the ntfy app on your phone.")
         else:
             st.warning("Couldn't send it. Check the internet connection and the server address.")
-    if right.button("Remove topic", disabled=not topic):
+    if confirm_button("Remove topic", "rm_topic", "Your phone stops getting alerts until you add a new topic.",
+                      "Yes, remove topic", disabled=not topic):
         secrets.set_key(push.TOPIC_KEY, "")
         st.rerun()
 
 
 def _updates_section(s: Settings) -> None:
     """Looks for a newer version at the address the user gives, and can download and run its installer."""
-    st.subheader("Updates")
+    st.markdown(theme.section_html("Updates"), unsafe_allow_html=True)
     st.caption(f"You have Weather Lab {APP_VERSION}.")
     url = st.text_input("Update address (optional)", value=s.update_url, key="up_url",
                         help="Where Weather Lab looks for the newest version: the latest.json file that "
@@ -227,7 +230,7 @@ def setup_page() -> None:
     (station_tab, air_tab, uploads_tab, network_tab) = st.tabs(["Station", "Air", "Uploads", "Access"])
 
     with station_tab:
-        st.subheader("Where the station is")
+        st.markdown(theme.section_html("Where the station is"), unsafe_allow_html=True)
         ip = st.text_input("Station IP address", value=s.station_ip, placeholder="for example 192.168.1.224",
                            help="Shown on the GW2000's web page or in your router's device list.")
         zones = sorted(available_timezones())
@@ -238,21 +241,21 @@ def setup_page() -> None:
                               format="%.5f")
         elev = st.number_input("Elevation (meters)", value=float(s.elevation_m), min_value=-500.0,
                                max_value=9000.0, step=1.0)
-        st.subheader("Forecast requests")
+        st.markdown(theme.section_html("Forecast requests"), unsafe_allow_html=True)
         contact = st.text_input("Contact email (optional)", value=s.nws_contact,
                                 help="Sent to the National Weather Service with forecast requests.")
         if s.latitude is None or s.longitude is None:
             st.caption("Set your latitude and longitude so sun hours and forecasts can be calculated.")
 
     with air_tab:
-        st.subheader("Air quality (optional)")
+        st.markdown(theme.section_html("Air quality (optional)"), unsafe_allow_html=True)
         has_key = bool(secrets.get_key("airnow"))
         airnow_key = st.text_input(
             "AirNow API key", type="password",
             placeholder="Saved in Windows Credential Manager" if has_key else "Paste your free AirNow key",
             help="Get a free key from the AirNow API website. It is stored in Windows Credential Manager, not in a file.")
-        remove_key = st.checkbox("Remove the saved AirNow key", value=False, disabled=not has_key)
-        st.subheader("Lightning")
+        remove_key = clear_key_button("airnow", "AirNow key", has_key)
+        st.markdown(theme.section_html("Lightning"), unsafe_allow_html=True)
         km = st.checkbox("The station's lightning distance is in kilometres", value=s.lightning_value_is_km,
                          help="Some GW2000 firmware labels kilometres as miles. Turn this on if the distances look too small.")
 
@@ -285,7 +288,7 @@ def setup_page() -> None:
                 "Station key", type="password",
                 placeholder="Saved in Windows Credential Manager" if wu_key_saved else "Paste your station key",
                 help="Stored in Windows Credential Manager, not in a file.")
-            remove_wu_key = st.checkbox("Remove the saved Weather Underground key", value=False, disabled=not wu_key_saved)
+            remove_wu_key = clear_key_button("wu", "Weather Underground key", wu_key_saved)
             if wu_on:
                 _upload_note(poll.wu_error, poll.wu_last, "sent to Weather Underground")
 
@@ -297,7 +300,7 @@ def setup_page() -> None:
             pws_key_saved = bool(secrets.get_key(pwsweather.KEY_NAME))
             pws_key = st.text_input("PWSweather station key", type="password",
                                     placeholder="Saved in Windows Credential Manager" if pws_key_saved else "Paste your station key")
-            remove_pws_key = st.checkbox("Remove the saved PWSweather key", value=False, disabled=not pws_key_saved)
+            remove_pws_key = clear_key_button("pws", "PWSweather key", pws_key_saved)
             if pws_on:
                 _upload_note(poll.pws_error, poll.pws_last, "sent to PWSweather")
 
@@ -309,7 +312,7 @@ def setup_page() -> None:
             wc_key_saved = bool(secrets.get_key(weathercloud.KEY_NAME))
             wc_key = st.text_input("Weathercloud device key", type="password",
                                    placeholder="Saved in Windows Credential Manager" if wc_key_saved else "Paste your device key")
-            remove_wc_key = st.checkbox("Remove the saved Weathercloud key", value=False, disabled=not wc_key_saved)
+            remove_wc_key = clear_key_button("wc", "Weathercloud key", wc_key_saved)
             if wc_on:
                 _upload_note(poll.wc_error, poll.wc_last, "sent to Weathercloud")
 
@@ -324,7 +327,7 @@ def setup_page() -> None:
             mqtt_pass = st.text_input("Broker password", type="password",
                                       placeholder="Saved in Windows Credential Manager" if mqtt_pass_saved
                                       else "Leave blank if the broker has no password")
-            remove_mqtt_pass = st.checkbox("Remove the saved MQTT password", value=False, disabled=not mqtt_pass_saved)
+            remove_mqtt_pass = clear_key_button("mqtt", "MQTT password", mqtt_pass_saved)
             mqtt_prefix = st.text_input("Topic prefix", value=s.mqtt_prefix,
                                         help="Each reading is sent to a topic under this prefix, for example weatherlab/home/temperature.")
             mqtt_discovery = st.checkbox("Add the sensors to Home Assistant automatically", value=s.mqtt_discovery,
@@ -333,7 +336,7 @@ def setup_page() -> None:
                 _upload_note(poll.mqtt_error, poll.mqtt_last, "published to MQTT")
 
     with network_tab:
-        st.subheader("Phones and devices")
+        st.markdown(theme.section_html("Phones and devices"), unsafe_allow_html=True)
         allow_network = st.checkbox(
             "Let phones and devices on my network open Weather Lab", value=s.allow_network,
             help="Opens the app to other devices on your Wi-Fi or network. Restart Weather Lab after changing this.")
@@ -440,7 +443,7 @@ def setup_page() -> None:
 
 def _notifications_section(s: Settings) -> None:
     """Sensor warnings and the morning summary, plus a button to check that Windows notifications show."""
-    st.subheader("Notifications")
+    st.markdown(theme.section_html("Notifications"), unsafe_allow_html=True)
     sensors_on = st.checkbox("Warn about low sensor batteries and weak signal", value=s.sensor_alerts, key="notify_sensors")
     digest_on = st.checkbox("Send a short summary each morning about yesterday", value=s.digest_enabled, key="notify_digest")
     hour = int(st.number_input("Morning summary time (hour, 0 to 23)", min_value=0, max_value=23,
@@ -468,7 +471,7 @@ def _notifications_section(s: Settings) -> None:
 
 def _quiet_section(s: Settings) -> None:
     """Quiet hours, the stuck-sensor check and the lightning notice."""
-    st.subheader("Quiet hours and more checks")
+    st.markdown(theme.section_html("Quiet hours and more checks"), unsafe_allow_html=True)
     quiet_on = st.checkbox("Quiet hours: hold back non-urgent notifications", value=s.quiet_enabled, key="quiet_on",
                            help="Sensor warnings, stuck-sensor warnings and the morning summary wait until quiet hours end. "
                                 "Station offline, freeze and lightning notices still sound.")
@@ -488,7 +491,7 @@ def _quiet_section(s: Settings) -> None:
 
 def _alert_extras_section(s: Settings) -> None:
     """UV, air quality and fire danger notices, rain start and stop, and the optional version check address."""
-    st.subheader("Other warnings")
+    st.markdown(theme.section_html("Other warnings"), unsafe_allow_html=True)
     uv_on = st.checkbox("UV index notice", value=s.uv_alerts, key="ex_uv")
     uv_level = float(st.number_input("UV level for the notice", min_value=1.0, max_value=15.0,
                                      value=float(s.uv_alert_level), step=1.0, key="ex_uv_level"))
@@ -512,7 +515,7 @@ def _alert_extras_section(s: Settings) -> None:
 
 def _alert_rules_section() -> None:
     s = load_settings()
-    st.subheader("Alert rules")
+    st.markdown(theme.section_html("Alert rules"), unsafe_allow_html=True)
     st.caption("Weather Lab sends a notification when a rule's conditions hold. A rule repeats at most once an hour, "
                "unless it escalates: then it becomes more serious the longer it lasts.")
     metric = units.is_metric(s.units)
@@ -520,9 +523,8 @@ def _alert_rules_section() -> None:
     if not rules:
         st.caption("No rules yet.")
     for i, rule in enumerate(rules):
-        left, right = st.columns([5, 1])
-        left.write(alert_rules.describe(rule, metric))
-        if right.button("Remove", key=f"rule-remove-{i}"):
+        st.write(alert_rules.describe(rule, metric))
+        if confirm_button("Remove this rule", f"rule-remove-{i}", "This rule stops sending alerts.", "Yes, remove rule"):
             save_settings(replace(s, alert_rules=rules[:i] + rules[i + 1:]))
             st.rerun()
     labels = {label: key for key, (label, _) in alert_rules.METRICS.items()}
@@ -567,7 +569,7 @@ def _alert_rules_section() -> None:
                 st.rerun()
     recent = start_poller().status.recent_alerts[:5]
     if recent:
-        st.subheader("Recent alerts")
+        st.markdown(theme.section_html("Recent alerts"), unsafe_allow_html=True)
         for ts, text in recent:
             st.caption(f"{_clock(ts)}  {text}")
 
@@ -584,9 +586,11 @@ def _gateway_sensors(ip: str) -> list[dict] | None:
 
 def whats_new_page() -> None:
     st.markdown(theme.title_html("What's New"), unsafe_allow_html=True)
-    for entry in whats_new.ENTRIES:
-        st.markdown(f"**Version {entry['version']}** · {entry['date']}")
-        st.markdown("\n".join(f"- {item}" for item in entry["items"]))
+    for i, entry in enumerate(whats_new.ENTRIES):
+        note = f"{entry['date']} · latest" if i == 0 else entry["date"]
+        with st.container(border=True):
+            st.markdown(theme.section_html(f"Version {entry['version']}", note), unsafe_allow_html=True)
+            st.markdown("\n".join(f"- {item}" for item in entry["items"]))
 
 
 def status_page() -> None:
@@ -628,11 +632,11 @@ def status_page() -> None:
     ]), unsafe_allow_html=True)
 
     if not ip:
-        st.info("Set the station IP on the Setup page to see sensor battery and signal.")
+        empty_card("Set the station IP on the Setup page to see sensor battery and signal.")
     elif raw is None:
         st.caption("Battery and signal aren't available right now. The station may be off or offline.")
     elif sensors:
-        st.subheader("Sensors")
+        st.markdown(theme.section_html("Sensors"), unsafe_allow_html=True)
         theme.table([{"Sensor": x["name"], "Battery": x["battery_text"] or "--",
                    "Radio signal": x["signal_text"] or "--"} for x in sensors])
     else:
@@ -713,7 +717,7 @@ def stations_page() -> None:
     theme.table([{"Station": r["name"], "Folder": str(stations.folder(r["id"])),
                   "Showing now": "Yes" if r["id"] == stations.current() else ""} for r in rows])
 
-    st.subheader("Add a station")
+    st.markdown(theme.section_html("Add a station"), unsafe_allow_html=True)
     with st.form("add_station", clear_on_submit=True):
         name = st.text_input("Name", placeholder="Back garden")
         if st.form_submit_button("Add station"):
@@ -725,7 +729,7 @@ def stations_page() -> None:
                 st.rerun()
 
     if len(rows) > 1:
-        st.subheader("Rename or remove")
+        st.markdown(theme.section_html("Rename or remove"), unsafe_allow_html=True)
         pick = st.selectbox("Station", [r["id"] for r in rows], format_func=stations.name_of, key="station_manage")
         new_name = st.text_input("New name", value=stations.name_of(pick), key=f"rename_{pick}")
         if st.button("Save name"):
@@ -734,7 +738,8 @@ def stations_page() -> None:
         if pick != stations.MAIN:
             st.caption(f"Removing a station stops its collector. Its folder ({stations.folder(pick)}) is kept, so "
                        "adding a station with the same name brings its readings back.")
-            if st.button("Remove station"):
+            if confirm_button("Remove station", "rm_station",
+                              "The station stops collecting readings. Its folder is kept.", "Yes, remove station"):
                 stations.remove_station(pick)
                 if stations.current() == pick:
                     st.session_state["pending_station"] = stations.MAIN

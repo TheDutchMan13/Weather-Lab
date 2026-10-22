@@ -16,10 +16,10 @@ def air_page() -> None:
     tz = _tz(s)
     st.markdown(theme.title_html("Air quality"), unsafe_allow_html=True)
     if not secrets.get_key("airnow"):
-        st.info("Add a free AirNow API key on the Setup page to see air quality.")
+        empty_card("Add a free AirNow API key on the Setup page to see air quality.")
         return
     if s.latitude is None or s.longitude is None:
-        st.info("Set your latitude and longitude on the Setup page.")
+        empty_card("Set your latitude and longitude on the Setup page.")
         return
 
     poller = start_poller()
@@ -72,13 +72,13 @@ def lightning_page() -> None:
         ]), unsafe_allow_html=True)
 
     if today:
-        st.subheader("Today")
+        st.markdown(theme.section_html("Today"), unsafe_allow_html=True)
         theme.table([{"time": datetime.fromtimestamp(ts, tz).strftime("%H:%M"),
                    f"Distance ({units.unit('miles', metric)})": round(units.convert("miles", d, metric), 1)}
                   for ts, d in reversed(today[-20:])])
     st.caption("Counts only strikes the app saw while it was running. Distances follow the switch on the Setup page.")
 
-    st.subheader("History")
+    st.markdown(theme.section_html("History"), unsafe_allow_html=True)
     span_choice = st.radio("Range", ["30 days", "1 year"], index=0, horizontal=True, key="lightning_range")
     span = 30 if span_choice == "30 days" else 365
     since = datetime.combine(now.date() - timedelta(days=span - 1), datetime.min.time(), tzinfo=tz).timestamp()
@@ -116,7 +116,7 @@ def fire_page() -> None:
     st.markdown(theme.title_html("Fire weather"), unsafe_allow_html=True)
     rec = storage.latest_fire(db)
     if rec is None:
-        st.info("Fire weather appears once the station has sent readings for an hour. It updates every hour.")
+        empty_card("Fire weather appears once the station has sent readings for an hour.", "It updates every hour.")
         return
     st.markdown(theme.grid_html([
         _tile("Fire Weather Index", f"{rec['fwi']:.1f}", f"as of {rec['timestamp'][11:16]}"),
@@ -130,7 +130,7 @@ def fire_page() -> None:
 
     forecast = rec.get("forecast") or []
     if len(forecast) > 1:
-        st.subheader("Forecast")
+        st.markdown(theme.section_html("Forecast"), unsafe_allow_html=True)
         st.markdown(theme.grid_html([
             _tile(f["day"], f"{f['fwi']:.1f}", _fire_day_note(f, units.is_metric(load_settings().units)))
             for f in forecast[1:]
@@ -159,7 +159,7 @@ def tropics_page() -> None:
     metric = units.is_metric(s.units)
     st.markdown(theme.title_html("Tropics"), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        st.info("Set your latitude and longitude on the Setup page to see how far each storm is from you.")
+        empty_card("Set your latitude and longitude on the Setup page to see how far each storm is from you.")
         return
     cache = tropics.refresh((s.latitude, s.longitude), storage.db_path().parent / "tropics.json")
     if not cache.get("checked"):
@@ -201,7 +201,7 @@ def radar_page() -> None:
     s = load_settings()
     st.markdown(theme.title_html("Radar"), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        st.info("Set your latitude and longitude on the Setup page to show the radar for your area.")
+        empty_card("Set your latitude and longitude on the Setup page to show the radar for your area.")
         return
     station = ""
     try:

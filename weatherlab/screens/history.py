@@ -172,7 +172,7 @@ def _history_charts(rows: list, dark: bool) -> None:
 
 def _compare_periods(db, today: date) -> None:
     """Two date ranges side by side: totals and averages for each, and the change between them."""
-    st.subheader("Compare two periods")
+    st.markdown(theme.section_html("Compare two periods"), unsafe_allow_html=True)
     yesterday = today - timedelta(days=1)
     c1, c2 = st.columns(2)
     with c1:
@@ -225,7 +225,7 @@ def coverage_page() -> None:
     st.markdown(theme.title_html("Coverage"), unsafe_allow_html=True)
     days = dict(history.all_daily(db))
     if not days:
-        st.info("Coverage appears once Weather Lab has a finished day to record.")
+        empty_card("Coverage appears once Weather Lab has a finished day to record.")
         return
     options = {"30 days": 30, "90 days": 90, "1 year": 365, "All": None}
     choice = st.radio("Show", list(options), index=2, horizontal=True, key="coverage_span")
@@ -326,7 +326,7 @@ def rankings_page() -> None:
     st.markdown(theme.title_html("Rankings"), unsafe_allow_html=True)
     days = _all_days(stations.current())
     if not days:
-        st.info("Rankings appear once there are daily summaries. Each day's summary is written once that day's readings are in.")
+        empty_card("Rankings appear once there are daily summaries.", "Each day's summary is written once that day's readings are in.")
         return
     choice = st.selectbox("Rank the days by", list(RANKINGS), key="rank_choice")
     key, kind, unit_key, unit_text, decimals = RANKINGS[choice]
@@ -393,7 +393,7 @@ def climate_page() -> None:
     st.markdown(theme.title_html("Climate charts"), unsafe_allow_html=True)
     table = yearly.monthly(_all_days(stations.current()))
     if not table:
-        st.info("Monthly charts appear once there are daily summaries. Each day's summary is written once that day's readings are in.")
+        empty_card("Monthly charts appear once there are daily summaries.", "Each day's summary is written once that day's readings are in.")
         return
     years = sorted(table)
     months = [calendar.month_abbr[m] for m in range(1, 13)]
@@ -427,7 +427,7 @@ def my_year_page() -> None:
     days = _all_days(stations.current())
     years = sorted({day.year for day, _ in days}, reverse=True)
     if not years:
-        st.info("A year in review appears once there are daily summaries.")
+        empty_card("A year in review appears once there are daily summaries.")
         return
     year = st.selectbox("Year", years, key="my_year_pick")
     summary = yearly.year_summary(days, year, hot_f=100.4 if metric else 100.0, freeze_f=32.0)

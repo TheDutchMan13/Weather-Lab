@@ -43,6 +43,43 @@ def empty_card(message: str, detail: str = "") -> None:
             st.caption(detail)
 
 
+def confirm_button(label: str, key: str, question: str, confirm_label: str, disabled: bool = False) -> bool:
+    """A button that asks first. The first click shows the question with Confirm and Cancel. True only on a confirmed click."""
+    armed = f"ask_{key}"
+    if st.session_state.get(armed):
+        st.caption(question)
+        yes, no = st.columns(2)
+        if yes.button(confirm_label, key=f"yes_{key}", type="primary"):
+            st.session_state[armed] = False
+            return True
+        if no.button("Cancel", key=f"no_{key}"):
+            st.session_state[armed] = False
+            st.rerun()
+        return False
+    if st.button(label, key=key, disabled=disabled):
+        st.session_state[armed] = True
+        st.rerun()
+    return False
+
+
+def clear_key_button(name: str, label: str, saved: bool) -> bool:
+    """Marks a saved key to be removed when Save is pressed, and offers to keep it. True while it is marked."""
+    flag = f"clear_key_{name}"
+    if not saved:
+        st.session_state[flag] = False
+        return False
+    if st.session_state.get(flag):
+        st.warning(f"The saved {label} will be removed when you press Save.")
+        if st.button(f"Keep the {label}", key=f"keep_key_{name}"):
+            st.session_state[flag] = False
+            st.rerun()
+        return True
+    if st.button(f"Clear the saved {label}", key=f"clear_key_btn_{name}"):
+        st.session_state[flag] = True
+        st.rerun()
+    return False
+
+
 def freshness_line() -> None:
     """One line under the Live title: whether the station is reporting, and how long ago its last reading came in."""
     try:

@@ -69,7 +69,7 @@ def forecast_page() -> None:
     tz = _tz(s)
     st.markdown(theme.title_html("Forecast"), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        st.info("Set your latitude and longitude on the Setup page.")
+        empty_card("Set your latitude and longitude on the Setup page.")
         return
     contact = s.nws_contact
 
@@ -189,7 +189,7 @@ def sun_page() -> None:
         _tile("Sunshine today", f"{sun_uv.sunshine_hours(sun_today):.1f} h"),
         _tile("Sunshine, last 7 days", f"{sun_uv.sunshine_hours(sun_week):.1f} h"),
     ]), unsafe_allow_html=True)
-    st.subheader("Sunburn time at this UV index")
+    st.markdown(theme.section_html("Sunburn time at this UV index"), unsafe_allow_html=True)
     theme.table([{"Skin type": k, "Minutes until sunburn": "--" if m is None else f"{m:.0f}"}
               for k in sun_uv.MED_J_M2 for m in [sun_uv.burn_minutes(uv_now, k)]])
     fig = charts.figure(dark)
@@ -209,7 +209,7 @@ def astronomy_page() -> None:
     tz = _tz(s)
     st.markdown(theme.title_html("Astronomy"), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        st.info("Set your location on the Setup page to see sunrise, sunset and the moon.")
+        empty_card("Set your location on the Setup page to see sunrise, sunset and the moon.")
         return
 
     now = datetime.now(timezone.utc)
@@ -232,7 +232,7 @@ def astronomy_page() -> None:
         _tile("Next new moon", f"{new:%b %d}"),
     ]), unsafe_allow_html=True)
 
-    st.subheader("Next 7 days")
+    st.markdown(theme.section_html("Next 7 days"), unsafe_allow_html=True)
     rows = []
     for offset in range(7):
         day = today + timedelta(days=offset)
