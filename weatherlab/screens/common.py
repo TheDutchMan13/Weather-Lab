@@ -35,6 +35,14 @@ def _clock(ts: float) -> str:
     return time.strftime("%H:%M:%S", time.localtime(ts))
 
 
+def empty_card(message: str, detail: str = "") -> None:
+    """The card a page shows when it has no data yet: what is missing, and when it fills in if known."""
+    with st.container(border=True):
+        st.markdown(f"**{message}**")
+        if detail:
+            st.caption(detail)
+
+
 def _tile(label: str, value: str, note: str = "") -> str:
     body = theme.tile_html(html.escape(label), html.escape(value))
     if note:

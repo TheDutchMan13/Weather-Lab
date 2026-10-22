@@ -201,12 +201,31 @@ def settings_page() -> None:
         _startup_section()
 
 
+def _service_status(enabled: bool, error: str, last: float | None, verb: str = "sent") -> str:
+    """The short status on an upload's card, such as On, last sent 16:12:04."""
+    if not enabled:
+        return "Off"
+    if error:
+        return "On, needs attention"
+    if last:
+        return f"On, last {verb} {_clock(last)}"
+    return "On, waiting for the first send"
+
+
+def _upload_note(error: str, last: float | None, action: str) -> None:
+    """Under an upload's settings: the problem it last reported, or when it last sent readings."""
+    if error:
+        st.warning(error)
+    elif last:
+        st.caption(f"Last {action} {_clock(last)}")
+
+
 def setup_page() -> None:
     st.markdown(theme.title_html("Setup"), unsafe_allow_html=True)
     s = load_settings()
     _station_tools(s)
     (station_tab, air_tab, uploads_tab, network_tab) = st.tabs(
-        ["Station", "Air and lightning", "Uploads", "Network access"])
+        ["Station", "Air and lightning", "Uploads", "Phone and device access"])
 
     with station_tab:
         ip = st.text_input("Station IP address", value=s.station_ip, placeholder="for example 192.168.1.224",
@@ -237,109 +256,85 @@ def setup_page() -> None:
                          help="Some GW2000 firmware labels kilometres as miles. Turn this on if the distances look too small.")
 
     with uploads_tab:
-        st.caption("Each upload is off by default. Keys are kept in Windows Credential Manager, not in a file.")
-        st.subheader("CWOP (optional, public)")
-        cwop_on = st.checkbox(
-            "Send my readings to CWOP",
-            value=s.cwop_enabled,
-            help="The Citizen Weather Observer Program shows your station on public weather maps such as aprs.fi. "
-                 "Your station's location becomes public. Off by default.",
-        )
-        cwop_call = st.text_input("CWOP callsign", value=s.cwop_callsign,
-                                  placeholder="for example CW1234 or your amateur callsign")
-        if cwop_on:
-            cwop_status = start_poller().status
-            if cwop_status.cwop_error:
-                st.warning(cwop_status.cwop_error)
-            elif cwop_status.cwop_last:
-                st.caption(f"Last sent to CWOP {_clock(cwop_status.cwop_last)}")
+        st.caption("Each service is off by default. Keys are kept in Windows Credential Manager, not in a file.")
+        poll = start_poller().status
 
-    with uploads_tab:
-        st.divider()
-        st.subheader("Weather Underground (optional, public)")
-        wu_on = st.checkbox(
-            "Send my readings to Weather Underground",
-            value=s.wu_enabled,
-            help="Weather Underground shows your station on its public map. Get the station ID and key from your "
-                 "station's page on wunderground.com. Off by default.",
-        )
-        wu_id = st.text_input("Station ID", value=s.wu_station_id, placeholder="for example KAZPHOEN123")
-        wu_key_saved = bool(secrets.get_key(wunderground.KEY_NAME))
-        wu_key = st.text_input(
-            "Station key", type="password",
-            placeholder="Saved in Windows Credential Manager" if wu_key_saved else "Paste your station key",
-            help="Stored in Windows Credential Manager, not in a file.")
-        remove_wu_key = st.checkbox("Remove the saved Weather Underground key", value=False, disabled=not wu_key_saved)
-        if wu_on:
-            wu_status = start_poller().status
-            if wu_status.wu_error:
-                st.warning(wu_status.wu_error)
-            elif wu_status.wu_last:
-                st.caption(f"Last sent to Weather Underground {_clock(wu_status.wu_last)}")
+        with st.expander(f"CWOP · {_service_status(s.cwop_enabled, poll.cwop_error, poll.cwop_last)}"):
+            cwop_on = st.checkbox(
+                "Send my readings to CWOP",
+                value=s.cwop_enabled,
+                help="The Citizen Weather Observer Program shows your station on public weather maps such as aprs.fi. "
+                     "Your station's location becomes public. Off by default.",
+            )
+            cwop_call = st.text_input("CWOP callsign", value=s.cwop_callsign,
+                                      placeholder="for example CW1234 or your amateur callsign")
+            if cwop_on:
+                _upload_note(poll.cwop_error, poll.cwop_last, "sent to CWOP")
 
-    with uploads_tab:
-        st.divider()
-        st.subheader("PWSweather (optional, public)")
-        pws_on = st.checkbox("Send my readings to PWSweather", value=s.pws_enabled,
-                             help="PWSweather shows your station on its public map. Get the station ID and key from your "
-                                  "PWSweather account. Off by default.")
-        pws_id = st.text_input("PWSweather station ID", value=s.pws_station_id)
-        pws_key_saved = bool(secrets.get_key(pwsweather.KEY_NAME))
-        pws_key = st.text_input("PWSweather station key", type="password",
-                                placeholder="Saved in Windows Credential Manager" if pws_key_saved else "Paste your station key")
-        remove_pws_key = st.checkbox("Remove the saved PWSweather key", value=False, disabled=not pws_key_saved)
-        if pws_on:
-            pws_status = start_poller().status
-            if pws_status.pws_error:
-                st.warning(pws_status.pws_error)
-            elif pws_status.pws_last:
-                st.caption(f"Last sent to PWSweather {_clock(pws_status.pws_last)}")
-        st.divider()
-        st.subheader("Weathercloud (optional, public)")
-        wc_on = st.checkbox("Send my readings to Weathercloud", value=s.weathercloud_enabled,
-                            help="Weathercloud shows your station on its public map. Get the device ID and key from your "
-                                 "Weathercloud account. Off by default.")
-        wc_id = st.text_input("Weathercloud device ID", value=s.weathercloud_id)
-        wc_key_saved = bool(secrets.get_key(weathercloud.KEY_NAME))
-        wc_key = st.text_input("Weathercloud device key", type="password",
-                               placeholder="Saved in Windows Credential Manager" if wc_key_saved else "Paste your device key")
-        remove_wc_key = st.checkbox("Remove the saved Weathercloud key", value=False, disabled=not wc_key_saved)
-        if wc_on:
-            wc_status = start_poller().status
-            if wc_status.wc_error:
-                st.warning(wc_status.wc_error)
-            elif wc_status.wc_last:
-                st.caption(f"Last sent to Weathercloud {_clock(wc_status.wc_last)}")
+        with st.expander(f"Weather Underground · {_service_status(s.wu_enabled, poll.wu_error, poll.wu_last)}"):
+            wu_on = st.checkbox(
+                "Send my readings to Weather Underground",
+                value=s.wu_enabled,
+                help="Weather Underground shows your station on its public map. Get the station ID and key from your "
+                     "station's page on wunderground.com. Off by default.",
+            )
+            wu_id = st.text_input("Station ID", value=s.wu_station_id, placeholder="for example KAZPHOEN123")
+            wu_key_saved = bool(secrets.get_key(wunderground.KEY_NAME))
+            wu_key = st.text_input(
+                "Station key", type="password",
+                placeholder="Saved in Windows Credential Manager" if wu_key_saved else "Paste your station key",
+                help="Stored in Windows Credential Manager, not in a file.")
+            remove_wu_key = st.checkbox("Remove the saved Weather Underground key", value=False, disabled=not wu_key_saved)
+            if wu_on:
+                _upload_note(poll.wu_error, poll.wu_last, "sent to Weather Underground")
 
-    with uploads_tab:
-        st.divider()
-        st.subheader("Home Assistant over MQTT (optional)")
-        mqtt_on = st.checkbox("Send my readings to an MQTT broker", value=s.mqtt_enabled,
-                              help="Use this with Home Assistant's Mosquitto add-on or another broker on your network. "
-                                   "Off by default.")
-        mqtt_host = st.text_input("Broker address", value=s.mqtt_host, placeholder="for example 192.168.1.20")
-        mqtt_port = st.number_input("Broker port", min_value=1, max_value=65535, value=int(s.mqtt_port), step=1)
-        mqtt_user = st.text_input("Broker username", value=s.mqtt_user)
-        mqtt_pass_saved = bool(secrets.get_key(mqtt_publish.KEY_NAME))
-        mqtt_pass = st.text_input("Broker password", type="password",
-                                  placeholder="Saved in Windows Credential Manager" if mqtt_pass_saved
-                                  else "Leave blank if the broker has no password")
-        remove_mqtt_pass = st.checkbox("Remove the saved MQTT password", value=False, disabled=not mqtt_pass_saved)
-        mqtt_prefix = st.text_input("Topic prefix", value=s.mqtt_prefix,
-                                    help="Each reading is sent to a topic under this prefix, for example weatherlab/home/temperature.")
-        mqtt_discovery = st.checkbox("Add the sensors to Home Assistant automatically", value=s.mqtt_discovery,
-                                     help="Sends Home Assistant discovery messages once an hour. Turn this off if you add the sensors yourself.")
-        if mqtt_on:
-            mqtt_status = start_poller().status
-            if mqtt_status.mqtt_error:
-                st.warning(mqtt_status.mqtt_error)
-            elif mqtt_status.mqtt_last:
-                st.caption(f"Last published to MQTT {_clock(mqtt_status.mqtt_last)}")
+        with st.expander(f"PWSweather · {_service_status(s.pws_enabled, poll.pws_error, poll.pws_last)}"):
+            pws_on = st.checkbox("Send my readings to PWSweather", value=s.pws_enabled,
+                                 help="PWSweather shows your station on its public map. Get the station ID and key from your "
+                                      "PWSweather account. Off by default.")
+            pws_id = st.text_input("PWSweather station ID", value=s.pws_station_id)
+            pws_key_saved = bool(secrets.get_key(pwsweather.KEY_NAME))
+            pws_key = st.text_input("PWSweather station key", type="password",
+                                    placeholder="Saved in Windows Credential Manager" if pws_key_saved else "Paste your station key")
+            remove_pws_key = st.checkbox("Remove the saved PWSweather key", value=False, disabled=not pws_key_saved)
+            if pws_on:
+                _upload_note(poll.pws_error, poll.pws_last, "sent to PWSweather")
+
+        with st.expander(f"Weathercloud · {_service_status(s.weathercloud_enabled, poll.wc_error, poll.wc_last)}"):
+            wc_on = st.checkbox("Send my readings to Weathercloud", value=s.weathercloud_enabled,
+                                help="Weathercloud shows your station on its public map. Get the device ID and key from your "
+                                     "Weathercloud account. Off by default.")
+            wc_id = st.text_input("Weathercloud device ID", value=s.weathercloud_id)
+            wc_key_saved = bool(secrets.get_key(weathercloud.KEY_NAME))
+            wc_key = st.text_input("Weathercloud device key", type="password",
+                                   placeholder="Saved in Windows Credential Manager" if wc_key_saved else "Paste your device key")
+            remove_wc_key = st.checkbox("Remove the saved Weathercloud key", value=False, disabled=not wc_key_saved)
+            if wc_on:
+                _upload_note(poll.wc_error, poll.wc_last, "sent to Weathercloud")
+
+        with st.expander(f"Home Assistant over MQTT · {_service_status(s.mqtt_enabled, poll.mqtt_error, poll.mqtt_last, 'published')}"):
+            mqtt_on = st.checkbox("Send my readings to an MQTT broker", value=s.mqtt_enabled,
+                                  help="Use this with Home Assistant's Mosquitto add-on or another broker on your network. "
+                                       "Off by default.")
+            mqtt_host = st.text_input("Broker address", value=s.mqtt_host, placeholder="for example 192.168.1.20")
+            mqtt_port = st.number_input("Broker port", min_value=1, max_value=65535, value=int(s.mqtt_port), step=1)
+            mqtt_user = st.text_input("Broker username", value=s.mqtt_user)
+            mqtt_pass_saved = bool(secrets.get_key(mqtt_publish.KEY_NAME))
+            mqtt_pass = st.text_input("Broker password", type="password",
+                                      placeholder="Saved in Windows Credential Manager" if mqtt_pass_saved
+                                      else "Leave blank if the broker has no password")
+            remove_mqtt_pass = st.checkbox("Remove the saved MQTT password", value=False, disabled=not mqtt_pass_saved)
+            mqtt_prefix = st.text_input("Topic prefix", value=s.mqtt_prefix,
+                                        help="Each reading is sent to a topic under this prefix, for example weatherlab/home/temperature.")
+            mqtt_discovery = st.checkbox("Add the sensors to Home Assistant automatically", value=s.mqtt_discovery,
+                                         help="Sends Home Assistant discovery messages once an hour. Turn this off if you add the sensors yourself.")
+            if mqtt_on:
+                _upload_note(poll.mqtt_error, poll.mqtt_last, "published to MQTT")
 
     with network_tab:
-        st.subheader("Phones and other devices")
+        st.subheader("Phones and devices")
         allow_network = st.checkbox(
-            "Let phones and other devices on my home network open Weather Lab", value=s.allow_network,
+            "Let phones and devices on my network open Weather Lab", value=s.allow_network,
             help="Opens the app to other devices on your Wi-Fi or network. Restart Weather Lab after changing this.")
         if allow_network:
             st.caption("Other devices must sign in with a password. Set one below.")

@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from weatherlab import astro, charts, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, wind_rose
 from weatherlab.settings import Settings, load_settings
-from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, start_poller
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, empty_card, start_poller
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -145,7 +145,7 @@ def wind_page() -> None:
     rows = [r for _, r in storage.readings_between(db, end - WIND_PERIODS[period] * 86400, end + 1)]
     counts, total = wind_rose.rose(rows)
     if total == 0:
-        st.info("No wind readings for this period yet.")
+        empty_card("No wind readings yet", "Wind readings appear once the station has reported for this period.")
         return
     speeds = [r["windspeedmph"] for r in rows if r.get("windspeedmph") is not None]
     gusts = [r["windgustmph"] for r in rows if r.get("windgustmph") is not None]

@@ -101,7 +101,7 @@ def evaluate(f: dict, now: float) -> list[dict]:
         add("Air quality", "info", "No AirNow key saved. It's optional.")
 
     if f.get("allow_network"):
-        add("Network access", "info", "Phones and other devices on your network can open Weather Lab.")
+        add("Phone and device access", "info", "Phones and devices on your network can open Weather Lab.")
     if f.get("update_available"):
         add("Updates", "info", f"Version {f['update_available']} is available.")
     return out

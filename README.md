@@ -34,7 +34,7 @@ The Live page starts filling in within a minute. History builds up from the time
 
 ## Stations
 
-If you run more than one station, open **System > Stations** and add each one by name. Each station keeps its own readings, settings, alerts and backups. Pick the station in the sidebar; the picker appears once a second station exists. A new station starts with default settings, so set its IP address and location on its **Setup** page. Removing a station stops its collection but keeps its folder. Adding a station with the same name again brings its readings back.
+If you run more than one station, open **Configure > Stations** and add each one by name. Each station keeps its own readings, settings, alerts and backups. Pick the station in the sidebar; the picker appears once a second station exists. A new station starts with default settings, so set its IP address and location on its **Setup** page. Removing a station stops its collection but keeps its folder. Adding a station with the same name again brings its readings back.
 
 ## Updates
 
@@ -46,7 +46,7 @@ Each download is checked against a published checksum before the installer runs.
 
 ## Pages
 
-The sidebar groups the pages into seven sections: Now, History, Explore, Outlook, Hazards, Data and System.
+The sidebar groups the pages into seven sections: Now, History, Explore, Outlook, Hazards, Data and Configure.
 
 - **Now:** **Live** (current readings with heat index, wind chill, and humidex when they apply), **Sensors** (how complete the readings are, and any gaps), and **Alert history**.
 - **History:** **Daily** (one day's summary, with a PDF report download), **History** (rain totals and daily charts), **Records** (highs and lows since the app started collecting data), **Coverage**, **Rankings**, **Rewind**, **Climate charts**, and **My year**.
@@ -54,11 +54,11 @@ The sidebar groups the pages into seven sections: Now, History, Explore, Outlook
 - **Outlook:** **Forecast** (NWS alerts, an Overview of the next 24 hours with rain streaks when rain is likely, and the next 7 days with rain chance and wind; United States only), **Heat**, **Wind**, **Sun**, and **Astronomy**.
 - **Hazards:** **Air** (AirNow air quality; needs a key and a location), **Fire** (Canadian Fire Weather Index and forecast; United States forecast only), **Lightning** (recent strikes), **Tropics**, and **Radar**.
 - **Data:** **Import**, **Export** (downloads of readings and daily summaries, plus the database backups), and **Reports** (monthly and yearly PDF reports).
-- **System:** **Status**, **Health check**, **What's New**, **Setup**, **Settings**, and **Stations**.
+- **Configure:** **Setup**, **Settings**, **Stations**, **Status**, **Health check**, and **What's New**.
 
 ## Phone and other devices
 
-On the **Setup** page, open the **Network access** tab and turn on "Let phones and other devices on my home network open Weather Lab", then restart Weather Lab. Open the address shown on Setup from a phone on the same Wi-Fi. Other devices must sign in with the password you set on Setup. Only turn this on for a network you trust. If Windows asks about the firewall, allow Private networks.
+On the **Setup** page, open the **Phone and device access** tab and turn on "Let phones and other devices on my home network open Weather Lab", then restart Weather Lab. Open the address shown on Setup from a phone on the same Wi-Fi. Other devices must sign in with the password you set on Setup. Only turn this on for a network you trust. If Windows asks about the firewall, allow Private networks.
 
 ## Where your data lives
 

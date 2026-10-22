@@ -8,7 +8,7 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 from weatherlab import charts, coverage, daily, history, history_compare, report, stations, storage, theme, units, yearly
 from weatherlab.settings import load_settings
-from weatherlab.screens.common import _all_days, _table, _tile, _tz
+from weatherlab.screens.common import _all_days, _table, _tile, _tz, empty_card
 
 
 def _conv(key: str, values: list, metric: bool) -> list:
@@ -187,7 +187,7 @@ def _compare_periods(db, today: date) -> None:
     a = history_compare.period_stats(history.daily_between(db, a_start, a_end))
     b = history_compare.period_stats(history.daily_between(db, b_start, b_end))
     if not a["days"] and not b["days"]:
-        st.info("Neither period has daily summaries yet.")
+        empty_card("Not enough days yet", "Neither period has daily summaries yet.")
         return
     metric = units.is_metric(load_settings().units)
     # (label, key, format, reading key used for units or None, unit text when there is none)
@@ -294,7 +294,7 @@ def records_page() -> None:
     st.markdown(theme.title_html("Records"), unsafe_allow_html=True)
     items = history.records(storage.connect())
     if not items:
-        st.info("Records appear once there are a few days of summaries to compare. They fill in as Weather Lab keeps collecting.")
+        empty_card("Records aren't ready yet", "Records appear once there are a few days of summaries to compare. They fill in as Weather Lab keeps collecting.")
         return
     metric = units.is_metric(load_settings().units)
     tiles = [_tile(r["label"], _record_text(r, metric),
@@ -332,7 +332,7 @@ def rankings_page() -> None:
     key, kind, unit_key, unit_text, decimals = RANKINGS[choice]
     top = yearly.ranking(days, key, kind, 10)
     if not top:
-        st.info("No days have that measure yet.")
+        empty_card("Nothing to rank yet", "No days have that measure yet.")
         return
     rows = []
     for i, (day, value) in enumerate(top, 1):
@@ -350,7 +350,7 @@ def rewind_page() -> None:
     picked = st.date_input("Day and month to look up", value=today, max_value=today, key="rewind_day")
     rows = yearly.on_this_day(days, picked.month, picked.day)
     if not rows:
-        st.info(f"No summaries for {picked.strftime('%B %d')} yet.")
+        empty_card(f"No summaries for {picked.strftime('%B %d')} yet", "Each day's summary is built from that day's readings.")
         return
     tiles = []
     for day, sm in rows:

@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from weatherlab import backup, ecowitt_import, exports, history, importer, report, storage, theme, units
 from weatherlab.settings import Settings, load_settings, save_settings
 from zoneinfo import ZoneInfo
-from weatherlab.screens.common import _tz, start_poller
+from weatherlab.screens.common import _tz, empty_card, start_poller
 
 
 # ---------------------------------------------------------------- Reports
@@ -194,7 +194,7 @@ def _all_history_section(s: Settings, today: date) -> None:
     files = _all_history(_tz(s).key, today)
     st.caption("Everything the station has collected. The files are rebuilt at most every ten minutes.")
     if not files["readings_count"] and not files["daily_count"]:
-        st.info("No readings have been collected yet.")
+        empty_card("No readings yet", "Readings appear here once the station has reported.")
         return
     left, right = st.columns(2)
     if files["readings"]:
@@ -205,28 +205,40 @@ def _all_history_section(s: Settings, today: date) -> None:
                               file_name=f"weather_daily_all_{today.isoformat()}.csv", mime="text/csv")
 
 
+def _size_text(data) -> str:
+    """A file size for a download button, such as 6.2 MB."""
+    size = len(data.encode("utf-8")) if isinstance(data, str) else len(data)
+    return f"{size / 1_000_000:.1f} MB" if size >= 1_000_000 else f"{max(size, 1) / 1000:.0f} KB"
+
+
 def _monthly_section(db, tz: ZoneInfo, today: date) -> None:
+    latest = storage.latest(db)
+    # Open on the month of the newest reading, so the usual download is one click away.
+    newest = datetime.fromtimestamp(latest[0], tz).date() if latest else today
     years = list(range(today.year, today.year - 10, -1))
     year_col, month_col = st.columns(2)
-    year = int(year_col.selectbox("Year", years, key="export_year"))
-    month = int(month_col.selectbox("Month", range(1, 13), index=today.month - 1,
+    year = int(year_col.selectbox("Year", years, index=years.index(newest.year) if newest.year in years else 0,
+                                  key="export_year"))
+    month = int(month_col.selectbox("Month", range(1, 13), index=newest.month - 1,
                                     format_func=lambda m: MONTH_NAMES[m - 1], key="export_month"))
     first, last = exports.month_bounds(year, month)
     if first > today:
-        st.info("That month hasn't started yet.")
+        empty_card("That month hasn't started yet.")
         return
     readings = storage.readings_between(db, *exports.day_range_ts(first, last, tz))
     daily = history.daily_between(db, first, min(last, today - timedelta(days=1)))
     label = f"{MONTH_NAMES[month - 1]} {year}"
     if not readings and not daily:
-        st.info(f"No data for {label}.")
+        empty_card(f"No data for {label}", "Pick another month, or check that the station was reporting then.")
         return
     left, right = st.columns(2)
     if readings:
-        left.download_button(f"Readings for {label} (CSV)", data=importer.export_csv(readings, tz),
+        csv = importer.export_csv(readings, tz)
+        left.download_button(f"Readings for {label} (CSV) · {len(readings):,} rows · {_size_text(csv)}", data=csv,
                              file_name=f"weather_readings_{year}_{month:02d}.csv", mime="text/csv")
     if daily:
-        right.download_button(f"Daily summaries for {label} (CSV)", data=history.daily_csv(daily),
+        csv = history.daily_csv(daily)
+        right.download_button(f"Daily summaries for {label} (CSV) · {len(daily):,} days · {_size_text(csv)}", data=csv,
                               file_name=f"weather_daily_{year}_{month:02d}.csv", mime="text/csv")
 
 

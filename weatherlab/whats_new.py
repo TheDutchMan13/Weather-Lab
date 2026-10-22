@@ -5,6 +5,18 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.19.0",
+        "date": "October 21, 2026",
+        "items": [
+            "The last sidebar section is now Configure: Setup, Settings, Stations, Status, Health check and What's New.",
+            "Pages use simple line icons instead of emoji, so they line up and follow the theme.",
+            "Setup, Uploads: each service is a card whose header shows its status, such as On, last sent 16:12:04. Open a card to change its settings.",
+            "Network access is now Phone and device access, on Setup and in Health check.",
+            "Export: each monthly download shows its row count and file size, and the month picker opens on the latest month with readings.",
+            "Pages with no data yet show the same card, with what is missing and, where it is known, when it fills in.",
+        ],
+    },
+    {
         "version": "0.18.0",
         "date": "October 21, 2026",
         "items": [
