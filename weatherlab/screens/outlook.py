@@ -126,7 +126,7 @@ def heat_page() -> None:
     fig = charts.figure(dark)
     xs = [datetime.fromtimestamp(ts, _tz(s)) for ts, _, _ in series]
     fig.add_scatter(x=xs, y=[units.convert("tempf", t, metric) for _, t, _ in series], name="Air temperature", mode="lines",
-                    line=dict(color=charts.CHART_COLORS[0]))
+                    line=dict(color=charts.MEASURE["temp"]))
     fig.add_scatter(x=xs, y=[units.convert("heat_index", h, metric) for _, _, h in series], name="Heat index", mode="lines",
                     line=dict(color=charts.CHART_COLORS[1]))
     charts.show(fig)
@@ -194,7 +194,7 @@ def sun_page() -> None:
               for k in sun_uv.MED_J_M2 for m in [sun_uv.burn_minutes(uv_now, k)]])
     fig = charts.figure(dark)
     fig.add_scatter(x=[datetime.fromtimestamp(ts, _tz(s)) for ts, _ in uv_today], y=[u for _, u in uv_today],
-                    mode="lines", name="UV index", line=dict(color=charts.CHART_COLORS[2]))
+                    mode="lines", name="UV index", line=dict(color=charts.MEASURE["uv"]))
     charts.show(fig)
     st.caption("Estimates from the station's UV reading. They assume full sun with no shade and no sunscreen.")
 

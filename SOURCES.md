@@ -105,3 +105,10 @@ None.
 - Ecowitt import: five column names (outdoor temperature and humidity high and low, wind gust) match the dashboard's import_ecowitt_export.py. The full column list still needs a real export to check.
 
 - weatherlab/readings_daily.py: new, built for this app (not in the dashboard). Days from 5-minute and 4-hour Ecowitt exports, 5 PM to 5 PM like the daily export. 4-hour days are marked estimated. Checked against a 5-minute day (October 20): 4-hour high 92.3 vs 5-minute 95.0, low 71.6 vs 69.6.
+
+## Colours matched to the dashboard (22 Oct 2026)
+- weatherlab/charts.py: PAL (the nine named colours), MEASURE (one colour per measure) and CHART_COLORS (the multi-series list), copied from the dashboard's utils/chart_cfg.py and config.py CHART_COLORS.
+- Accent blue #4ea1ff in weatherlab/config.py, weatherlab/theme.py (both modes) and the health dot, from the dashboard's PAL "blue".
+- Charts use the measure colours: temperature amber, rain violet, wind and humidity and UV and lightning quiet grey-blue, gust green dashed, pressure gold, dew point teal. Series on the same chart use CHART_COLORS in order.
+- Not copied: the white newest-point marker, and the dashboard's storm and dust colour scales.
+

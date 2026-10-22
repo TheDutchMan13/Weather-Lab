@@ -18,15 +18,15 @@ FONT = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"  # tiles and he
 
 # Card colours (utils/live_cards.py _k).
 LIGHT = {"page": "#ffffff", "surface": "#f8f9fa", "text": "#1c2330", "muted": "#5b6472",
-         "card": "#ffffff", "line": "#e3e7ee", "sub": "#f4f6f9", "accent": "#4a9eff"}
+         "card": "#ffffff", "line": "#e3e7ee", "sub": "#f4f6f9", "accent": "#4ea1ff"}
 DARK = {"page": "#0e1117", "surface": "#161b22", "text": "#e8eaed", "muted": "#9aa3b0",
-        "card": "#161b24", "line": "#262d3a", "sub": "#1b2130", "accent": "#58a6ff"}
+        "card": "#161b24", "line": "#262d3a", "sub": "#1b2130", "accent": "#4ea1ff"}
 
 # Page colours (utils/theme.py LIGHT_PALETTE and DARK_PALETTE).
 PAGE_LIGHT = {"background": "#ffffff", "surface": "#f8f9fa", "border": "#e0e0e0",
-              "text": "#1a1a1a", "text_muted": "#666666", "accent": "#4a9eff"}
+              "text": "#1a1a1a", "text_muted": "#666666", "accent": "#4ea1ff"}
 PAGE_DARK = {"background": "#0e1117", "surface": "#161b22", "border": "#30363d",
-             "text": "#e0e0e0", "text_muted": "#999999", "accent": "#58a6ff"}
+             "text": "#e0e0e0", "text_muted": "#999999", "accent": "#4ea1ff"}
 
 # Selected pill-tab colours (wxdash/live_glue.py inject_style): background, text.
 TAB_ON = {True: ("#23324a", "#ffffff"), False: ("#e6eefb", "#17325c")}
@@ -271,7 +271,7 @@ def status_dot(state: str) -> str:
             f'background:{color};margin-right:6px;vertical-align:middle"></span>')
 
 
-HEALTH_DOT = {"ok": "#2fbf71", "warn": "#e0a526", "fail": "#e5533d", "info": "#4a9eff"}
+HEALTH_DOT = {"ok": "#2fbf71", "warn": "#e0a526", "fail": "#e5533d", "info": "#4ea1ff"}
 
 # Numbers, times and "--" placeholders: a column of only these is right-aligned.
 _NUMERIC = re.compile(r"[-+]?[\d.,:]+\s*(?:%|°[FC]?|in|mm|mph|km/h|h|m|W/m²)?|--")

@@ -12,7 +12,14 @@ import streamlit as st
 from weatherlab.settings import load_settings
 from weatherlab.theme import is_phone, page_palette
 
-CHART_COLORS = ["#4a9eff", "#4ac880", "#facc15", "#fb923c", "#f87171", "#dc2626"]
+# The dashboard's palette (utils/chart_cfg.py PAL and MEASURE, copied 22 Oct 2026). Each measure has one colour on
+# every chart. Charts with several series start with CHART_COLORS.
+PAL = {"blue": "#4ea1ff", "amber": "#e8a53c", "red": "#e5483c", "green": "#3ddc84", "gold": "#c9a66b",
+       "teal": "#2bb39a", "orange": "#f07a3c", "violet": "#8a5cf0", "quiet": "#6e78ae"}
+MEASURE = {"temp": PAL["amber"], "dew": PAL["teal"], "rain": PAL["violet"], "wind": PAL["quiet"],
+           "humidity": PAL["quiet"], "gust": "#2e9e63", "pressure": PAL["gold"], "uv": PAL["quiet"],
+           "lightning": PAL["quiet"]}
+CHART_COLORS = ["#8a5cf0", "#2e9e63", "#e8a53c", "#fb923c", "#f87171", "#dc2626"]
 CHART_FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif"
 GRID = "rgba(128,128,128,0.16)"  # the dashboard's y-axis grid colour
 TEXT = {True: "#e5e7eb", False: "#374151"}  # chart text on dark and light (utils/chart_cfg.py style_fig)

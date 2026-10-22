@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.3",
+        "date": "October 22, 2026",
+        "items": [
+            "The app uses the dashboard's colours: one accent blue for buttons, tabs and links, and one colour per measure on every chart.",
+            "Temperature is amber, rain is violet, wind, humidity and UV are quiet grey-blue, gusts are green and dashed, pressure is gold, and dew point is teal.",
+            "Charts with several series start violet, then green and amber, as on the dashboard.",
+        ],
+    },
+    {
         "version": "0.22.2",
         "date": "October 22, 2026",
         "items": [

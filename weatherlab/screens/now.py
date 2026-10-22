@@ -317,9 +317,9 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
     now = time.time()
     rows = _recent_thinned(int(now // 600), stations.current())
     day = [(ts, r) for ts, r in rows if ts >= now - 86400]
-    specs = [("tempf", "Temperature", units.unit("tempf", metric), 1.5 if metric else 3.0, charts.CHART_COLORS[3]),
-             ("humidity", "Humidity", "%", 5.0, charts.CHART_COLORS[0]),
-             ("windspeedmph", "Wind", units.speed_unit(metric), 5.0 if metric else 3.0, charts.CHART_COLORS[1])]
+    specs = [("tempf", "Temperature", units.unit("tempf", metric), 1.5 if metric else 3.0, charts.MEASURE["temp"]),
+             ("humidity", "Humidity", "%", 5.0, charts.MEASURE["humidity"]),
+             ("windspeedmph", "Wind", units.speed_unit(metric), 5.0 if metric else 3.0, charts.MEASURE["wind"])]
     tiles = []
     for key, label, unit_text, neutral, color in specs:
         if data.get(key) is None:

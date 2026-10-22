@@ -92,7 +92,7 @@ def daily_page() -> None:
     temp = charts.figure(dark)
     temp.add_trace(go.Scatter(x=times, y=_conv("tempf", [r.get("tempf") for _, r in rows], metric),
                               name=f"Temperature ({units.unit('tempf', metric)})",
-                              line=dict(color=charts.CHART_COLORS[0])))
+                              line=dict(color=charts.MEASURE["temp"])))
     temp.add_trace(go.Scatter(x=times, y=_conv("tempf", [r.get("feelslikef") for _, r in rows], metric),
                               name=f"Feels like ({units.unit('tempf', metric)})",
                               line=dict(color=charts.CHART_COLORS[3], dash="dot")))
@@ -101,10 +101,10 @@ def daily_page() -> None:
     wind = charts.figure(dark)
     wind.add_trace(go.Scatter(x=times, y=_conv("windspeedmph", [r.get("windspeedmph") for _, r in rows], metric),
                               name=f"Wind ({units.speed_unit(metric)})",
-                              line=dict(color=charts.CHART_COLORS[1])))
+                              line=dict(color=charts.MEASURE["wind"])))
     wind.add_trace(go.Scatter(x=times, y=_conv("windgustmph", [r.get("windgustmph") for _, r in rows], metric),
                               name=f"Gust ({units.speed_unit(metric)})",
-                              line=dict(color=charts.CHART_COLORS[4], dash="dot")))
+                              line=dict(color=charts.MEASURE["gust"], dash="dash")))
     charts.show(wind)
 
 
@@ -143,30 +143,30 @@ def _history_charts(rows: list, dark: bool) -> None:
     days = [d for d, _ in rows]
     temps = charts.figure(dark)
     temps.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("tempf_max") for _, r in rows], metric),
-                               name=f"High ({tu})", line=dict(color=charts.CHART_COLORS[4])))
+                               name=f"High ({tu})", line=dict(color=charts.MEASURE["temp"])))
     temps.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("tempf_min") for _, r in rows], metric),
-                               name=f"Low ({tu})", line=dict(color=charts.CHART_COLORS[0])))
+                               name=f"Low ({tu})", line=dict(color=charts.MEASURE["temp"])))
     charts.show(temps)
 
     rain = charts.figure(dark)
     rain.add_trace(go.Bar(x=days, y=_conv("dailyrainin", [r.get("rain_in", 0.0) for _, r in rows], metric),
-                          name=f"Rain ({ru})", marker_color=charts.CHART_COLORS[0]))
+                          name=f"Rain ({ru})", marker_color=charts.MEASURE["rain"]))
     charts.show(rain)
     if any(r.get("indoor_tempf_avg") is not None for _, r in rows):
         indoor = charts.figure(dark)
         indoor.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("indoor_tempf_max") for _, r in rows], metric),
-                                    name=f"Indoor high ({tu})", line=dict(color=charts.CHART_COLORS[4])))
+                                    name=f"Indoor high ({tu})", line=dict(color=charts.MEASURE["temp"])))
         indoor.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("indoor_tempf_avg") for _, r in rows], metric),
-                                    name=f"Indoor average ({tu})", line=dict(color=charts.CHART_COLORS[2])))
+                                    name=f"Indoor average ({tu})", line=dict(color=charts.CHART_COLORS[3])))
         indoor.add_trace(go.Scatter(x=days, y=_conv("tempf", [r.get("indoor_tempf_min") for _, r in rows], metric),
-                                    name=f"Indoor low ({tu})", line=dict(color=charts.CHART_COLORS[0])))
+                                    name=f"Indoor low ({tu})", line=dict(color=charts.MEASURE["temp"])))
         charts.show(indoor)
     if any(r.get("indoor_humidity_max") is not None for _, r in rows):
         damp = charts.figure(dark)
         damp.add_trace(go.Scatter(x=days, y=[r.get("indoor_humidity_max") for _, r in rows], name="Indoor humidity high (%)",
-                                  line=dict(color=charts.CHART_COLORS[1])))
+                                  line=dict(color=charts.MEASURE["humidity"])))
         damp.add_trace(go.Scatter(x=days, y=[r.get("indoor_humidity_min") for _, r in rows], name="Indoor humidity low (%)",
-                                  line=dict(color=charts.CHART_COLORS[3], dash="dot")))
+                                  line=dict(color=charts.MEASURE["humidity"], dash="dash")))
         charts.show(damp)
 
 
@@ -362,7 +362,7 @@ def rewind_page() -> None:
     fig = charts.figure(dark, height=300)
     fig.add_trace(go.Bar(x=[str(day.year) for day, _ in with_high],
                          y=[units.convert("tempf", sm["tempf_max"], metric) for _, sm in with_high],
-                         name=f"High ({units.unit('tempf', metric)})", marker_color=charts.CHART_COLORS[3]))
+                         name=f"High ({units.unit('tempf', metric)})", marker_color=charts.MEASURE["temp"]))
     charts.show(fig)
 
 
@@ -452,5 +452,5 @@ def my_year_page() -> None:
         fig = charts.figure(dark, height=300)
         fig.add_trace(go.Bar(x=[calendar.month_abbr[m] for m in months],
                              y=[units.convert("dailyrainin", monthly_rain[m]["rain"], metric) for m in months],
-                             name=f"Rain ({units.unit('dailyrainin', metric)})", marker_color=charts.CHART_COLORS[0]))
+                             name=f"Rain ({units.unit('dailyrainin', metric)})", marker_color=charts.MEASURE["rain"]))
         charts.show(fig)

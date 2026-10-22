@@ -227,5 +227,26 @@ class HealthGroupTests(unittest.TestCase):
         self.assertEqual([title for title, _ in health_check.grouped(checks)], ["Storage", "This app"])
 
 
+class DashboardPaletteTests(unittest.TestCase):
+    """Read from the source, so these run without Streamlit or Plotly installed."""
+    ROOT = Path(__file__).resolve().parent.parent
+
+    def _source(self, name):
+        return (self.ROOT / "weatherlab" / name).read_text(encoding="utf-8")
+
+    def test_measures_use_the_dashboard_colours(self):
+        text = self._source("charts.py")
+        self.assertIn('"temp": PAL["amber"]', text)
+        self.assertIn('"rain": PAL["violet"]', text)
+        self.assertIn('"wind": PAL["quiet"]', text)
+        self.assertIn('CHART_COLORS = ["#8a5cf0", "#2e9e63", "#e8a53c", "#fb923c", "#f87171", "#dc2626"]', text)
+
+    def test_accent_is_the_dashboard_blue(self):
+        self.assertIn('ACCENT_COLOR = "#4ea1ff"', self._source("config.py"))
+        theme_text = self._source("theme.py")
+        self.assertNotIn("#4a9eff", theme_text)
+        self.assertNotIn("#58a6ff", theme_text)
+
+
 if __name__ == "__main__":
     unittest.main()

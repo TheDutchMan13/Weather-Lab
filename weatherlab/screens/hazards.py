@@ -90,7 +90,7 @@ def lightning_page() -> None:
         days = [d for d, _, _ in by_day]
         counts_fig = charts.figure(dark)
         counts_fig.add_trace(go.Bar(x=days, y=[c for _, c, _ in by_day], name="Strikes",
-                                    marker_color=charts.CHART_COLORS[2]))
+                                    marker_color=charts.MEASURE["lightning"]))
         charts.show(counts_fig)
         closest_fig = charts.figure(dark)
         closest_fig.add_trace(go.Scatter(x=days, y=[units.convert("miles", m, metric) for _, _, m in by_day],

@@ -250,7 +250,7 @@ def replay_page() -> None:
     fig = charts.figure(theme.is_dark())
     fig.add_scatter(x=[datetime.fromtimestamp(t, tz) for t, _ in rows],
                     y=[units.convert("tempf", r.get("tempf"), metric) for _, r in rows],
-                    mode="lines", name="Outdoor", line=dict(color=charts.CHART_COLORS[3]))
+                    mode="lines", name="Outdoor", line=dict(color=charts.MEASURE["temp"]))
     fig.add_scatter(x=[when], y=[units.convert("tempf", reading.get("tempf"), metric)], mode="markers",
                     name="Selected time", marker=dict(size=12, color=charts.CHART_COLORS[4]))
     fig.update_yaxes(title_text=units.unit("tempf", metric))
