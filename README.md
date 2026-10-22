@@ -22,7 +22,7 @@ On the **Setup** page:
 1. Enter the station's IP address.
 2. Choose your timezone, and enter your latitude, longitude, and elevation.
 3. Choose which readings appear on the **Live** page.
-4. Optional, on the **Air and lightning** tab: paste a free **AirNow** API key for air quality. It is stored in Windows Credential Manager, not in a file. If lightning distances look too small, turn on the kilometres switch there.
+4. Optional, on the **Air** tab: paste a free **AirNow** API key for air quality. It is stored in Windows Credential Manager, not in a file. If lightning distances look too small, turn on the kilometres switch there.
 5. Optional: turn on **Start Weather Lab when I sign in to Windows**. It is under **Settings > Startup**.
 6. Optional, on the **Uploads** tab: turn on **CWOP**. This sends your readings to the public Citizen Weather Observer Program, and your station's location becomes public. It is off by default.
 7. Optional, on the **Uploads** tab: turn on **Weather Underground**, with your station ID and key from wunderground.com. The key is stored in Windows Credential Manager. It is off by default.
@@ -58,7 +58,7 @@ The sidebar groups the pages into seven sections: Now, History, Explore, Outlook
 
 ## Phone and other devices
 
-On the **Setup** page, open the **Phone and device access** tab and turn on "Let phones and other devices on my home network open Weather Lab", then restart Weather Lab. Open the address shown on Setup from a phone on the same Wi-Fi. Other devices must sign in with the password you set on Setup. Only turn this on for a network you trust. If Windows asks about the firewall, allow Private networks.
+On the **Setup** page, open the **Access** tab and turn on "Let phones and other devices on my home network open Weather Lab", then restart Weather Lab. Open the address shown on Setup from a phone on the same Wi-Fi. Other devices must sign in with the password you set on Setup. Only turn this on for a network you trust. If Windows asks about the firewall, allow Private networks.
 
 ## Where your data lives
 
@@ -68,7 +68,7 @@ The first station's settings and history are stored in `%APPDATA%\WeatherLab`. O
 
 - **"Can't reach the station":** check the IP address on the Setup page, and make sure the PC and the gateway are on the same network.
 - **Nothing on the Live page:** the reader needs a minute after you save the IP address.
-- **Lightning distances look too small:** some firmware labels kilometres as miles. Turn on the kilometres switch on the Setup page, under **Air and lightning**.
+- **Lightning distances look too small:** some firmware labels kilometres as miles. Turn on the kilometres switch on the Setup page, under **Air**.
 - **Forecast or fire weather says it's unavailable:** the National Weather Service covers the United States only.
 
 ## For developers

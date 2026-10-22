@@ -5,6 +5,19 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.21.0",
+        "date": "October 22, 2026",
+        "items": [
+            "Health check shows a coloured dot with its word for each result, such as OK or Problem, instead of an emoji.",
+            "Every table in Weather Lab has the same look: a tinted header, thin rules and numbers aligned right.",
+            "Setup's Station tab has two parts: Where the station is, and Forecast requests.",
+            "Setup's tabs have shorter names: Station, Air, Uploads and Access.",
+            "Setup has shorter notes, and an About this page section at the bottom says where your changes are saved.",
+            "Stations shows Yes in the Showing now column, instead of a tick.",
+            "Settings, Alerts: More notices is now Other warnings.",
+        ],
+    },
+    {
         "version": "0.20.0",
         "date": "October 22, 2026",
         "items": [

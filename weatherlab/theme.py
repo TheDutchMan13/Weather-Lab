@@ -9,6 +9,7 @@ Colour schemes change both sets, as they do in the dashboard.
 
 import html as _html
 import math
+import re
 import time
 
 import streamlit as st
@@ -212,6 +213,12 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
         _rule(".wx-sec span", f"font-size:13px;color:{p['muted']}"),
         _rule("[data-testid='stDataFrame'],[data-testid='stTable']",
               f"border:1px solid {p['line']};border-radius:12px;overflow:hidden"),
+        _rule(".wl-table-wrap", f"overflow-x:auto;border:1px solid {p['line']};border-radius:12px;margin-bottom:12px"),
+        _rule(".wl-table", f"width:100%;border-collapse:collapse;font-size:15px;color:{p['text']}"),
+        _rule(".wl-table th", f"text-align:left;font-size:13px;font-weight:600;color:{p['muted']};"
+                              f"background:{p['sub']};padding:9px 12px;white-space:nowrap"),
+        _rule(".wl-table td", f"padding:9px 12px;border-top:1px solid {p['line']};vertical-align:middle"),
+        _rule(".wl-table .wl-num", "text-align:right;font-variant-numeric:tabular-nums"),
         _rule("[data-testid='stImage'] img", "width:100%;height:auto;border-radius:12px"),
         "@keyframes wl-sweep{from{stroke-dasharray:0.001,var(--c)}to{stroke-dasharray:var(--v),var(--c)}}",
         "@media (prefers-reduced-motion:no-preference){.wl-sweep{animation:wl-sweep .9s ease-out}}",
@@ -262,6 +269,40 @@ def status_dot(state: str) -> str:
     color = DOT_COLORS.get(state, "#9aa3b0")
     return (f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
             f'background:{color};margin-right:6px;vertical-align:middle"></span>')
+
+
+HEALTH_DOT = {"ok": "#2fbf71", "warn": "#e0a526", "fail": "#e5533d", "info": "#4a9eff"}
+
+# Numbers, times and "--" placeholders: a column of only these is right-aligned.
+_NUMERIC = re.compile(r"[-+]?[\d.,:]+\s*(?:%|°[FC]?|in|mm|mph|km/h|h|m|W/m²)?|--")
+
+
+def state_html(state: str, label: str) -> str:
+    """A coloured dot with its word beside it, so a status never relies on colour alone."""
+    color = HEALTH_DOT.get(state, "#9aa3b0")
+    return (f'<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:{color};'
+            f'margin-right:7px;vertical-align:middle"></span><span style="vertical-align:middle">'
+            f'{_html.escape(label)}</span>')
+
+
+def table(rows: list[dict], html_cols: tuple[str, ...] = ()) -> None:
+    """The one table style every page uses. Text is escaped; a column in html_cols already holds markup, such as
+    state_html. A column whose cells are all numbers or times is right-aligned."""
+    if not rows:
+        return
+    cols = list(rows[0].keys())
+    numeric = {c for c in cols if c not in html_cols and all(_NUMERIC.fullmatch(str(r[c])) for r in rows)}
+    head = "".join(f'<th class="{"wl-num" if c in numeric else ""}">{_html.escape(str(c))}</th>' for c in cols)
+    body = ""
+    for r in rows:
+        cells = ""
+        for c in cols:
+            value = str(r[c]) if c in html_cols else _html.escape(str(r[c]))
+            cells += f'<td class="{"wl-num" if c in numeric else ""}">{value}</td>'
+        body += f"<tr>{cells}</tr>"
+    # One line, no indentation: Streamlit shows indented lines as code.
+    st.markdown(f'<div class="wl-table-wrap"><table class="wl-table"><thead><tr>{head}</tr></thead>'
+                f'<tbody>{body}</tbody></table></div>', unsafe_allow_html=True)
 
 
 def is_phone() -> bool:

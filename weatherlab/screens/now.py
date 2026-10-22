@@ -503,5 +503,5 @@ def sensors_page() -> None:
 
     if gap_list:
         st.subheader("Recent gaps")
-        st.table([{"from": health.clock(a, tz), "to": health.clock(b, tz),
-                   "minutes": round((b - a) / 60)} for a, b in gap_list[-10:]])
+        theme.table([{"from": health.clock(a, tz), "to": health.clock(b, tz),
+                      "minutes": round((b - a) / 60)} for a, b in gap_list[-10:]])

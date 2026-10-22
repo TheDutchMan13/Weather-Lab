@@ -190,7 +190,7 @@ def sun_page() -> None:
         _tile("Sunshine, last 7 days", f"{sun_uv.sunshine_hours(sun_week):.1f} h"),
     ]), unsafe_allow_html=True)
     st.subheader("Sunburn time at this UV index")
-    st.table([{"Skin type": k, "Minutes until sunburn": "--" if m is None else f"{m:.0f}"}
+    theme.table([{"Skin type": k, "Minutes until sunburn": "--" if m is None else f"{m:.0f}"}
               for k in sun_uv.MED_J_M2 for m in [sun_uv.burn_minutes(uv_now, k)]])
     fig = charts.figure(dark)
     fig.add_scatter(x=[datetime.fromtimestamp(ts, _tz(s)) for ts, _ in uv_today], y=[u for _, u in uv_today],
@@ -239,6 +239,6 @@ def astronomy_page() -> None:
         day_rise, day_set = astro.sun_times(s.latitude, s.longitude, day)
         rows.append({"Date": f"{day:%a %b %d}", "Sunrise": _local_time(day_rise, tz),
                      "Sunset": _local_time(day_set, tz)})
-    st.table(rows)
+    theme.table(rows)
     st.caption(f"Times are in {s.timezone}. Sun times use the standard NOAA method, accurate to about a minute. "
                "Moon dates can be off by about a day.")

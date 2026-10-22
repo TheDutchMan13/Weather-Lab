@@ -224,10 +224,10 @@ def setup_page() -> None:
     st.markdown(theme.title_html("Setup"), unsafe_allow_html=True)
     s = load_settings()
     _station_tools(s)
-    (station_tab, air_tab, uploads_tab, network_tab) = st.tabs(
-        ["Station", "Air and lightning", "Uploads", "Phone and device access"])
+    (station_tab, air_tab, uploads_tab, network_tab) = st.tabs(["Station", "Air", "Uploads", "Access"])
 
     with station_tab:
+        st.subheader("Where the station is")
         ip = st.text_input("Station IP address", value=s.station_ip, placeholder="for example 192.168.1.224",
                            help="Shown on the GW2000's web page or in your router's device list.")
         zones = sorted(available_timezones())
@@ -238,6 +238,7 @@ def setup_page() -> None:
                               format="%.5f")
         elev = st.number_input("Elevation (meters)", value=float(s.elevation_m), min_value=-500.0,
                                max_value=9000.0, step=1.0)
+        st.subheader("Forecast requests")
         contact = st.text_input("Contact email (optional)", value=s.nws_contact,
                                 help="Sent to the National Weather Service with forecast requests.")
         if s.latitude is None or s.longitude is None:
@@ -256,7 +257,7 @@ def setup_page() -> None:
                          help="Some GW2000 firmware labels kilometres as miles. Turn this on if the distances look too small.")
 
     with uploads_tab:
-        st.caption("Each service is off by default. Keys are kept in Windows Credential Manager, not in a file.")
+        st.caption("Each service is off by default. Keys are stored in Windows Credential Manager.")
         poll = start_poller().status
 
         with st.expander(f"CWOP · {_service_status(s.cwop_enabled, poll.cwop_error, poll.cwop_last)}"):
@@ -346,8 +347,8 @@ def setup_page() -> None:
                 st.caption(f"Away from home: on your phone, with Tailscale signed in to the same account, open "
                            f"http://{ts_address}:{network.app_port()}.")
             else:
-                st.caption("Away from home: install Tailscale on this PC and on your phone, then sign in to the same "
-                           "account. This address appears here once Tailscale is running.")
+                st.caption("Away from home: install Tailscale on this PC and your phone. The address appears here "
+                           "once Tailscale is running.")
             _password_section()
 
     typed_keys = [airnow_key, wu_key, pws_key, wc_key, mqtt_pass]
@@ -368,6 +369,9 @@ def setup_page() -> None:
         if waiting:
             st.caption(f"{waiting} unsaved change{'' if waiting == 1 else 's'}")
         save_clicked = st.button("Save", type="primary")
+    with st.expander("About this page"):
+        st.write("Changes wait in the save bar until you press Save. Keys and passwords are stored in Windows "
+                 f"Credential Manager, not in files. Settings are saved to {settings_path()}.")
     if save_clicked:
         ip = ip.strip()
         if ip and not valid_ip(ip):
@@ -484,7 +488,7 @@ def _quiet_section(s: Settings) -> None:
 
 def _alert_extras_section(s: Settings) -> None:
     """UV, air quality and fire danger notices, rain start and stop, and the optional version check address."""
-    st.subheader("More notices")
+    st.subheader("Other warnings")
     uv_on = st.checkbox("UV index notice", value=s.uv_alerts, key="ex_uv")
     uv_level = float(st.number_input("UV level for the notice", min_value=1.0, max_value=15.0,
                                      value=float(s.uv_alert_level), step=1.0, key="ex_uv_level"))
@@ -605,7 +609,7 @@ def status_page() -> None:
         st.caption("Battery and signal aren't available right now. The station may be off or offline.")
     elif sensors:
         st.subheader("Sensors")
-        st.table([{"Sensor": x["name"], "Battery": x["battery_text"] or "--",
+        theme.table([{"Sensor": x["name"], "Battery": x["battery_text"] or "--",
                    "Radio signal": x["signal_text"] or "--"} for x in sensors])
     else:
         st.caption("No paired sensors were found.")
@@ -661,8 +665,9 @@ def health_check_page() -> None:
         st.warning(health_check.summary(checks))
     else:
         st.success(health_check.summary(checks))
-    icons = {"ok": "✅ OK", "warn": "⚠️ Check", "fail": "❌ Problem", "info": "ℹ️ Info"}
-    st.table([{"Check": c["name"], "Status": icons[c["state"]], "Details": c["detail"]} for c in checks])
+    words = {"ok": "OK", "warn": "Check", "fail": "Problem", "info": "Info"}
+    theme.table([{"Check": c["name"], "Status": theme.state_html(c["state"], words[c["state"]]),
+                  "Details": c["detail"]} for c in checks], html_cols=("Status",))
     st.caption("Checked each time this page opens.")
 
 
@@ -673,8 +678,8 @@ def stations_page() -> None:
                "to see it. A new station starts with default settings, so set its Ecowitt address and location under "
                "Setup and Settings after you add it.")
     rows = stations.all_stations()
-    st.table([{"Station": r["name"], "Folder": str(stations.folder(r["id"])),
-               "Showing now": "✅" if r["id"] == stations.current() else ""} for r in rows])
+    theme.table([{"Station": r["name"], "Folder": str(stations.folder(r["id"])),
+                  "Showing now": "Yes" if r["id"] == stations.current() else ""} for r in rows])
 
     st.subheader("Add a station")
     with st.form("add_station", clear_on_submit=True):

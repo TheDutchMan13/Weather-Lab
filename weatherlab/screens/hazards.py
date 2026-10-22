@@ -73,7 +73,7 @@ def lightning_page() -> None:
 
     if today:
         st.subheader("Today")
-        st.table([{"time": datetime.fromtimestamp(ts, tz).strftime("%H:%M"),
+        theme.table([{"time": datetime.fromtimestamp(ts, tz).strftime("%H:%M"),
                    f"Distance ({units.unit('miles', metric)})": round(units.convert("miles", d, metric), 1)}
                   for ts, d in reversed(today[-20:])])
     st.caption("Counts only strikes the app saw while it was running. Distances follow the switch on the Setup page.")

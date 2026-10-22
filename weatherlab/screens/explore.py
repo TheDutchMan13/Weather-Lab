@@ -184,7 +184,7 @@ def rain_calendar_page() -> None:
 
     st.subheader("Year totals")
     rain_dec = 1 if metric else 2
-    st.table([{"Year": y, f"Rain ({units.unit('dailyrainin', metric)})":
+    theme.table([{"Year": y, f"Rain ({units.unit('dailyrainin', metric)})":
                f"{units.convert('dailyrainin', totals[y], metric):.{rain_dec}f}", "Rainy days": rainy.get(y, 0)}
               for y in sorted(totals, reverse=True)])
 
