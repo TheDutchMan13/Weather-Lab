@@ -102,6 +102,10 @@ To build without publishing, run the **Release** workflow by hand from the Actio
 
 Project layout: `app.py` (sidebar and start-up), `weatherlab/screens/` (the pages, one module for each sidebar section), `launcher.py` (desktop window), `weatherlab/` (readers, storage, and calculations), `tests/` (including `static_check.py`, which checks names and imports without running Streamlit), `.github/workflows/` (release build). `SOURCES.md` lists every piece copied from the author's dashboard. `PLAN.md` tracks the phases.
 
+## How it was made
+
+Weather Lab was built with help from Claude, an AI assistant made by Anthropic, working in Claude Code. The author chose the features, directed the work, and tested each release on their own station and PC. The code is reviewed through the tests and the release checks in this repository.
+
 ## License
 
 MIT. See `LICENSE`.
