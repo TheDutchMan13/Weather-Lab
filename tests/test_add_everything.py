@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 from unittest import mock
 
-from weatherlab import auto_reports, health_check, noaa, nws, nws_push, storage, windmap
+from weatherlab import auto_reports, health_check, history_series, noaa, nws, nws_push, storage, windmap
 
 
 class NwsPushTests(unittest.TestCase):
@@ -246,6 +246,19 @@ class DashboardPaletteTests(unittest.TestCase):
         theme_text = self._source("theme.py")
         self.assertNotIn("#4a9eff", theme_text)
         self.assertNotIn("#58a6ff", theme_text)
+
+
+class HistorySeriesTests(unittest.TestCase):
+    def test_thin_keeps_the_latest_reading_in_each_bucket(self):
+        points = [(0, 1.0), (300, 2.0), (600, 3.0), (900, 4.0), (1200, 5.0)]
+        self.assertEqual(history_series.thin(points, 600), [(300, 2.0), (900, 4.0), (1200, 5.0)])
+
+    def test_summary_gives_highest_lowest_and_average(self):
+        got = history_series.summary([(10, 60.0), (20, 75.0), (30, 50.0)])
+        self.assertEqual(got["high"], (20, 75.0))
+        self.assertEqual(got["low"], (30, 50.0))
+        self.assertAlmostEqual(got["average"], 61.6667, places=3)
+        self.assertIsNone(history_series.summary([]))
 
 
 if __name__ == "__main__":

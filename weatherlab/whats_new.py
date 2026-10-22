@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.22.4",
+        "date": "October 22, 2026",
+        "items": [
+            "Live: each Last 24 hours tile has a History button. It opens a window with the reading's chart over 24 hours, 7 days or 30 days, and its highest, lowest and average.",
+            "The Feels like and Pressure dials on Live have History buttons too.",
+            "The history window stays open while the Live page refreshes, and closes when you close it.",
+        ],
+    },
+    {
         "version": "0.22.3",
         "date": "October 22, 2026",
         "items": [

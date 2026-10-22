@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timedelta
 from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, theme, units, wind_rose, wx_icons
 from weatherlab.config import CARD_LABELS
+from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
 from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _table, _tile, _tz, empty_card, freshness_line, start_poller
 
@@ -321,9 +322,11 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
              ("humidity", "Humidity", "%", 5.0, charts.MEASURE["humidity"]),
              ("windspeedmph", "Wind", units.speed_unit(metric), 5.0 if metric else 3.0, charts.MEASURE["wind"])]
     tiles = []
+    keys = []
     for key, label, unit_text, neutral, color in specs:
         if data.get(key) is None:
             continue
+        keys.append(key)
         cur = units.convert(key, data[key], metric)
         series = [units.convert(key, r[key], metric) for _, r in day if r.get(key) is not None]
         found = sparks.hourly_usual(rows + [(now, data)], key, _tz(s), now)
@@ -336,6 +339,9 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
     if tiles:
         st.markdown(theme.section_html("Last 24 hours", updated=updated), unsafe_allow_html=True)
         st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+        for col, key in zip(st.columns(len(keys)), keys):
+            if col.button(f"{live_history.MEASURES[key][0]} history", key=f"hist-{key}"):
+                live_history.request(key)
 
 
 @st.fragment(run_every=REFRESH_SECONDS)
@@ -385,10 +391,15 @@ def live_readings() -> None:
             left, right = st.columns(2)
             with left:
                 _feels_dial(s, data)
+                if st.button("Feels like history", key="hist-feelslikef"):
+                    live_history.request("feelslikef")
             with right:
                 _pressure_dial(s, data)
+                if st.button("Pressure history", key="hist-baromrelin"):
+                    live_history.request("baromrelin")
             st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
 
+    live_history.show_pending()
     dot = _status_dot(row[0]) if row else ""
     parts = []
     if status.last_ok:

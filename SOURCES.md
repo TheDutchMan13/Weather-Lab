@@ -112,3 +112,6 @@ None.
 - Charts use the measure colours: temperature amber, rain violet, wind and humidity and UV and lightning quiet grey-blue, gust green dashed, pressure gold, dew point teal. Series on the same chart use CHART_COLORS in order.
 - Not copied: the white newest-point marker, and the dashboard's storm and dust colour scales.
 
+## Click for history (22 Oct 2026)
+- The idea of clicking a Live reading for its history window (24 hours, 7 days, 30 days, with highest, lowest and average) is from the dashboard's wxdash/detail_view.py. The code is new: weatherlab/screens/live_history.py and weatherlab/history_series.py.
+
