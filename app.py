@@ -15,6 +15,7 @@ from weatherlab.screens.hazards import air_page, fire_page, lightning_page, rada
 from weatherlab.screens.history import climate_page, coverage_page, daily_page, history_page, my_year_page, rankings_page, records_page, rewind_page
 from weatherlab.screens.now import alerts_log_page, live_page, sensors_page
 from weatherlab.screens.outlook import astronomy_page, forecast_page, heat_page, sun_page, wind_map_page, wind_page
+from weatherlab.screens.help import help_page
 from weatherlab.screens.system import health_check_page, settings_page, setup_page, stations_page, status_page, whats_new_page
 
 
@@ -25,7 +26,7 @@ GROUPS = {  # sidebar sections, each with its pages
     "Outlook": ["Forecast", "Heat", "Wind", "Wind map", "Sun", "Astronomy"],
     "Hazards": ["Air", "Fire", "Lightning", "Tropics", "Radar"],
     "Data": ["Import", "Export", "Reports"],
-    "Configure": ["Setup", "Settings", "Stations", "Status", "Health check", "What's New"],
+    "Configure": ["Setup", "Settings", "Stations", "Status", "Health check", "Help", "What's New"],
 }
 
 
@@ -70,7 +71,7 @@ PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
     "Air": "😷", "Fire": "🚒", "Lightning": "⚡", "Tropics": "🌀", "Radar": "📡",
     "Import": "📥", "Export": "📤", "Reports": "📄",
     "Status": "✅", "Health check": "🩺",
-    "What's New": "🆕", "Setup": "🧰", "Settings": "⚙️", "Stations": "📍",
+    "What's New": "🆕", "Help": "❔", "Setup": "🧰", "Settings": "⚙️", "Stations": "📍",
 }
 
 
@@ -81,7 +82,7 @@ SIDEBAR_CSS = """<style>
 </style>"""
 
 
-PAGE_FUNCS = {"Live": live_page, "Sensors": sensors_page, "Status": status_page, "Health check": health_check_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, "Daily": daily_page,
+PAGE_FUNCS = {"Live": live_page, "Sensors": sensors_page, "Status": status_page, "Health check": health_check_page, "Help": help_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, "Daily": daily_page,
               "Daily history": history_page, "Records": records_page, "Coverage": coverage_page, "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page, "Rankings": rankings_page, "Rewind": rewind_page,
               "Climate charts": climate_page, "My year": my_year_page, "Rain calendar": rain_calendar_page,
               "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,

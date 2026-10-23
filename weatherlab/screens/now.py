@@ -6,7 +6,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import time
 from datetime import datetime, timedelta
-from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons
+from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, glossary, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
@@ -280,6 +280,7 @@ def _feels_dial(s: Settings, data: dict) -> None:
     html_out, height = dials.feels_dial_html(feels, actual_f=data.get("tempf"), humidity=data.get("humidity"),
                                              dark=theme.is_dark(), metric=units.is_metric(s.units))
     components.html(motion.add(html_out, s.animate), height=height)
+    st.caption(glossary.short("feels_like"))
 
 
 def _pressure_dial(s: Settings, data: dict) -> None:
@@ -293,6 +294,7 @@ def _pressure_dial(s: Settings, data: dict) -> None:
     html_out, height = dials.pressure_dial_html(now_inhg, change, dark=theme.is_dark(),
                                                 metric=units.is_metric(s.units))
     components.html(motion.add(html_out, s.animate), height=height)
+    st.caption(glossary.short("pressure"))
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -474,6 +476,7 @@ def _dew_line(s: Settings) -> None:
     dew_point = latest[1]["dewpointf"]
     shown = units.format_value("dewpointf", dew_point, units.is_metric(s.units), 0)
     st.caption(f"Dew point {shown}: {dew.text(dew_point)}.")
+    st.caption(glossary.short("dew_point"))
     if st.button("Dew point history", key="hist-dewpointf"):
         live_history.request("dewpointf")
 

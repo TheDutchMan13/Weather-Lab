@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.27.0",
+        "date": "October 23, 2026",
+        "items": [
+            "A new Help page in the Configure section explains the terms you see: dew point, feels like, heat index, wind chill, humidity, gusts, pressure, rain, UV, air quality and more. Search it by any word.",
+            "Dew point, feels like and pressure each show a one-line explanation under their number on Live.",
+        ],
+    },
+    {
         "version": "0.26.0",
         "date": "October 23, 2026",
         "items": [
