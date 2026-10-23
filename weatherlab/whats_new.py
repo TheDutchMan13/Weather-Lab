@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.30.0",
+        "date": "October 23, 2026",
+        "items": [
+            "Settings, under Phones and devices, has a Who can reach Weather Lab note. It says in plain words who can open the app right now, how the password works, and that nothing is opened to the internet.",
+        ],
+    },
+    {
         "version": "0.29.0",
         "date": "October 23, 2026",
         "items": [

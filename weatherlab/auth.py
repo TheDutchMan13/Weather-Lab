@@ -69,3 +69,26 @@ def record_failure() -> None:
 def reset_failures() -> None:
     _state["failures"] = 0
     _state["locked_until"] = 0.0
+
+
+def reach_lines(allow_network: bool, has_password: bool, away_address: str | None) -> list[str]:
+    """Plain-words lines saying who can open Weather Lab with the current settings, for the note in Settings.
+    away_address is this PC's Tailscale address, or None when Tailscale isn't running."""
+    if not allow_network:
+        return ["Only this PC can open Weather Lab. Phones and other devices are blocked.",
+                "This PC's own window never asks for a password."]
+    lines = []
+    if has_password:
+        lines.append("Phones and devices on your home network can open Weather Lab once they type the password.")
+    else:
+        lines.append("Phones and other devices are blocked until you set a password below.")
+    if away_address:
+        lines.append("Away from home, only phones signed in to the same Tailscale account can reach it, and they "
+                     "still need the password.")
+    else:
+        lines.append("Away from home, nothing can reach Weather Lab until Tailscale is set up on this PC and your phone.")
+    lines.append("Weather Lab doesn't open anything to the internet. Only a router port forward would do that, "
+                 "and the app doesn't set one up.")
+    lines.append(f"After {MAX_FAILURES} wrong passwords, sign-in waits {LOCK_SECONDS} seconds.")
+    lines.append("This PC's own window never asks for a password.")
+    return lines

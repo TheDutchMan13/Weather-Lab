@@ -340,12 +340,16 @@ def setup_page() -> None:
         allow_network = st.checkbox(
             "Let phones and devices on my network open Weather Lab", value=s.allow_network,
             help="Opens the app to other devices on your Wi-Fi or network. Restart Weather Lab after changing this.")
+        away = _tailscale_address() if allow_network else None
+        st.markdown(theme.section_html("Who can reach Weather Lab"), unsafe_allow_html=True)
+        for line in auth.reach_lines(allow_network, auth.password_set(), away):
+            st.caption(line)
         if allow_network:
             st.caption("Other devices must sign in with a password. Set one below.")
             st.caption(f"After restarting Weather Lab, open http://{network.lan_address()}:{network.app_port()} "
                        "on a phone or computer on the same network. If Windows asks about the firewall, allow "
                        "Private networks.")
-            ts_address = _tailscale_address()
+            ts_address = away
             if ts_address:
                 st.caption(f"Away from home: on your phone, with Tailscale signed in to the same account, open "
                            f"http://{ts_address}:{network.app_port()}.")
