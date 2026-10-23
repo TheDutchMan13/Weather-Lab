@@ -22,6 +22,10 @@ class ReachNoteTests(unittest.TestCase):
         self.assertIn("same Tailscale account", with_ts)
         self.assertIn("until Tailscale is set up", without)
 
+    def test_android_line_only_when_the_api_is_on(self):
+        self.assertIn("Android app", " ".join(auth.reach_lines(True, True, None, api_on=True)))
+        self.assertNotIn("Android app", " ".join(auth.reach_lines(True, True, None)))
+
     def test_internet_and_lockout_are_always_said_when_open(self):
         text = " ".join(auth.reach_lines(True, True, None))
         self.assertIn("doesn't open anything to the internet", text)

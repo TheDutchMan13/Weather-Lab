@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.31.0",
+        "date": "October 23, 2026",
+        "items": [
+            "A read-only connection for the Android app, off by default. Turn it on in Settings under Android app, and create a token there. The token is shown once. The app can read the latest reading, today's high, low and rain, and the recent alerts. It only works while Weather Lab is open and phones and devices are allowed.",
+        ],
+    },
+    {
         "version": "0.30.0",
         "date": "October 23, 2026",
         "items": [

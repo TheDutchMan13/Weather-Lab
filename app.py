@@ -8,6 +8,7 @@ import time
 from weatherlab import auth, autofit, health, stations, storage, theme
 from weatherlab.config import APP_NAME, APP_VERSION
 from weatherlab.settings import load_settings
+from weatherlab import api
 from weatherlab.screens.common import start_poller
 from weatherlab.screens.data import _import_page, export_page, reports_page
 from weatherlab.screens.explore import ask_page, rain_calendar_page, rain_events_page, replay_page, unusual_page
@@ -179,6 +180,7 @@ def main() -> None:
     autofit.install()
     _install_app_head()
     start_poller()
+    api.ensure(cfg.api_enabled and cfg.allow_network, cfg.api_port)
     with stations.using(stations.MAIN):
         allowed = access_gate()
     if not allowed:

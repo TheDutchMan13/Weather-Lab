@@ -71,7 +71,7 @@ def reset_failures() -> None:
     _state["locked_until"] = 0.0
 
 
-def reach_lines(allow_network: bool, has_password: bool, away_address: str | None) -> list[str]:
+def reach_lines(allow_network: bool, has_password: bool, away_address: str | None, api_on: bool = False) -> list[str]:
     """Plain-words lines saying who can open Weather Lab with the current settings, for the note in Settings.
     away_address is this PC's Tailscale address, or None when Tailscale isn't running."""
     if not allow_network:
@@ -90,5 +90,7 @@ def reach_lines(allow_network: bool, has_password: bool, away_address: str | Non
     lines.append("Weather Lab doesn't open anything to the internet. Only a router port forward would do that, "
                  "and the app doesn't set one up.")
     lines.append(f"After {MAX_FAILURES} wrong passwords, sign-in waits {LOCK_SECONDS} seconds.")
+    if api_on:
+        lines.append("The Android app can also read the readings, alerts and today's summary, with its own token.")
     lines.append("This PC's own window never asks for a password.")
     return lines

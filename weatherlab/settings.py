@@ -53,6 +53,8 @@ class Settings:
     sensor_alerts: bool = True  # warn about low sensor batteries and weak signal
     digest_enabled: bool = True  # a short notification each morning about yesterday
     digest_hour: int = 7  # local hour the morning summary is sent
+    api_enabled: bool = False  # the read-only API for the Android app; needs phones and devices to be allowed too
+    api_port: int = 8600  # the port the API listens on
     weekly_digest: bool = False  # a short summary of the last 7 days, sent on Mondays with the morning summary
     offline_alerts: bool = True  # notify when the station stops sending readings
     frost_alerts: bool = True  # notify about freezing nights in the forecast

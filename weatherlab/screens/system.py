@@ -3,7 +3,7 @@
 import streamlit as st
 import time
 from dataclasses import replace
-from weatherlab import alert_rules, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground
+from weatherlab import alert_rules, api, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground
 from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
@@ -11,6 +11,35 @@ from weatherlab.screens.common import _clock, _tile, clear_key_button, confirm_b
 
 
 # ---------------------------------------------------------------- Setup
+def _api_section(s: Settings, allow_network: bool) -> None:
+    """The read-only API for the Android app: a switch, and a token shown once when it is made."""
+    st.markdown(theme.section_html("Android app"), unsafe_allow_html=True)
+    st.caption("A read-only connection for the Weather Lab Android app. It needs phones and devices to be allowed "
+               "above, and a token from this page.")
+    on = st.checkbox("Let the Android app read Weather Lab", value=s.api_enabled, key="api_on")
+    if on != s.api_enabled:
+        save_settings(replace(s, api_enabled=on))
+    api.ensure(on and allow_network, s.api_port)
+    st.caption(api.status_text())
+    if on and allow_network:
+        st.caption(f"Address on your network: http://{network.lan_address()}:{s.api_port}/api/v1/status")
+    if api.token_set():
+        st.caption("A token is set. The Android app signs in with it.")
+    else:
+        st.caption("No token yet. Create one, then copy it into the Android app.")
+    if st.button("Create a new token" if api.token_set() else "Create a token", key="api_new"):
+        st.session_state["api_token_shown"] = api.create_token()
+    shown = st.session_state.pop("api_token_shown", None)
+    if shown:
+        st.warning("Copy this token into the Android app now. It won't be shown again.")
+        st.code(shown)
+    if api.token_set() and confirm_button("Remove token", "rm_api_token",
+                                          "The Android app will stop being able to read Weather Lab.",
+                                          "Yes, remove token"):
+        api.clear_token()
+        st.rerun()
+
+
 def _password_section() -> None:
     st.markdown(theme.section_html("Password for other devices"), unsafe_allow_html=True)
     st.caption("A password is set." if auth.password_set()
@@ -342,7 +371,7 @@ def setup_page() -> None:
             help="Opens the app to other devices on your Wi-Fi or network. Restart Weather Lab after changing this.")
         away = _tailscale_address() if allow_network else None
         st.markdown(theme.section_html("Who can reach Weather Lab"), unsafe_allow_html=True)
-        for line in auth.reach_lines(allow_network, auth.password_set(), away):
+        for line in auth.reach_lines(allow_network, auth.password_set(), away, s.api_enabled and allow_network):
             st.caption(line)
         if allow_network:
             st.caption("Other devices must sign in with a password. Set one below.")
@@ -357,6 +386,7 @@ def setup_page() -> None:
                 st.caption("Away from home: install Tailscale on this PC and your phone. The address appears here "
                            "once Tailscale is running.")
             _password_section()
+        _api_section(s, allow_network)
 
     typed_keys = [airnow_key, wu_key, pws_key, wc_key, mqtt_pass]
     removed_keys = [remove_key, remove_wu_key, remove_pws_key, remove_wc_key, remove_mqtt_pass]
