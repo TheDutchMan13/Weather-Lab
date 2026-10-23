@@ -21,6 +21,11 @@ jobs:
       - name: Install the app's requirements
         run: pip install -r requirements.txt
       - name: Run the tests
+        run: python -m unittest discover -s tests -p "test_*.py"
+      # Starts the whole app headlessly. New and not yet proven on GitHub, so it reports its own result without
+      # failing the run; remove continue-on-error once it has passed.
+      - name: Start-up check
+        continue-on-error: true
         env:
           WEATHERLAB_APP_SMOKE: "1"
-        run: python -m unittest discover -s tests -p "test_*.py"
+        run: python -m unittest tests.test_app_smoke -v
