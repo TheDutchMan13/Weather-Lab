@@ -128,9 +128,54 @@ def days_from_files(sources):
             readings.append(rows)
     for day, summary in readings_daily.days_from_readings(readings).items():
         days.setdefault(day, summary)
-    if not days:
-        raise ValueError("No days were found. Export the history from ecowitt.net as an .xlsx file.")
     return days
+
+
+def readings_from_files(sources, tz):
+    """[(timestamp, reading)] for every row of the exports that aren't daily, whatever time span they cover,
+    and the most minutes between two readings. Raises ValueError when no file has readings or daily rows."""
+    out, widest, daily_files = {}, 0, 0
+    for source in sources:
+        rows = read_xlsx(source)
+        try:
+            parse_daily_rows(rows)
+            daily_files += 1
+            continue
+        except ValueError:
+            pass
+        found, minutes = readings_daily.readings_from_rows(rows)
+        for stamp, reading in found:
+            ts = int(stamp.replace(tzinfo=tz).timestamp())
+            out.setdefault(ts, (reading, minutes or 0))
+        widest = max(widest, minutes or 0)
+    return out, widest
+
+
+def store_readings(db, found, widest, tz, lat=0.0, lon=0.0, elev_m=0.0):
+    """Saves readings from an export. A reading is skipped when Weather Lab already has one within the export's own
+    interval, so readings it collected itself aren't mixed with coarser ones. Then rebuilds the summaries of the days
+    covered (days from a daily export are left alone). Returns (added, skipped, days)."""
+    from bisect import bisect_left
+    from . import daily
+    if not found:
+        return 0, 0, 0
+    lo, hi = min(found), max(found)
+    pad = int(widest * 60) + 1
+    held = sorted(r[0] for r in db.execute(
+        "SELECT ts FROM readings WHERE ts BETWEEN ?1 AND ?2 UNION SELECT ts FROM readings_archive WHERE ts BETWEEN ?1 AND ?2",
+        (lo - pad, hi + pad)))
+    rows = []
+    for ts, (reading, minutes) in sorted(found.items()):
+        near = int(minutes * 30)  # half an interval
+        i = bisect_left(held, ts - near)
+        if i < len(held) and held[i] <= ts + near:
+            continue
+        rows.append((ts, json.dumps(reading), "ecowitt"))
+    with db:
+        db.executemany("INSERT OR IGNORE INTO readings (ts, data, source) VALUES (?, ?, ?)", rows)
+    days = sorted({datetime.fromtimestamp(ts, tz).date() for ts in found})
+    daily.rollup_days(db, days, lat, lon, elev_m, tz, datetime.now(tz).date())
+    return len(rows), len(found) - len(rows), len(days)
 
 
 def store_days(db, days):

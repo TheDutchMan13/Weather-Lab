@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.33.0",
+        "date": "October 23, 2026",
+        "items": [
+            "The Ecowitt export import now accepts an export of any span of time. ecowitt.net only lets you pick whole days, so exports often don't run from 5 PM to 5 PM; before, those were refused. Now their readings are added (except where Weather Lab already has a reading at that time) and the summaries of those days are rebuilt. Exports with readings more than 5 minutes apart can be a few degrees off at the day's high and low.",
+        ],
+    },
+    {
         "version": "0.32.0",
         "date": "October 23, 2026",
         "items": [

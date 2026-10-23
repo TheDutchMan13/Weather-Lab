@@ -313,34 +313,55 @@ def _archive_section(s: Settings) -> None:
 
 # ---------------------------------------------------------------- Ecowitt export import
 def ecowitt_import_page() -> None:
+    s = load_settings()
+    tz = _tz(s)
     db = storage.connect()
-    st.markdown(theme.page_head("Ecowitt export", "Import history exports from ecowitt.net, for days Weather Lab doesn't have yet."), unsafe_allow_html=True)
-    st.write("Upload one or more history exports from ecowitt.net (.xlsx): daily, 5-minute or 4-hour. Only days Weather "
-             "Lab doesn't have yet are added; days already stored are never changed. The values must be in US units "
-             "(°F, mph, inches).")
+    st.markdown(theme.page_head("Ecowitt export", "Import history exports from ecowitt.net, for any span of time."), unsafe_allow_html=True)
+    st.write("Upload one or more history exports from ecowitt.net (.xlsx): daily, 1-minute, 5-minute, 30-minute or "
+             "4-hour. The export can cover any span of time, it doesn't have to start or end at 5 PM. Daily exports add "
+             "days Weather Lab doesn't have yet. Other exports add their readings, except where Weather Lab already "
+             "has a reading at that time, and the summaries of those days are rebuilt. Days already imported from a "
+             "daily export are never changed. The values must be in US units (°F, mph, inches).")
     up = st.file_uploader("File", type=["xlsx"], key="ecowitt-file", accept_multiple_files=True)
     if not up:
         return
     try:
-        days = ecowitt_import.days_from_files([io.BytesIO(f.getvalue()) for f in up])
+        files = [up_file.getvalue() for up_file in up]
+        days = ecowitt_import.days_from_files([io.BytesIO(f) for f in files])
+        found, widest = ecowitt_import.readings_from_files([io.BytesIO(f) for f in files], tz)
     except ValueError as exc:
         st.error(str(exc))
         return
     except Exception:
-        st.error("Couldn't read that file. Export the daily history from ecowitt.net as an .xlsx file.")
+        st.error("Couldn't read that file. Export the history from ecowitt.net as an .xlsx file.")
+        return
+    if not days and not found:
+        st.error("Nothing to import was found in that file. Export the history from ecowitt.net as an .xlsx file.")
         return
     stored = {day for day, _ in history.all_daily(db)}
     new = sorted(day for day in days if day not in stored)
-    st.write(f"The file has {len(days)} days, from {min(days):%b %d, %Y} to {max(days):%b %d, %Y}. "
-             f"{len(new)} are new and {len(days) - len(new)} are already stored.")
-    estimated = sum(1 for day in new if days[day].get("estimated"))
-    if estimated:
-        st.caption(f"{estimated} of the new days are estimates from 4-hour readings. A high or a low can fall between "
-                   "readings, so those values can be a few degrees off.")
-    if new and st.button(f"Import {len(new)} days", key="ecowitt-go"):
+    if found:
+        first = datetime.fromtimestamp(min(found), tz)
+        last = datetime.fromtimestamp(max(found), tz)
+        st.write(f"The file has {len(found)} readings, from {first:%b %d, %Y %I:%M %p} to {last:%b %d, %Y %I:%M %p}.")
+        if widest > 5:
+            st.caption(f"The readings are {widest:g} minutes apart, so a high or a low can fall between two readings "
+                       "and those summaries can be a few degrees off.")
+    elif days:
+        st.write(f"The file has {len(days)} days, from {min(days):%b %d, %Y} to {max(days):%b %d, %Y}. "
+                 f"{len(new)} are new and {len(days) - len(new)} are already stored.")
+    if st.button("Import", key="ecowitt-go"):
         with st.spinner("Importing..."):
-            added = ecowitt_import.store_days(db, {day: days[day] for day in new})
-        st.success(f"Added {added} days. They show on the Daily and Records pages.")
+            added_days = ecowitt_import.store_days(db, {day: days[day] for day in new}) if new else 0
+            added, skipped, covered = ecowitt_import.store_readings(
+                db, found, widest, tz, s.latitude or 0.0, s.longitude or 0.0, s.elevation_m)
+        parts = []
+        if added_days:
+            parts.append(f"{added_days} days from complete 5 PM to 5 PM spans")
+        if found:
+            parts.append(f"{added} readings ({skipped} skipped because Weather Lab already had one then)")
+        st.success("Added " + " and ".join(parts) + ". They show on the Daily and Records pages." if parts
+                   else "Everything in that file was already stored.")
 
 
 def noaa_page() -> None:
