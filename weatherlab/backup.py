@@ -102,3 +102,29 @@ def copy_to_folder(path: Path, target: str, keep: int) -> Path | None:
     shutil.copy2(path, copy)
     prune(folder, keep)
     return copy
+
+
+def verify(path: Path) -> tuple[bool, str]:
+    """Open a backup read-only and check it is a readable Weather Lab database with readings in it.
+    Returns (ok, plain-language result). Nothing is changed."""
+    if not path.is_file():
+        return False, "The backup file is missing."
+    try:
+        con = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+    except sqlite3.Error as exc:
+        return False, f"It could not be opened: {exc}"
+    try:
+        verdict = con.execute("PRAGMA quick_check").fetchone()
+        if not verdict or verdict[0] != "ok":
+            return False, f"The file is damaged: {verdict[0] if verdict else 'no answer'}."
+        has = con.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='readings'").fetchone()[0]
+        if not has:
+            return False, "It opens, but it has no readings table, so it is not a Weather Lab database."
+        rows = con.execute("SELECT count(*) FROM readings").fetchone()[0]
+        if rows == 0:
+            return True, "It opens and is intact, but it holds no readings yet."
+        return True, f"It opens, is intact, and holds {rows:,} readings."
+    except sqlite3.Error as exc:
+        return False, f"It could not be read: {exc}"
+    finally:
+        con.close()

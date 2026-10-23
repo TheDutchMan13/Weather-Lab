@@ -85,6 +85,7 @@ def _open(key: str) -> None:
     st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
     st.caption(f"Highest {when(found['high'][0])}. Lowest {when(found['low'][0])}.")
     fig = charts.figure(theme.is_dark())
+    charts.night_bands(fig, s.latitude, s.longitude, tz, values[0][0], values[-1][0], theme.is_dark())
     fig.add_trace(go.Scatter(x=[datetime.fromtimestamp(ts, tz) for ts, _ in values], y=[v for _, v in values],
                              mode="lines", name=label, line=dict(color=charts.MEASURE[colour], width=2)))
     charts.show(fig)

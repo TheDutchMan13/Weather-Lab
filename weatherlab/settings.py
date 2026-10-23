@@ -53,6 +53,7 @@ class Settings:
     sensor_alerts: bool = True  # warn about low sensor batteries and weak signal
     digest_enabled: bool = True  # a short notification each morning about yesterday
     digest_hour: int = 7  # local hour the morning summary is sent
+    weekly_digest: bool = False  # a short summary of the last 7 days, sent on Mondays with the morning summary
     offline_alerts: bool = True  # notify when the station stops sending readings
     frost_alerts: bool = True  # notify about freezing nights in the forecast
     frost_threshold_f: float = 36.0  # forecast lows at or below this (Fahrenheit) trigger the freeze warning

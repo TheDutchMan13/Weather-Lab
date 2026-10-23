@@ -5,6 +5,16 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.26.0",
+        "date": "October 23, 2026",
+        "items": [
+            "Health check has a Test the newest backup button. It opens a copy read-only, checks it is intact and says how many readings it holds, so you know a backup would really restore.",
+            "A new install shows a short welcome on Live with three steps, and ticks each one as it's done.",
+            "The Live dial history charts shade the night between sunset and sunrise, so the dark hours are visible at a glance.",
+            "A new option in Settings sends a Monday summary of the last seven days: highest and lowest temperature, total rain, and how many days were recorded.",
+        ],
+    },
+    {
         "version": "0.25.0",
         "date": "October 23, 2026",
         "items": [

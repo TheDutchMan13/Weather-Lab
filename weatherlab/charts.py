@@ -79,3 +79,25 @@ def show(fig: go.Figure, **kwargs) -> None:
             break
     config = dict(CONFIG, displayModeBar=True) if load_settings().chart_toolbar else CONFIG
     st.plotly_chart(fig, config=config, **kwargs)
+
+
+def night_bands(fig: go.Figure, lat, lon, tz, start_ts: float, end_ts: float, dark: bool) -> None:
+    """Shade the hours between sunset and sunrise behind a time chart, so night shows at a glance. Does nothing
+    when the station's location is not set, or when the sun does not set on a day."""
+    if lat is None or lon is None:
+        return
+    from datetime import datetime, timedelta, timezone
+    from weatherlab import astro
+    shade = "rgba(255,255,255,0.06)" if dark else "rgba(15,23,42,0.06)"
+    first = datetime.fromtimestamp(start_ts, tz).date() - timedelta(days=1)
+    last = datetime.fromtimestamp(end_ts, tz).date() + timedelta(days=1)
+    day = first
+    while day <= last:
+        _rise, sset = astro.sun_times(lat, lon, day)
+        next_rise, _ = astro.sun_times(lat, lon, day + timedelta(days=1))
+        if sset is not None and next_rise is not None:
+            x0 = sset.replace(tzinfo=timezone.utc).astimezone(tz)
+            x1 = next_rise.replace(tzinfo=timezone.utc).astimezone(tz)
+            if x1 > x0:
+                fig.add_vrect(x0=x0, x1=x1, fillcolor=shade, line_width=0, layer="below")
+        day += timedelta(days=1)

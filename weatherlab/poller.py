@@ -96,6 +96,7 @@ class Poller(threading.Thread):
         self._last_sensors = 0.0
         self._last_forecast = 0.0
         self._digest_day = None
+        self._weekly_day = None
         self._sensor_sent: dict = {}
         self._offline = False
         self._frost_sent: set = set()
@@ -153,6 +154,8 @@ class Poller(threading.Thread):
                     self._forecast(db, s)
                 if s.digest_enabled:
                     self._digest(db, s)
+                if s.weekly_digest:
+                    self._weekly(db, s)
                 if s.offline_alerts and s.station_ip.strip():
                     self._watch_station()
                 if s.stuck_alerts and s.station_ip.strip() and time.time() - self._last_stuck > STUCK_SECONDS:
@@ -452,6 +455,22 @@ class Poller(threading.Thread):
         if not held:
             return
         line = digest.text(yesterday.strftime("%b %d"), json.loads(held[0]), units.is_metric(s.units))
+        if line:
+            self._announce(line)
+
+    def _weekly(self, db, s) -> None:
+        """On Mondays, after the morning summary hour, send a short summary of the last seven days. Once a week."""
+        now = datetime.now(_zone(s))
+        if self._quiet or not s.weekly_digest or now.weekday() != 0 or now.hour < s.digest_hour:
+            return
+        if self._weekly_day and (now.date() - self._weekly_day).days < 7:
+            return
+        self._weekly_day = now.date()
+        first = (now.date() - timedelta(days=7)).isoformat()
+        last = (now.date() - timedelta(days=1)).isoformat()
+        rows = [json.loads(r[0]) for r in db.execute(
+            "SELECT data FROM daily WHERE date >= ? AND date <= ? ORDER BY date", (first, last)).fetchall()]
+        line = digest.weekly_text(f"{first[5:]} to {last[5:]}", rows, units.is_metric(s.units))
         if line:
             self._announce(line)
 

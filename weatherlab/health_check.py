@@ -21,12 +21,23 @@ def age_text(seconds: float) -> str:
     return f"{s // 86400} days ago"
 
 
+Row = tuple[str, str, str]  # (name, state, detail)
+
+
 def evaluate(f: dict, now: float) -> list[dict]:
-    """The checks for these facts. Missing keys are treated as "nothing to report"."""
-    out: list[dict] = []
+    """The checks for these facts. Missing keys are treated as "nothing to report". Each group of checks is worked
+    out by its own function below, in the order the page shows them."""
+    rows: list[Row] = []
+    for part in (_station, _storage, _alerts_and_services, _this_app):
+        rows.extend(part(f, now))
+    return [{"name": name, "state": state, "detail": detail} for name, state, detail in rows]
+
+
+def _station(f: dict, now: float) -> list[Row]:
+    out: list[Row] = []
 
     def add(name: str, state: str, detail: str) -> None:
-        out.append({"name": name, "state": state, "detail": detail})
+        out.append((name, state, detail))
 
     if f.get("poller_alive") is False:
         add("Background collector", "fail", "It has stopped. Restart Weather Lab.")
@@ -48,6 +59,14 @@ def evaluate(f: dict, now: float) -> list[dict]:
         add("Station connection", "warn", f"The last try failed: {f['last_poll_error']}")
     elif f.get("last_poll_ok"):
         add("Station connection", "ok", "Connected.")
+    return out
+
+
+def _storage(f: dict, now: float) -> list[Row]:
+    out: list[Row] = []
+
+    def add(name: str, state: str, detail: str) -> None:
+        out.append((name, state, detail))
 
     if f.get("db_exists") is False:
         add("Database", "warn", "The database file isn't there yet.")
@@ -84,6 +103,15 @@ def evaluate(f: dict, now: float) -> list[dict]:
         add("Settings", "fail", "Settings can't be saved. Check the folder permissions.")
     else:
         add("Settings", "ok", "Settings can be saved.")
+    return out
+
+
+def _alerts_and_services(f: dict, now: float) -> list[Row]:
+    out: list[Row] = []
+
+    def add(name: str, state: str, detail: str) -> None:
+        out.append((name, state, detail))
+
     if f.get("notifications_ok") is False:
         add("Windows notifications", "warn", "Notifications aren't available here.")
     else:
@@ -115,6 +143,14 @@ def evaluate(f: dict, now: float) -> list[dict]:
             add("Reading archive", "warn", f"Couldn't move old readings: {f['archive_error']}")
         else:
             add("Reading archive", "ok", f"Readings older than {f['archive_days']} days move to the archive.")
+    return out
+
+
+def _this_app(f: dict, now: float) -> list[Row]:
+    out: list[Row] = []
+
+    def add(name: str, state: str, detail: str) -> None:
+        out.append((name, state, detail))
 
     errors = f.get("recent_errors")
     if errors is not None:

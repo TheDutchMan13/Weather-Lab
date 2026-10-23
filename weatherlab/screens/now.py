@@ -539,11 +539,27 @@ def airport_card(s: Settings) -> None:
         st.caption(". ".join(notes) + ".")
 
 
+def _welcome(s: Settings) -> None:
+    """First run: the three steps to a working app, with a tick for each one already done."""
+    has_readings = bool(storage.connect().execute("SELECT 1 FROM readings LIMIT 1").fetchone())
+    steps = [
+        (bool(s.station_ip), "Point Weather Lab at your station", "Setup, Station tab: enter the station's IP address."),
+        (has_readings, "Wait for the first reading", "It arrives within a minute of the address being saved."),
+        (False, "Choose your phone alerts (optional)",
+         "Settings: rain, lightning, stuck sensors and app problems."),
+    ]
+    with st.container(border=True):
+        st.markdown("**Welcome. Three steps and Live fills in.**")
+        for done, title, detail in steps:
+            mark = "✓" if done else "○"
+            st.markdown(f"{mark} **{title}**  \n<span style='opacity:.7'>{detail}</span>", unsafe_allow_html=True)
+
+
 def live_page() -> None:
     s = load_settings()
     st.markdown(theme.page_head("Live", "Right now at your station, with the last 24 hours and any active alerts."), unsafe_allow_html=True)
     if not s.station_ip:
-        empty_card("Set the station IP on the Setup page.")
+        _welcome(s)
         return
     freshness_line()
     _today_vs_yesterday(s)

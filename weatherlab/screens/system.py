@@ -448,6 +448,7 @@ def _notifications_section(s: Settings) -> None:
     digest_on = st.checkbox("Send a short summary each morning about yesterday", value=s.digest_enabled, key="notify_digest")
     hour = int(st.number_input("Morning summary time (hour, 0 to 23)", min_value=0, max_value=23,
                                value=int(s.digest_hour), step=1, key="notify_hour"))
+    weekly_on = st.checkbox("Also send a summary of the last 7 days on Mondays", value=s.weekly_digest, key="notify_weekly")
     offline_on = st.checkbox("Warn when the station stops sending readings", value=s.offline_alerts, key="notify_offline")
     frost_on = st.checkbox("Warn about freezing nights in the forecast", value=s.frost_alerts, key="notify_frost")
     metric = units.is_metric(s.units)
@@ -457,11 +458,12 @@ def _notifications_section(s: Settings) -> None:
         value=round(units.convert("tempf", float(s.frost_threshold_f), metric), 1), step=1.0,
         key=f"notify_frost_{'c' if metric else 'f'}"))
     frost_f = round(units.to_us("tempf", frost_shown, metric), 1)
-    if (sensors_on, digest_on, hour, offline_on, frost_on, frost_f) != (
+    if (sensors_on, digest_on, hour, offline_on, frost_on, frost_f, weekly_on) != (
             s.sensor_alerts, s.digest_enabled, s.digest_hour, s.offline_alerts, s.frost_alerts,
-            round(s.frost_threshold_f, 1)):
+            round(s.frost_threshold_f, 1), s.weekly_digest):
         save_settings(replace(s, sensor_alerts=sensors_on, digest_enabled=digest_on, digest_hour=hour,
-                              offline_alerts=offline_on, frost_alerts=frost_on, frost_threshold_f=frost_f))
+                              offline_alerts=offline_on, frost_alerts=frost_on, frost_threshold_f=frost_f,
+                              weekly_digest=weekly_on))
     if st.button("Send a test notification"):
         if alert_rules.notify("Weather Lab", "This is a test notification from Weather Lab."):
             st.success("Sent. If nothing appears, check that Windows notifications are on for this app.")
@@ -709,6 +711,20 @@ def health_check_page() -> None:
         theme.table([{"Check": c["name"], "Status": theme.state_html(c["state"], words[c["state"]]),
                       "Details": c["detail"]} for c in rows], html_cols=("Status",))
     st.caption("Checked each time this page opens.")
+    _backup_test(db_file)
+
+
+def _backup_test(db_file) -> None:
+    """Open the newest backup and check it reads back. A backup nobody has opened is only a guess that it works."""
+    items = backup.backups(backup.folder_for(db_file))
+    st.markdown(theme.section_html("Test the newest backup"), unsafe_allow_html=True)
+    if not items:
+        st.caption("There are no backups yet. The first one is made on the next hourly check.")
+        return
+    st.caption(f"Newest: {items[-1].name}. The test opens a copy read-only and changes nothing.")
+    if st.button("Test the newest backup", key="backup_test"):
+        ok, text = backup.verify(items[-1])
+        (st.success if ok else st.error)(text)
 
 
 def stations_page() -> None:
