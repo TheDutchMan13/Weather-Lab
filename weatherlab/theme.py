@@ -36,6 +36,13 @@ DOT_COLORS = {"ok": "#3ddc84", "slow": "#f6d55c", "silent": "#e5633c"}
 # Colour schemes (utils/theme.py COLOR_SCHEMES), copied exactly.
 SCHEMES = {
     "Default": {},
+    # New for this app, not from the dashboard: black or white text on plain backgrounds with strong lines.
+    "High contrast": {
+        "light": {"background": "#ffffff", "surface": "#f2f2f2", "border": "#000000", "text": "#000000",
+                  "text_muted": "#1f1f1f", "accent": "#0033cc", "info": "#0033cc"},
+        "dark": {"background": "#000000", "surface": "#141414", "border": "#ffffff", "text": "#ffffff",
+                 "text_muted": "#e6e6e6", "accent": "#ffd400", "info": "#66b3ff"},
+    },
     "Ocean": {
         "light": {"background": "#f5fbfd", "surface": "#e5f3f8", "border": "#bcdde8",
                   "accent": "#0b8fb0", "info": "#38a9d8"},

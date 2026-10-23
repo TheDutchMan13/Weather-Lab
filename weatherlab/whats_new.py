@@ -5,6 +5,17 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.25.0",
+        "date": "October 23, 2026",
+        "items": [
+            "Health check has a new Recent errors line. When the background collector hits an error, it is now written to a short log that the line reads, so problems are no longer only visible in a console window.",
+            "Your phone gets an alert if the drive is nearly full or a daily backup fails. It is sent once per problem, and again only if the problem clears and comes back. You can turn it off in Settings.",
+            "A new High contrast colour scheme in Settings uses plain black and white with strong lines. Its text meets the strictest contrast standard (7 to 1).",
+            "Charts on a phone show fewer, smaller axis labels so they don't run together.",
+            "More behind-the-scenes tests, including a start-up check that runs automatically on GitHub.",
+        ],
+    },
+    {
         "version": "0.24.1",
         "date": "October 22, 2026",
         "items": [

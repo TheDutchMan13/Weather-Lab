@@ -66,8 +66,12 @@ def figure(dark: bool, height: int = 340, scheme: str | None = None) -> go.Figur
 def show(fig: go.Figure, **kwargs) -> None:
     """Draw a chart the way the dashboard's style_fig does: shorter on phones, time-of-day hover labels on
     time axes, and the hover-only toolbar."""
-    if is_phone() and fig.layout.height and fig.layout.height > 260:
-        fig.update_layout(height=260)
+    if is_phone():
+        if fig.layout.height and fig.layout.height > 260:
+            fig.update_layout(height=260)
+        # fewer, smaller axis labels so they do not run together on a narrow screen
+        fig.update_xaxes(nticks=5, tickfont=dict(size=11))
+        fig.update_yaxes(nticks=6, tickfont=dict(size=11))
     for trace in fig.data:
         xs = getattr(trace, "x", None)
         if xs is not None and len(xs) and isinstance(xs[0], datetime):

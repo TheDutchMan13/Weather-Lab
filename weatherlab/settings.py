@@ -60,6 +60,7 @@ class Settings:
     quiet_start: int = 22  # quiet hours begin at this hour
     quiet_end: int = 6  # and end at this hour
     stuck_alerts: bool = True  # warn when outdoor temperature or humidity stops changing
+    health_alerts: bool = True  # alert the phone when disk space runs out or a backup fails
     lightning_alerts: bool = False  # notify when lightning is close
     lightning_alert_miles: float = 5.0  # how close counts as close, in miles
     uv_alerts: bool = False  # notify when the UV index reaches the level below, once a day

@@ -3,7 +3,7 @@
 import streamlit as st
 import time
 from dataclasses import replace
-from weatherlab import alert_rules, auth, autostart, backup, discover, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground
+from weatherlab import alert_rules, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground
 from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
@@ -480,12 +480,15 @@ def _quiet_section(s: Settings) -> None:
     end = int(st.number_input("Quiet until (hour, 0 to 23)", min_value=0, max_value=23, value=int(s.quiet_end),
                               step=1, key="quiet_end"))
     stuck_on = st.checkbox("Warn when outdoor temperature or humidity stops changing", value=s.stuck_alerts, key="stuck_on")
+    health_on = st.checkbox("Warn me when disk space runs out or a backup fails", value=s.health_alerts, key="health_on")
     light_on = st.checkbox("Notify me when lightning is close", value=s.lightning_alerts, key="light_on")
     miles = float(st.number_input("Lightning notice within (miles)", min_value=1.0, max_value=25.0,
                                   value=float(s.lightning_alert_miles), step=1.0, key="light_miles"))
-    if (quiet_on, start, end, stuck_on, light_on, miles) != (
-            s.quiet_enabled, s.quiet_start, s.quiet_end, s.stuck_alerts, s.lightning_alerts, s.lightning_alert_miles):
+    if (quiet_on, start, end, stuck_on, health_on, light_on, miles) != (
+            s.quiet_enabled, s.quiet_start, s.quiet_end, s.stuck_alerts, s.health_alerts, s.lightning_alerts,
+            s.lightning_alert_miles):
         save_settings(replace(s, quiet_enabled=quiet_on, quiet_start=start, quiet_end=end, stuck_alerts=stuck_on,
+                              health_alerts=health_on,
                               lightning_alerts=light_on, lightning_alert_miles=miles))
 
 
@@ -689,6 +692,7 @@ def health_check_page() -> None:
         "report_error": poller.status.report_error,
         "archive_days": s.archive_after_days,
         "archive_error": poller.status.archive_error,
+        "recent_errors": errlog.recent(now - 86400),
     }
     checks = health_check.evaluate(facts, now)
     st.markdown(theme.page_head("Health check", "Whether everything Weather Lab needs to run is working."), unsafe_allow_html=True)

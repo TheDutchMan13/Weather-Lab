@@ -136,3 +136,8 @@ None.
 - The colour rules for the 24-hour tiles (amber for temperature and wind above usual, grey for humidity above usual, blue below usual) are new. Red is kept for real problems.
 - The "usual for this hour" progress note (days so far, out of five) extends the comparison ported from the dashboard's utils/visuals.py. Code: weatherlab/sparks.py usual_days.
 - Summary strip edges, the table style and page subtitles are new, written for this app. They use the dashboard palette above. Code: weatherlab/theme.py (strip_tile_html, table, page_head).
+
+## Error log, health alerts and High contrast (23 Oct 2026)
+- The error log, the Recent errors check, the phone alerts for disk space and backups, and the High contrast colour scheme are new, written for this app. Code: weatherlab/errlog.py, weatherlab/health_check.py (alert_messages), weatherlab/poller.py (_health_alerts), weatherlab/theme.py (SCHEMES).
+- The phone chart label tweak is new. Code: weatherlab/charts.py show.
+- The Tests workflow (.github/workflows/tests.yml) and the tests added with this version are new.

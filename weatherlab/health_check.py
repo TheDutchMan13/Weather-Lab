@@ -116,6 +116,15 @@ def evaluate(f: dict, now: float) -> list[dict]:
         else:
             add("Reading archive", "ok", f"Readings older than {f['archive_days']} days move to the archive.")
 
+    errors = f.get("recent_errors")
+    if errors is not None:
+        if errors:
+            when, where, text = errors[0]
+            add("Recent errors", "warn", f"{len(errors)} in the last 24 hours. The latest, {age_text(now - when)}, "
+                                         f"was in the {where}: {text}")
+        else:
+            add("Recent errors", "ok", "None in the last 24 hours.")
+
     if f.get("allow_network"):
         add("Phone and device access", "info", "Phones and devices on your network can open Weather Lab.")
     if f.get("update_available"):
@@ -127,7 +136,18 @@ GROUPS = [("Station", ["Background collector", "Station readings", "Station conn
           ("Storage", ["Database", "Disk space", "Backups", "Second backup folder", "Reading archive", "Settings"]),
           ("Alerts and reports", ["Windows notifications", "Weather warnings", "Automatic reports"]),
           ("Online services", ["Forecast", "Air quality"]),
-          ("This app", ["Phone and device access", "Updates"])]
+          ("This app", ["Phone and device access", "Updates", "Recent errors"])]
+
+
+ALERT_CHECKS = ("Disk space", "Backups")  # problems worth a phone alert, because nothing else will tell you
+
+
+def alert_messages(checks: list[dict], alerted: set) -> tuple[list[str], set]:
+    """(messages, failing). A message for each alert-worthy check that has just started failing, and the names failing
+    now. Pass the second back in next time, so a problem is sent once and sent again only if it clears and returns."""
+    failing = {c["name"]: c for c in checks if c["state"] == "fail" and c["name"] in ALERT_CHECKS}
+    messages = [f"Weather Lab problem: {name}. {c['detail']}" for name, c in failing.items() if name not in alerted]
+    return messages, set(failing)
 
 
 def grouped(checks: list[dict]) -> list[tuple[str, list[dict]]]:

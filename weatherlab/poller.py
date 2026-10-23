@@ -8,6 +8,7 @@ or a database error never stops the thread silently.
 """
 
 import json
+import shutil
 import sqlite3
 import threading
 import time
@@ -16,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from weatherlab import alert_rules, airquality, backup, cwop, mqtt_publish, pwsweather, uploads, weathercloud, wunderground, daily, digest, fire, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
+from weatherlab import alert_rules, airquality, backup, cwop, mqtt_publish, pwsweather, uploads, weathercloud, wunderground, daily, digest, errlog, fire, health_check, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
 from weatherlab.config import APP_VERSION
 from weatherlab.settings import load_settings
 
@@ -34,6 +35,7 @@ RECORD_REFRESH_SECONDS = 3600  # how often the all-time records reload from the 
 BACKUP_CHECK_SECONDS = 3600  # how often to check whether a daily database backup is due
 SENSOR_SECONDS = 1800  # how often to check sensor batteries and signal
 FORECAST_SECONDS = 10800  # how often to save the forecast, so accuracy can be checked later
+HEALTH_SECONDS = 900  # how often to check disk space and backups for a problem worth an alert
 STUCK_SECONDS = 1800  # how often to check for an outdoor sensor that has stopped changing
 ENV_SECONDS = 300  # how often to check UV, air quality and fire danger
 NWS_SECONDS = 900  # how often to check National Weather Service warnings
@@ -99,6 +101,8 @@ class Poller(threading.Thread):
         self._frost_sent: set = set()
         self._quiet = False
         self._last_stuck = 0.0
+        self._last_health = 0.0
+        self._health_failing: set = set()
         self._last_strike_alert = 0.0
         self._db = None
         self._raining = None
@@ -153,6 +157,8 @@ class Poller(threading.Thread):
                     self._watch_station()
                 if s.stuck_alerts and s.station_ip.strip() and time.time() - self._last_stuck > STUCK_SECONDS:
                     self._stuck(db, s)
+                if s.health_alerts and time.time() - self._last_health > HEALTH_SECONDS:
+                    self._health_alerts(s)
                 if time.time() - self._last_env > ENV_SECONDS:
                     self._environment(db, s)
                 if s.nws_alerts and s.latitude is not None and s.longitude is not None and time.time() - self._last_nws > NWS_SECONDS:
@@ -166,6 +172,7 @@ class Poller(threading.Thread):
             except Exception as exc:  # keep the thread alive no matter what
                 self.status.last_error = f"Poller error: {type(exc).__name__}: {exc}"
                 traceback.print_exc()
+                errlog.log("background collector", exc)
                 db = None  # reconnect next time
             self._stop_event.wait(POLL_SECONDS)
 
@@ -375,6 +382,21 @@ class Poller(threading.Thread):
                 continue
             if self._announce(text):
                 self._sensor_sent[text] = today
+
+    def _health_alerts(self, s) -> None:
+        """Alert the phone when disk space runs out or a backup fails. Sent once per problem, and again only if it clears
+        and comes back."""
+        self._last_health = time.time()
+        try:
+            free = shutil.disk_usage(storage.db_path().parent).free
+        except OSError:
+            return
+        facts = {"poller_alive": True, "disk_free_bytes": free, "backup_enabled": s.backup_enabled,
+                 "backup_error": self.status.backup_error}
+        messages, self._health_failing = health_check.alert_messages(
+            health_check.evaluate(facts, self._last_health), self._health_failing)
+        for text in messages:
+            self._announce(text, severe=True)
 
     def _rain_notice(self, s, reading: dict) -> None:
         """Notify when rain starts and when it stops (only when the user has turned this on)."""
