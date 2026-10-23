@@ -9,6 +9,9 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/current   the latest reading, in the units chosen in Settings
   /api/v1/today     today's high, low and rain so far
   /api/v1/alerts    the 20 most recent alerts
+  /api/v1/history   the last 24 hours of temperature, one point about every half hour
+  /api/v1/week      high, low and rain for the last 7 days, today included
+  /api/v1/storm     the last lightning strike, strikes in the last 10 and 30 minutes and today, and a simple trend
 """
 
 import hashlib
@@ -17,7 +20,7 @@ import json
 import secrets as pysecrets
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
 
@@ -131,7 +134,9 @@ def today(db, s, now: float) -> dict:
     rain = [r["dailyrainin"] for r in rows if r.get("dailyrainin") is not None]
 
     def shown(key, value):
-        return None if value is None else {"value": round(units.convert(key, value, metric), 1),
+        # Rain keeps two decimals: in whole tenths, 0.05 in of rain would show as 0.1.
+        digits = 2 if key == "dailyrainin" else 1
+        return None if value is None else {"value": round(units.convert(key, value, metric), digits),
                                            "unit": units.unit(key, metric)}
     return {"date": local.date().isoformat(), "readings": len(rows),
             "high": shown("tempf", max(temps) if temps else None),
@@ -142,6 +147,85 @@ def today(db, s, now: float) -> dict:
 
 def alerts(db) -> dict:
     return {"alerts": [{"ts": ts, "text": text} for ts, text in storage.recent_alerts(db, limit=20)]}
+
+
+def history(db, s, now: float) -> dict:
+    """Temperature for the last 24 hours as [timestamp, value] pairs, in the units chosen in Settings."""
+    metric = units.is_metric(s.units)
+    rows = storage.readings_sampled(db, now - 24 * 3600, now + 1, every_s=1800)
+    points = [[ts, round(units.convert("tempf", r["tempf"], metric), 1)] for ts, r in rows if r.get("tempf") is not None]
+    latest = storage.latest(db)
+    if latest and latest[1].get("tempf") is not None and (not points or latest[0] > points[-1][0]) \
+            and latest[0] >= now - 24 * 3600:
+        points.append([latest[0], round(units.convert("tempf", latest[1]["tempf"], metric), 1)])
+    return {"hours": 24, "unit": units.unit("tempf", metric), "metric": metric, "points": points}
+
+
+def week(db, s, now: float) -> dict:
+    """The last 7 local days, oldest first. Finished days come from the daily summaries; today is live."""
+    tz = _tz(s)
+    metric = units.is_metric(s.units)
+    live = today(db, s, now)
+    first = datetime.fromtimestamp(now, tz).date() - timedelta(days=6)
+    days = []
+    for i in range(7):
+        day = first + timedelta(days=i)
+        iso = day.isoformat()
+        if iso == live["date"]:
+            high = live["high"]["value"] if live["high"] else None
+            low = live["low"]["value"] if live["low"] else None
+            rain = live["rain"]["value"] if live["rain"] else None
+        else:
+            row = db.execute("SELECT data FROM daily WHERE date = ?", (iso,)).fetchone()
+            data = json.loads(row[0]) if row else {}
+
+            def shown(key, value):
+                digits = 2 if key == "dailyrainin" else 1
+                return None if value is None else round(units.convert(key, value, metric), digits)
+            high, low = shown("tempf", data.get("tempf_max")), shown("tempf", data.get("tempf_min"))
+            rain = shown("dailyrainin", data.get("rain_in"))
+        days.append({"date": iso, "high": high, "low": low, "rain": rain})
+    return {"days": days, "metric": metric, "temp_unit": units.unit("tempf", metric),
+            "rain_unit": units.unit("dailyrainin", metric)}
+
+
+def _trend(strikes: list, now: float) -> str:
+    """none, overhead, approaching, receding or steady, from the strikes in the last 30 minutes (distances in miles)."""
+    recent = [(ts, d) for ts, d in strikes if ts >= now - 1800]
+    if not recent:
+        return "none"
+    if recent[-1][1] <= 1.0:
+        return "overhead"
+    newer = [d for ts, d in recent if ts >= now - 600]
+    older = [d for ts, d in recent if now - 1200 <= ts < now - 600]
+    if newer and older:
+        change = sum(newer) / len(newer) - sum(older) / len(older)
+        if change <= -1.0:
+            return "approaching"
+        if change >= 1.0:
+            return "receding"
+    return "steady"
+
+
+def storm(db, s, now: float) -> dict:
+    """Lightning from the stored strikes, with distances in the units chosen in Settings."""
+    tz = _tz(s)
+    metric = units.is_metric(s.units)
+    midnight = datetime.fromtimestamp(now, tz).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    strikes = storage.strikes_between(db, now - 1800, now + 1)
+    last = storage.latest_strike(db)
+
+    def dist(miles):
+        return {"value": round(units.convert("miles", miles, metric), 1), "unit": units.unit("miles", metric)}
+    return {
+        "last_strike": None if last is None else {"ts": last[0], "age_seconds": max(0, int(now - last[0])),
+                                                  "distance": dist(last[1])},
+        "strikes_10m": sum(1 for ts, _ in strikes if ts >= now - 600),
+        "strikes_30m": len(strikes),
+        "strikes_today": len(storage.strikes_between(db, midnight, now + 1)),
+        "trend": _trend(strikes, now),
+        "metric": metric,
+    }
 
 
 # ------------------------------------------------------------------ routing
@@ -157,7 +241,10 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
     builders = {"/api/v1/status": lambda: status(db, s, now),
                 "/api/v1/current": lambda: current(db, s, now),
                 "/api/v1/today": lambda: today(db, s, now),
-                "/api/v1/alerts": lambda: alerts(db)}
+                "/api/v1/alerts": lambda: alerts(db),
+                "/api/v1/history": lambda: history(db, s, now),
+                "/api/v1/week": lambda: week(db, s, now),
+                "/api/v1/storm": lambda: storm(db, s, now)}
     build = builders.get(path.rstrip("/") or "/")
     if build is None:
         return 404, {"error": "No such address in the API."}

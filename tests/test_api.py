@@ -130,6 +130,62 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(body["alerts"][0]["text"], "Newer")
         self.assertEqual(len(body["alerts"]), 2)
 
+    def test_history_is_a_day_of_temperatures_in_the_chosen_units(self):
+        storage.store_reading(self.db, {"tempf": 50.0}, ts=self.now - 7200)
+        storage.store_reading(self.db, {"tempf": 212.0}, ts=self.now - 60)
+        storage.store_reading(self.db, {"tempf": 10.0}, ts=self.now - 90000)  # older than a day: left out
+        t = self.token()
+        _, us = api.route("/api/v1/history", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertEqual([p[1] for p in us["points"]], [50.0, 212.0])
+        self.assertEqual(us["unit"], "°F")
+        _, mt = api.route("/api/v1/history", f"Bearer {t}", self.db, replace(self.s, units="Metric"), self.now)
+        self.assertEqual(mt["points"][-1][1], 100.0)
+        self.assertEqual(mt["unit"], "°C")
+
+    def test_week_has_seven_days_with_gaps_as_none(self):
+        import json
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        today = datetime.fromtimestamp(self.now, ZoneInfo(PHX)).date()
+        yesterday = (today - timedelta(days=1)).isoformat()
+        with self.db:
+            self.db.execute("INSERT INTO daily (date, data) VALUES (?, ?)",
+                            (yesterday, json.dumps({"tempf_max": 95.0, "tempf_min": 70.0, "rain_in": 0.25})))
+        t = self.token()
+        _, body = api.route("/api/v1/week", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertEqual(len(body["days"]), 7)
+        self.assertEqual(body["days"][-1]["date"], today.isoformat())
+        by_date = {d["date"]: d for d in body["days"]}
+        self.assertEqual(by_date[yesterday]["high"], 95.0)
+        self.assertEqual(by_date[yesterday]["rain"], 0.25)
+        self.assertIsNone(body["days"][0]["high"])
+
+    def test_storm_with_no_strikes(self):
+        t = self.token()
+        code, body = api.route("/api/v1/storm", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertEqual(code, 200)
+        self.assertIsNone(body["last_strike"])
+        self.assertEqual(body["trend"], "none")
+        self.assertEqual(body["strikes_30m"], 0)
+
+    def test_storm_reports_approaching_and_converts_distance(self):
+        for minutes_ago, miles in [(18, 12.0), (15, 11.0), (8, 6.0), (4, 5.0)]:
+            storage.store_strike(self.db, int(self.now - minutes_ago * 60), miles)
+        t = self.token()
+        _, body = api.route("/api/v1/storm", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertEqual(body["trend"], "approaching")
+        self.assertEqual(body["strikes_30m"], 4)
+        self.assertEqual(body["strikes_10m"], 2)
+        self.assertEqual(body["last_strike"]["distance"], {"value": 5.0, "unit": "mi"})
+        _, mt = api.route("/api/v1/storm", f"Bearer {t}", self.db, replace(self.s, units="Metric"), self.now)
+        self.assertEqual(mt["last_strike"]["distance"]["unit"], "km")
+
+    def test_storm_overhead_and_receding(self):
+        storage.store_strike(self.db, int(self.now - 30), 0.5)
+        self.assertEqual(api._trend(storage.strikes_between(self.db, self.now - 1800, self.now + 1), self.now), "overhead")
+        self.assertEqual(api._trend([(self.now - 1000, 3.0), (self.now - 100, 9.0)], self.now), "receding")
+        self.assertEqual(api._trend([(self.now - 3000, 3.0)], self.now), "none")
+
     # --- the server
     def test_server_starts_answers_and_stops(self):
         sock = socket.socket()

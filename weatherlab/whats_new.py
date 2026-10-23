@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.32.0",
+        "date": "October 23, 2026",
+        "items": [
+            "The Android app connection can now also read the last 24 hours of temperature, the high, low and rain for the last 7 days, and lightning (the last strike, strikes in the last 10 and 30 minutes and today, and whether a storm is approaching or moving away). These are read-only, like the rest, and use the same token.",
+            "The rain total in today's summary for the Android app now keeps two decimals, so 0.05 in no longer shows as 0.1 in.",
+        ],
+    },
+    {
         "version": "0.31.0",
         "date": "October 23, 2026",
         "items": [
