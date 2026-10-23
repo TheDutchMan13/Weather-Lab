@@ -14,6 +14,8 @@ import time
 
 import streamlit as st
 
+from weatherlab import glossary
+
 FONT = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"  # tiles and headings (utils/live_cards.py)
 
 # Card colours (utils/live_cards.py _k).
@@ -228,6 +230,16 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
         _rule(".wl-table td", f"padding:9px 12px;border-top:1px solid {p['line']};vertical-align:middle"),
         _rule(".wl-table .wl-num", "text-align:right;font-variant-numeric:tabular-nums"),
         _rule("[data-testid='stImage'] img", "width:100%;height:auto;border-radius:12px"),
+        # Small ? beside a term: its one-line meaning shows on hover, and on a phone when the ? is tapped.
+        _rule(".wl-tip", f"position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;"
+                         f"height:16px;margin-left:5px;border-radius:50%;border:1px solid {p['muted']};color:{p['muted']};"
+                         "font-size:11px;font-weight:600;line-height:1;vertical-align:middle;cursor:help;outline:none"),
+        _rule(".wl-tip:focus-visible", f"border-color:{p['accent']};color:{p['text']}"),
+        _rule(".wl-tip-text", f"display:none;position:absolute;left:-6px;top:22px;z-index:5;width:240px;max-width:70vw;"
+                              f"padding:8px 10px;border-radius:8px;background:{pg['surface']};border:1px solid {p['line']};"
+                              f"color:{p['text']};font-size:12.5px;font-weight:400;line-height:1.45;text-align:left;"
+                              "white-space:normal;box-shadow:0 6px 18px rgba(0,0,0,.25)"),
+        _rule(".wl-tip:hover .wl-tip-text,.wl-tip:focus .wl-tip-text", "display:block"),
         "@keyframes wl-sweep{from{stroke-dasharray:0.001,var(--c)}to{stroke-dasharray:var(--v),var(--c)}}",
         "@media (prefers-reduced-motion:no-preference){.wl-sweep{animation:wl-sweep .9s ease-out}}",
     ]
@@ -250,6 +262,17 @@ def page_head(title: str, subtitle: str = "") -> str:
     return f'<div class="wl-title">{title}</div>{sub}'
 
 
+def term_tip(key: str) -> str:
+    """The small ? for a term, as HTML to put in a tile label. Empty when the term has no explanation."""
+    term = glossary.find(key)
+    if term is None:
+        return ""
+    name = _html.escape(term["name"])
+    text = _html.escape(term["short"])
+    return (f'<span class="wl-tip" tabindex="0" role="button" aria-label="What is {name}?">?'
+            f'<span class="wl-tip-text" role="tooltip"><strong>{name}</strong><br>{text}</span></span>')
+
+
 def tile_html(label: str, value: str) -> str:
     return (f'<div class="wl-tile"><div class="wl-label">{label}</div>'
             f'<div class="wl-value">{value}</div></div>')
@@ -262,7 +285,8 @@ STRIP_NEUTRAL = "#9aa3b0"
 TONE_WORD = {"ok": "Good", "warn": "Watch", "bad": "Alert", "info": "Info"}
 
 
-def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = None, word: str | None = None) -> str:
+def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = None, word: str | None = None,
+                    help_key: str = "") -> str:
     """A summary tile with a coloured left edge: ok, warn, bad (red), info, or grey with no tone. The tone's word
     (Good, Watch, Alert, Info) follows the note; pass word="" when the value or note already names the level."""
     key = "fail" if tone == "bad" else tone
@@ -270,7 +294,8 @@ def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = N
     if word is None:
         word = TONE_WORD.get(tone, "") if tone else ""
     text = " · ".join(part for part in (note, word) if part)
-    body = tile_html(_html.escape(label), _html.escape(value)).replace(
+    label_html = _html.escape(label) + (term_tip(help_key) if help_key else "")
+    body = tile_html(label_html, _html.escape(value)).replace(
         'class="wl-tile"', f'class="wl-tile" style="border-left:4px solid {colour}"', 1)
     if text:
         body = body.replace("</div></div>", f'</div><div class="wl-label">{_html.escape(text)}</div></div>')

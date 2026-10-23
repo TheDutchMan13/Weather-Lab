@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.29.0",
+        "date": "October 23, 2026",
+        "items": [
+            "A small ? now sits beside the labels for the Air quality index, Last strike and Closest today on Lightning, and the heat index tiles on Heat. Hover it on a computer, or tap it on a phone, to see what the term means.",
+        ],
+    },
+    {
         "version": "0.28.0",
         "date": "October 23, 2026",
         "items": [

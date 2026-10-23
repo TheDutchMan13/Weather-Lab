@@ -95,8 +95,8 @@ def freshness_line() -> None:
                 f'<span style="color:{color}">●</span> {label}{detail}</div>', unsafe_allow_html=True)
 
 
-def _tile(label: str, value: str, note: str = "") -> str:
-    body = theme.tile_html(html.escape(label), html.escape(value))
+def _tile(label: str, value: str, note: str = "", help_key: str = "") -> str:
+    body = theme.tile_html(html.escape(label) + (theme.term_tip(help_key) if help_key else ""), html.escape(value))
     if note:
         body = body.replace("</div></div>", f'</div><div class="wl-label">{html.escape(note)}</div></div>')
     return body
