@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.28.0",
+        "date": "October 23, 2026",
+        "items": [
+            "On Live, Dew point, Feels like and Pressure now have a small ? beside their history button instead of a line of text. Hover over it on a computer to see what the term means, or tap it on a phone for the full explanation.",
+        ],
+    },
+    {
         "version": "0.27.0",
         "date": "October 23, 2026",
         "items": [

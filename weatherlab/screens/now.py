@@ -6,11 +6,11 @@ import streamlit as st
 import streamlit.components.v1 as components
 import time
 from datetime import datetime, timedelta
-from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, glossary, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons
+from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
-from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, freshness_line, start_poller
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, freshness_line, start_poller, term_help
 
 
 REFRESH_SECONDS = 30
@@ -280,7 +280,6 @@ def _feels_dial(s: Settings, data: dict) -> None:
     html_out, height = dials.feels_dial_html(feels, actual_f=data.get("tempf"), humidity=data.get("humidity"),
                                              dark=theme.is_dark(), metric=units.is_metric(s.units))
     components.html(motion.add(html_out, s.animate), height=height)
-    st.caption(glossary.short("feels_like"))
 
 
 def _pressure_dial(s: Settings, data: dict) -> None:
@@ -294,7 +293,6 @@ def _pressure_dial(s: Settings, data: dict) -> None:
     html_out, height = dials.pressure_dial_html(now_inhg, change, dark=theme.is_dark(),
                                                 metric=units.is_metric(s.units))
     components.html(motion.add(html_out, s.animate), height=height)
-    st.caption(glossary.short("pressure"))
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -408,12 +406,20 @@ def live_readings() -> None:
             left, right = st.columns(2)
             with left:
                 _feels_dial(s, data)
-                if st.button("Feels like history", key="hist-feelslikef"):
-                    live_history.request("feelslikef")
+                left_btn, left_help = st.columns([0.85, 0.15], vertical_alignment="center")
+                with left_btn:
+                    if st.button("Feels like history", key="hist-feelslikef"):
+                        live_history.request("feelslikef")
+                with left_help:
+                    term_help("feels_like")
             with right:
                 _pressure_dial(s, data)
-                if st.button("Pressure history", key="hist-baromrelin"):
-                    live_history.request("baromrelin")
+                right_btn, right_help = st.columns([0.85, 0.15], vertical_alignment="center")
+                with right_btn:
+                    if st.button("Pressure history", key="hist-baromrelin"):
+                        live_history.request("baromrelin")
+                with right_help:
+                    term_help("pressure")
             if dials:
                 st.markdown(theme.grid_html([html for _, html in dials]), unsafe_allow_html=True)
                 for col, (key, _) in zip(st.columns(len(dials)), dials):
@@ -476,9 +482,12 @@ def _dew_line(s: Settings) -> None:
     dew_point = latest[1]["dewpointf"]
     shown = units.format_value("dewpointf", dew_point, units.is_metric(s.units), 0)
     st.caption(f"Dew point {shown}: {dew.text(dew_point)}.")
-    st.caption(glossary.short("dew_point"))
-    if st.button("Dew point history", key="hist-dewpointf"):
-        live_history.request("dewpointf")
+    left, right = st.columns([0.85, 0.15], vertical_alignment="center")
+    with left:
+        if st.button("Dew point history", key="hist-dewpointf"):
+            live_history.request("dewpointf")
+    with right:
+        term_help("dew_point")
 
 
 @st.cache_data(ttl=86400, show_spinner=False)

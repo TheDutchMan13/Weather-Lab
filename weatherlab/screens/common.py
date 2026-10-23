@@ -4,7 +4,7 @@ import html
 import streamlit as st
 import time
 from datetime import datetime
-from weatherlab import health, history, nws, stations, storage, theme, wx_icons
+from weatherlab import glossary, health, history, nws, stations, storage, theme, wx_icons
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings
 from zoneinfo import ZoneInfo
@@ -150,3 +150,13 @@ def _start_of_today(s: Settings) -> float:
 
 def _degrees(x, unit: str = "°F", fmt: str = ".0f") -> str:
     return "--" if x is None else f"{format(x, fmt)}{unit}"
+
+
+def term_help(key: str) -> None:
+    """A small ? beside a term. Hover shows its one-line meaning; a tap opens the full explanation."""
+    term = glossary.find(key)
+    if term is None:
+        return
+    with st.popover("?", help=term["short"]):
+        st.markdown(f"**{term['name']}**")
+        st.markdown(term["long"])
