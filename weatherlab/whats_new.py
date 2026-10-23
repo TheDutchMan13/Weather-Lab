@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.24.1",
+        "date": "October 22, 2026",
+        "items": [
+            "Every coloured summary tile now says its level in words: Good, Watch, Alert or Info. Colour is no longer the only sign, so the level reads the same without it.",
+            "The UV tiles name the UV level, from low to extreme, next to the number.",
+            "The NOAA history subtitle is shorter, so it fits on a phone.",
+        ],
+    },
+    {
         "version": "0.24.0",
         "date": "October 22, 2026",
         "items": [

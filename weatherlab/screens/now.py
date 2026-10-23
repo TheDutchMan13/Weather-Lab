@@ -6,7 +6,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import time
 from datetime import datetime, timedelta
-from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, theme, units, wind_rose, wx_icons
+from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
@@ -84,7 +84,7 @@ def _span(delta) -> str:
 
 
 def _uv_word(uv: float) -> str:
-    return "low" if uv < 3 else "moderate" if uv < 6 else "high" if uv < 8 else "very high" if uv < 11 else "extreme"
+    return sun_uv.uv_word(uv)
 
 
 def _press_word(now_value, old_value) -> str:
@@ -575,8 +575,8 @@ BATT_WORD = {"good": "Good", "ok": "OK", "watch": "Getting low", "low": "Low", "
 BATT_TONE = {"good": "ok", "ok": "ok", "watch": "warn", "low": "bad", "dc": "ok", "unknown": "info"}
 SIG_WORD = {"good": "Strong", "fair": "Fair", "weak": "Weak", "none": "None", "unknown": "Unknown"}
 SIG_TONE = {"good": "ok", "fair": "ok", "weak": "warn", "none": "bad", "unknown": "info"}
-def _strip_tile(label: str, value: str, note: str, tone: str) -> str:
-    return theme.strip_tile_html(label, value, note, tone)
+def _strip_tile(label: str, value: str, note: str, tone: str, word: str | None = None) -> str:
+    return theme.strip_tile_html(label, value, note, tone, word)
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -619,7 +619,7 @@ def sensors_page() -> None:
     gap_list = health.gaps(rows)
 
     st.markdown(theme.grid_html([
-        _strip_tile("Data freshness", fresh, f"{age_min:.1f} min old", ftone),
+        _strip_tile("Data freshness", fresh, f"{age_min:.1f} min old", ftone, word=""),
         _strip_tile("Completeness", f"{completeness:.1f}%", "last 24 hours",
                     "ok" if completeness >= 95 else "warn" if completeness >= 80 else "bad"),
         _strip_tile("Sensors online", f"{online}/{len(sensors)}",
@@ -651,8 +651,8 @@ def sensors_page() -> None:
         for b in batteries:
             bs, bt = gateway_sensors.battery_state(b["batt"])
             ss, sg = gateway_sensors.signal_state(b["signal"], b["rssi"])
-            tiles.append(_strip_tile(f"{b['name']}: battery", BATT_WORD.get(bs, "?"), bt, BATT_TONE.get(bs, "info")))
-            tiles.append(_strip_tile(f"{b['name']}: radio signal", SIG_WORD.get(ss, "?"), sg, SIG_TONE.get(ss, "info")))
+            tiles.append(_strip_tile(f"{b['name']}: battery", BATT_WORD.get(bs, "?"), bt, BATT_TONE.get(bs, "info"), word=""))
+            tiles.append(_strip_tile(f"{b['name']}: radio signal", SIG_WORD.get(ss, "?"), sg, SIG_TONE.get(ss, "info"), word=""))
         st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
     st.caption("Battery level runs 0 to 5 (5 full, 0 empty). Battery and signal refresh about every five minutes.")
 

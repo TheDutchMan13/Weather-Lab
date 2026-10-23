@@ -347,7 +347,7 @@ def noaa_page() -> None:
     """Daily rain and temperatures from NOAA's nearest station, for years before this app collected data."""
     s = load_settings()
     db = storage.connect()
-    st.markdown(theme.page_head("NOAA history", "Daily rain and temperatures from NOAA's nearest station, for years before this app collected data."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("NOAA history", "Daily rain and temperatures from NOAA's nearest station, before this app began."), unsafe_allow_html=True)
     st.write("NOAA keeps daily rain and temperatures for many weather stations, going back decades. Weather Lab can fetch "
              "the nearest station's last 10 years. They show on the Explore page, in the year totals, beside your own "
              "readings. NOAA needs a free token from its Climate Data Online website.")

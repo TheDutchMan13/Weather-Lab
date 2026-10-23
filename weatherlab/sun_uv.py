@@ -17,6 +17,11 @@ SUNSHINE_W_M2 = 120
 MAX_GAP_S = 600  # a bigger gap between readings is not counted as sunshine
 
 
+def uv_word(uv: float) -> str:
+    """The WHO-style level for a UV index, as one word."""
+    return "low" if uv < 3 else "moderate" if uv < 6 else "high" if uv < 8 else "very high" if uv < 11 else "extreme"
+
+
 def burn_minutes(uvi, skin):
     """Minutes of full sun before skin of this type starts to burn, or None without a UV reading."""
     if uvi is None or uvi <= 0:

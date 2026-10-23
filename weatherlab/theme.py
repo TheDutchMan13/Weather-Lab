@@ -251,14 +251,22 @@ def tile_html(label: str, value: str) -> str:
 STRIP_NEUTRAL = "#9aa3b0"
 
 
-def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = None) -> str:
-    """A summary tile with a coloured left edge: ok, warn, bad (red), info, or grey with no tone."""
+# The word that goes with each tone, so the level is readable without the colour.
+TONE_WORD = {"ok": "Good", "warn": "Watch", "bad": "Alert", "info": "Info"}
+
+
+def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = None, word: str | None = None) -> str:
+    """A summary tile with a coloured left edge: ok, warn, bad (red), info, or grey with no tone. The tone's word
+    (Good, Watch, Alert, Info) follows the note; pass word="" when the value or note already names the level."""
     key = "fail" if tone == "bad" else tone
     colour = HEALTH_DOT.get(key, STRIP_NEUTRAL) if key else STRIP_NEUTRAL
+    if word is None:
+        word = TONE_WORD.get(tone, "") if tone else ""
+    text = " · ".join(part for part in (note, word) if part)
     body = tile_html(_html.escape(label), _html.escape(value)).replace(
         'class="wl-tile"', f'class="wl-tile" style="border-left:4px solid {colour}"', 1)
-    if note:
-        body = body.replace("</div></div>", f'</div><div class="wl-label">{_html.escape(note)}</div></div>')
+    if text:
+        body = body.replace("</div></div>", f'</div><div class="wl-label">{_html.escape(text)}</div></div>')
     return body
 
 

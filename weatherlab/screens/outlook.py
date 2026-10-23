@@ -130,7 +130,7 @@ def heat_page() -> None:
     peak = max((x for x in series if x[2] is not None), key=lambda x: x[2], default=None)
     st.markdown(theme.grid_html([
         theme.strip_tile_html("Heat index now", units.format_value("heat_index", now["heat_index"], metric, 0),
-                              now["level"], _heat_tone(now["heat_index"])),
+                              now["level"], _heat_tone(now["heat_index"]), word=""),
         theme.strip_tile_html("Air temperature", units.format_value("tempf", data.get("tempf"), metric, 0), "right now"),
         theme.strip_tile_html("Highest heat index today", units.format_value("heat_index", peak[2] if peak else None, metric, 0),
                               _clock(peak[0]) if peak else "no data yet", _heat_tone(peak[2] if peak else None)),
@@ -199,8 +199,10 @@ def sun_page() -> None:
     uv_peak = max((u for _, u in uv_today if u is not None), default=None)
     uv_now = data.get("uv")
     st.markdown(theme.grid_html([
-        theme.strip_tile_html("UV index now", "--" if uv_now is None else f"{uv_now:.1f}", "", _uv_tone(uv_now)),
-        theme.strip_tile_html("UV peak today", "--" if uv_peak is None else f"{uv_peak:.1f}", "", _uv_tone(uv_peak)),
+        theme.strip_tile_html("UV index now", "--" if uv_now is None else f"{uv_now:.1f}",
+                              "" if uv_now is None else sun_uv.uv_word(uv_now), _uv_tone(uv_now), word=""),
+        theme.strip_tile_html("UV peak today", "--" if uv_peak is None else f"{uv_peak:.1f}",
+                              "" if uv_peak is None else sun_uv.uv_word(uv_peak), _uv_tone(uv_peak), word=""),
         theme.strip_tile_html("Sunshine today", f"{sun_uv.sunshine_hours(sun_today):.1f} h"),
         theme.strip_tile_html("Sunshine, last 7 days", f"{sun_uv.sunshine_hours(sun_week):.1f} h"),
     ]), unsafe_allow_html=True)
