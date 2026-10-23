@@ -49,7 +49,7 @@ class ReadingsDailyTests(unittest.TestCase):
         self.assertNotIn(datetime(2026, 9, 1).date(), days)
 
     def test_file_without_the_readings_is_refused(self):
-        rows = [["Time", "Outdoor"], [None, "Temperature(℉)"], ["2026-10-02 00:00", 70.0]]
+        rows = [["Time", "Outdoor"], [None, "Humidity(%)"], ["2026-10-02 00:00", 70.0]]
         with self.assertRaises(ValueError):
             rd.days_from_readings([rows])
 
