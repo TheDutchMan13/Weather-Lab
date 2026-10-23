@@ -273,6 +273,15 @@ def _pressure_change(now_inhg: float) -> float | None:
     return now_inhg - sum(old) / len(old) if old else None
 
 
+def _clickable_dial(key: str, help_key: str, draw) -> None:
+    """A dial that opens that reading's history when clicked. The ? help stays in the corner."""
+    with st.container(key=f"wcard-{key}"):
+        draw()
+        if st.button("History", key=f"hist-{key}", help=f"Click for {live_history.MEASURES[key][0].lower()} history"):
+            live_history.request(key)
+        term_help(help_key)
+
+
 def _feels_dial(s: Settings, data: dict) -> None:
     feels = data.get("feelslikef")
     if feels is None:
@@ -405,21 +414,9 @@ def live_readings() -> None:
             _temp_ring(s, data)
             left, right = st.columns(2)
             with left:
-                _feels_dial(s, data)
-                left_btn, left_help = st.columns([0.85, 0.15], vertical_alignment="center")
-                with left_btn:
-                    if st.button("Feels like history", key="hist-feelslikef"):
-                        live_history.request("feelslikef")
-                with left_help:
-                    term_help("feels_like")
+                _clickable_dial("feelslikef", "feels_like", lambda: _feels_dial(s, data))
             with right:
-                _pressure_dial(s, data)
-                right_btn, right_help = st.columns([0.85, 0.15], vertical_alignment="center")
-                with right_btn:
-                    if st.button("Pressure history", key="hist-baromrelin"):
-                        live_history.request("baromrelin")
-                with right_help:
-                    term_help("pressure")
+                _clickable_dial("baromrelin", "pressure", lambda: _pressure_dial(s, data))
             if dials:
                 st.markdown(theme.grid_html([html for _, html in dials]), unsafe_allow_html=True)
                 for col, (key, _) in zip(st.columns(len(dials)), dials):

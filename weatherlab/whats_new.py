@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.34.0",
+        "date": "October 23, 2026",
+        "items": [
+            "On Now, the Feels like and Pressure dials open their history when you click them. The History buttons below them are gone. The ? help stays in the top corner of each dial.",
+        ],
+    },
+    {
         "version": "0.33.0",
         "date": "October 23, 2026",
         "items": [

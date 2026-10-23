@@ -240,6 +240,15 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
                               f"color:{p['text']};font-size:12.5px;font-weight:400;line-height:1.45;text-align:left;"
                               "white-space:normal;box-shadow:0 6px 18px rgba(0,0,0,.25)"),
         _rule(".wl-tip:hover .wl-tip-text,.wl-tip:focus .wl-tip-text", "display:block"),
+        # A dial that opens its history when clicked: the real button is drawn invisibly over the whole dial.
+        _rule("[class*='st-key-wcard-']", "position:relative;border-radius:14px;transition:background .15s"),
+        _rule("[class*='st-key-wcard-']:hover", f"background:{p['line']}33"),
+        _rule("[class*='st-key-wcard-'] [data-testid='stButton']", "position:absolute;inset:0;z-index:1"),
+        _rule("[class*='st-key-wcard-'] [data-testid='stButton'] button",
+              "width:100%;height:100%;opacity:0;cursor:pointer;min-height:0"),
+        _rule("[class*='st-key-wcard-'] .stElementContainer:has([data-testid='stButton'],[data-testid='stPopover'])",
+              "height:0;margin:0;padding:0"),
+        _rule("[class*='st-key-wcard-'] [data-testid='stPopover']", "position:absolute;top:2px;right:2px;z-index:2;width:auto"),
         "@keyframes wl-sweep{from{stroke-dasharray:0.001,var(--c)}to{stroke-dasharray:var(--v),var(--c)}}",
         "@media (prefers-reduced-motion:no-preference){.wl-sweep{animation:wl-sweep .9s ease-out}}",
     ]
