@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.1",
+        "date": "October 24, 2026",
+        "items": [
+            "Weather Lab keeps the PC awake while it runs, so Windows doesn't put the PC to sleep and cut off the network and the phone connection. The screen can still turn off as usual.",
+            "server.log now records a heartbeat every minute, with the time, the number of background tasks and the phone API status. If the log stops, Weather Lab stopped at that moment. This helps find any future drop.",
+        ],
+    },
+    {
         "version": "0.37.0",
         "date": "October 23, 2026",
         "items": [
