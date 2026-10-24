@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.0",
+        "date": "October 23, 2026",
+        "items": [
+            "The Android app connection can now also read history from your own station: this calendar day in every year, months of the last three years side by side, a monthly card, a year in review, season milestones (first and last freeze and 90 and 100 degree days), unusual readings from the last 24 hours, the last 14 days of alerts, how close the forecast highs were, every daily summary as a CSV, and any past day replayed every 10 minutes. It can also read the nearest airport observation next to your station, tropical storms from the National Hurricane Center, radar picture addresses for your location, AirNow air quality (only if you added an AirNow key) and the phone-alert server and topic. All read-only, with the same token.",
+        ],
+    },
+    {
         "version": "0.36.0",
         "date": "October 23, 2026",
         "items": [

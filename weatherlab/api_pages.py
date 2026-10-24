@@ -7,8 +7,12 @@ import time
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from weatherlab import (astro, gateway_sensors, health, heat_safety, history, lightning_history, nws, rain_events,
-                        storage, sun_uv, units, whats_new, wind_rose, yearly)
+from statistics import mean, pstdev
+
+from weatherlab import (airquality, astro, forecast_check, gateway_sensors, health, heat_safety, history,
+                        history_compare, lightning_history, nws, push, rain_events, storage, sun_uv, tropics, units,
+                        whats_new, wind_rose, yearly)
+from weatherlab import secrets as keystore
 
 FORECAST_CACHE_SECONDS = 900
 _forecast_cache: dict = {}
@@ -255,3 +259,338 @@ def forecast(db, s, now: float) -> dict:
             "alerts": [{"event": a["event"], "severity": a["severity"], "headline": a["headline"]} for a in alert_list]}
     _forecast_cache[key] = (now, data)
     return data
+
+
+# ------------------------------------------------------------------ history pages
+
+def _day(value: str):
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def on_this_day(db, s, now: float, which: str) -> dict:
+    """The same calendar day in every year with data. which: 'today' or a month and day such as 10-23."""
+    metric = units.is_metric(s.units)
+    if which == "today":
+        d = datetime.fromtimestamp(now, _tz(s)).date()
+        month, day = d.month, d.day
+    else:
+        try:
+            parsed = datetime.strptime("2000-" + which, "%Y-%m-%d")  # 2000 is a leap year, so 02-29 works
+        except ValueError:
+            return {"error": "Use a date like 10-23, or today."}
+        month, day = parsed.month, parsed.day
+    rows = yearly.on_this_day(history.all_daily(db), month, day)
+    years = [{"year": d.year, "high": _show("tempf", x.get("tempf_max"), metric),
+              "low": _show("tempf", x.get("tempf_min"), metric), "rain": _show("dailyrainin", x.get("rain_in"), metric, 2)}
+             for d, x in reversed(rows)]
+    highs = [x["tempf_max"] for _, x in rows if x.get("tempf_max") is not None]
+    lows = [x["tempf_min"] for _, x in rows if x.get("tempf_min") is not None]
+    return {"month": month, "day": day, "years": years,
+            "record_high": _show("tempf", max(highs), metric) if highs else None,
+            "record_low": _show("tempf", min(lows), metric) if lows else None,
+            "temp_unit": units.unit("tempf", metric), "rain_unit": units.unit("dailyrainin", metric), "metric": metric}
+
+
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def compare(db, s, now: float) -> dict:
+    """Average temperature and rain for each month of the last three years, rain so far this year against the same
+    dates in earlier years, and hot days by year."""
+    metric = units.is_metric(s.units)
+    tz = _tz(s)
+    today = datetime.fromtimestamp(now, tz).date()
+    days = history.all_daily(db)
+    monthly = yearly.monthly(days)
+    years = sorted(monthly, reverse=True)[:3]
+    months = []
+    for m in range(1, 13):
+        values = {}
+        for y in years:
+            cell = monthly.get(y, {}).get(m)
+            if cell:
+                values[str(y)] = {"temp": _show("tempf", cell["temp"], metric), "rain": _show("dailyrainin", cell["rain"], metric, 2)}
+        months.append({"month": m, "label": MONTHS[m - 1], "values": values})
+    to_date = []
+    for y in sorted({d.year for d, _ in days}, reverse=True)[:5]:
+        end = date(y, today.month, min(today.day, calendar.monthrange(y, today.month)[1]))
+        total = sum(x.get("rain_in") or 0.0 for d, x in days if d.year == y and d <= end)
+        to_date.append({"year": y, "rain": _show("dailyrainin", total, metric, 2)})
+    heat = [{"year": y, "days_100": c[100], "days_110": c[110]}
+            for y, c in sorted(history_compare.heat_days_by_year(days).items(), reverse=True)]
+    return {"years": years, "months": months, "rain_to_date": to_date, "heat_days": heat,
+            "temp_unit": units.unit("tempf", metric), "rain_unit": units.unit("dailyrainin", metric), "metric": metric}
+
+
+def month_card(db, s, now: float, month: str) -> dict:
+    metric = units.is_metric(s.units)
+    try:
+        first = datetime.strptime(month, "%Y-%m").date()
+    except ValueError:
+        return {"error": "Use a month like 2026-10."}
+    last = first.replace(day=calendar.monthrange(first.year, first.month)[1])
+    rows = history.daily_between(db, first, last)
+    if not rows:
+        return {"month": month, "found": False}
+
+    def pick(key, fn):
+        found = [(x[key], d) for d, x in rows if x.get(key) is not None]
+        return fn(found) if found else None
+
+    def best(key, fn, ukey, digits=1):
+        hit = pick(key, fn)
+        return None if hit is None else {"value": _show(ukey, hit[0], metric, digits), "date": hit[1].isoformat()}
+    highs = [x["tempf_max"] for _, x in rows if x.get("tempf_max") is not None]
+    lows = [x["tempf_min"] for _, x in rows if x.get("tempf_min") is not None]
+    rain = [x["rain_in"] for _, x in rows if x.get("rain_in") is not None]
+    return {"month": month, "found": True, "days_with_data": len(rows),
+            "average_high": _show("tempf", mean(highs), metric) if highs else None,
+            "average_low": _show("tempf", mean(lows), metric) if lows else None,
+            "hottest": best("tempf_max", max, "tempf"), "coldest": best("tempf_min", min, "tempf"),
+            "wettest": best("rain_in", max, "dailyrainin", 2), "windiest": best("gust_max", max, "windgustmph"),
+            "rain_total": _show("dailyrainin", sum(rain), metric, 2), "rainy_days": sum(1 for r in rain if r >= 0.01),
+            "daily": [{"date": d.isoformat(), "high": _show("tempf", x.get("tempf_max"), metric),
+                       "low": _show("tempf", x.get("tempf_min"), metric),
+                       "rain": _show("dailyrainin", x.get("rain_in"), metric, 2)} for d, x in rows],
+            "temp_unit": units.unit("tempf", metric), "rain_unit": units.unit("dailyrainin", metric),
+            "wind_unit": units.unit("windgustmph", metric), "metric": metric}
+
+
+def _longest_run(rows, wet: bool):
+    """(length, first day, last day) of the longest run of consecutive days wet or dry."""
+    best, cur = (0, None, None), None
+    prev = None
+    for d, x in rows:
+        r = x.get("rain_in")
+        ok = r is not None and ((r >= 0.01) if wet else (r < 0.01))
+        if ok and cur is not None and prev is not None and (d - prev).days == 1:
+            cur = (cur[0] + 1, cur[1], d)
+        elif ok:
+            cur = (1, d, d)
+        else:
+            cur = None
+        prev = d
+        if cur and cur[0] > best[0]:
+            best = cur
+    return best
+
+
+def year_card(db, s, now: float, year: int) -> dict:
+    metric = units.is_metric(s.units)
+    days = history.all_daily(db)
+    sm = yearly.year_summary(days, year)
+    if sm is None:
+        return {"year": year, "found": False}
+    rows = [(d, x) for d, x in days if d.year == year]
+
+    def at(hit, ukey, digits=1):
+        return None if hit is None else {"date": hit[0].isoformat(), "value": _show(ukey, hit[1], metric, digits)}
+
+    def run(wet):
+        n, a, b = _longest_run(rows, wet)
+        return None if not n else {"days": n, "from": a.isoformat(), "to": b.isoformat()}
+    highs = [x["tempf_max"] for _, x in rows if x.get("tempf_max") is not None]
+    return {"year": year, "found": True, "days_with_data": sm["days"], "rain": _show("dailyrainin", sm["rain"], metric, 2),
+            "rainy_days": sm["rainy_days"], "hottest": at(sm["hottest"], "tempf"), "coldest": at(sm["coldest"], "tempf"),
+            "windiest": at(sm["windiest"], "windgustmph"), "days_90": sum(1 for h in highs if h >= 90),
+            "days_100": sm["hot_days"], "freezing_nights": sm["freezing"], "longest_dry": run(False),
+            "longest_wet": run(True), "years": sorted({d.year for d, _ in days}, reverse=True),
+            "temp_unit": units.unit("tempf", metric), "rain_unit": units.unit("dailyrainin", metric),
+            "wind_unit": units.unit("windgustmph", metric), "metric": metric}
+
+
+MILESTONES = [  # (key, label key, daily field, "min" or "max", threshold in °F)
+    ("freeze", "tempf_min", "le", 32.0), ("90", "tempf_max", "ge", 90.0), ("100", "tempf_max", "ge", 100.0),
+]
+
+
+def milestones(db, s, now: float) -> dict:
+    """First and last day of each year at or below freezing and at or above 90 and 100 degrees."""
+    metric = units.is_metric(s.units)
+    days = history.all_daily(db)
+    out = []
+    for key, field, op, limit in MILESTONES:
+        by_year = {}
+        for d, x in days:
+            v = x.get(field)
+            if v is None or not ((v <= limit) if op == "le" else (v >= limit)):
+                continue
+            e = by_year.setdefault(d.year, {"first": d, "last": d, "count": 0})
+            e["first"], e["last"], e["count"] = min(e["first"], d), max(e["last"], d), e["count"] + 1
+        shown = round(units.convert("tempf", limit, metric))
+        label = {"freeze": f"Freezing nights ({shown}{units.unit('tempf', metric)} or colder)"}.get(
+            key, f"Days at {shown}{units.unit('tempf', metric)} or hotter")
+        out.append({"key": key, "label": label,
+                    "years": [{"year": y, "first": by_year[y]["first"].isoformat(), "last": by_year[y]["last"].isoformat(),
+                               "count": by_year[y]["count"]} for y in sorted(by_year, reverse=True)]})
+    return {"milestones": out, "metric": metric}
+
+
+def anomalies(db, s, now: float) -> dict:
+    """Readings from the last 24 hours that sit far outside the previous 30 days (more than 3 standard deviations)."""
+    metric = units.is_metric(s.units)
+    tz = _tz(s)
+    older = storage.readings_sampled(db, now - 31 * 86400, now - 86400, every_s=1800)
+    recent = storage.readings_sampled(db, now - 86400, now + 1, every_s=300)
+    found = []
+    for key, label in (("tempf", "Temperature"), ("humidity", "Humidity"), ("windgustmph", "Gust"), ("baromrelin", "Pressure")):
+        base = [r[key] for _, r in older if r.get(key) is not None]
+        if len(base) < 200:
+            continue
+        mu, sd = mean(base), pstdev(base)
+        if sd <= 0:
+            continue
+        latest = [(ts, r[key]) for ts, r in recent if r.get(key) is not None]
+        if not latest:
+            continue
+        hi = max(latest, key=lambda x: x[1])
+        lo = min(latest, key=lambda x: x[1])
+        for kind, (ts, v) in (("high", hi), ("low", lo)):
+            if abs(v - mu) > 3 * sd and (kind == "high") == (v > mu):
+                digits = 2 if key == "baromrelin" else 1
+                found.append({"label": label, "kind": kind, "value": _show(key, v, metric, digits),
+                              "usual": _show(key, mu, metric, digits), "unit": units.unit(key, metric) if units.converts(key) else "%",
+                              "time": datetime.fromtimestamp(ts, tz).strftime("%a %H:%M")})
+    return {"anomalies": found, "checked": ["Temperature", "Humidity", "Gust", "Pressure"], "metric": metric}
+
+
+def alert_history(db, s, now: float) -> dict:
+    rows = [(ts, text) for ts, text in storage.recent_alerts(db, limit=300) if ts >= now - 14 * 86400]
+    return {"alerts": [{"ts": ts, "text": text} for ts, text in rows]}
+
+
+def forecast_accuracy(db, s, now: float) -> dict:
+    metric = units.is_metric(s.units)
+    forecasts = storage.forecast_highs(db)
+    actuals = {d: x["tempf_max"] for d, x in history.all_daily(db) if x.get("tempf_max") is not None}
+    rows = forecast_check.compare(forecasts, actuals)[:60]
+    stats = forecast_check.accuracy(rows)
+
+    def delta(v):
+        return None if v is None else round(units.convert_change("tempf", v, metric), 1)
+    return {"days": stats["days"], "average_miss": delta(stats["mae"]), "bias": delta(stats["bias"]),
+            "rows": [{"date": d.isoformat(), "forecast": _show("tempf", f, metric, 0), "actual": _show("tempf", a, metric, 0),
+                      "miss": delta(diff)} for d, f, a, diff in rows[:30]],
+            "unit": units.unit("tempf", metric), "metric": metric}
+
+
+def export_daily(db, s, now: float) -> dict:
+    """Every daily summary as a CSV, in US units (like the exports from the PC)."""
+    return {"filename": "weatherlab-daily.csv", "csv": history.daily_csv(history.all_daily(db))}
+
+
+def rewind(db, s, now: float, which: str) -> dict:
+    """One past day, minute by minute thinned to every 10 minutes, for the phone's touch charts."""
+    metric = units.is_metric(s.units)
+    tz = _tz(s)
+    try:
+        day = _day(which)
+    except ValueError:
+        return {"error": "Use a date like 2026-10-20."}
+    start = datetime.combine(day, datetime.min.time(), tzinfo=tz).timestamp()
+    rows = storage.readings_sampled(db, start, start + 86400, every_s=600)
+    series = []
+    for key, label, digits in (("tempf", "Temperature", 1), ("humidity", "Humidity", 0), ("windspeedmph", "Wind", 1),
+                               ("windgustmph", "Gust", 1), ("dailyrainin", "Rain so far", 2), ("baromrelin", "Pressure", 2)):
+        pts = [[ts, _show(key, r[key], metric, digits)] for ts, r in rows if r.get(key) is not None]
+        if pts:
+            series.append({"key": key, "label": label, "unit": units.unit(key, metric) if units.converts(key) else "%", "points": pts})
+    return {"date": day.isoformat(), "found": bool(series), "series": series, "metric": metric}
+
+
+# ------------------------------------------------------------------ public sources (US National Weather Service, NHC, AirNow)
+
+_cache: dict = {}
+
+
+def _cached(key, now, seconds, make):
+    held = _cache.get(key)
+    if held and now - held[0] < seconds:
+        return held[1]
+    value = make()
+    _cache[key] = (now, value)
+    return value
+
+
+def airport(db, s, now: float) -> dict:
+    """Your station next to the nearest airport (or weather station) reporting to the National Weather Service."""
+    if s.latitude is None or s.longitude is None:
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+    metric = units.is_metric(s.units)
+    try:
+        def lookup():
+            url = nws.points(s.latitude, s.longitude, s.nws_contact).get("stations", "")
+            return nws.nearest_airport_station(url, s.latitude, s.longitude, s.nws_contact) if url else None
+        station = _cached(("airport", s.latitude, s.longitude), now, 86400, lookup)
+        if not station:
+            return {"available": False, "reason": "No weather station was found near this location."}
+        obs = _cached(("obs", station["id"]), now, 600, lambda: nws.latest_observation(station["id"], s.nws_contact))
+    except Exception as exc:
+        return {"available": False, "reason": f"The National Weather Service didn't answer: {exc}"}
+    latest = storage.latest(db)
+    mine = latest[1] if latest else {}
+    km = station.get("km", 0)
+
+    def row(label, key, mine_v, theirs_v, digits=0):
+        return {"label": label, "station": _show(key, mine_v, metric, digits) if key else mine_v,
+                "airport": _show(key, theirs_v, metric, digits) if key else theirs_v,
+                "unit": units.unit(key, metric) if key else "%"}
+    return {"available": True, "name": station.get("name", ""), "airport": bool(station.get("airport")),
+            "distance": round(units.convert("miles", km / 1.609344, metric), 1), "distance_unit": units.unit("miles", metric),
+            "time": obs.get("time", ""), "text": obs.get("text", ""),
+            "rows": [row("Temperature", "tempf", mine.get("tempf"), obs.get("temp_f")),
+                     row("Humidity", None, mine.get("humidity"), obs.get("humidity")),
+                     row("Wind", "windspeedmph", mine.get("windspeedmph"), obs.get("wind_mph")),
+                     row("Gust", "windgustmph", mine.get("windgustmph"), obs.get("gust_mph"))], "metric": metric}
+
+
+def tropics_list(db, s, now: float) -> dict:
+    if s.latitude is None or s.longitude is None:
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+    metric = units.is_metric(s.units)
+    cache = tropics.refresh((s.latitude, s.longitude), storage.db_path().parent / "tropics.json")
+    return {"available": True, "ok": bool(cache.get("ok", True)), "checked": cache.get("checked", ""),
+            "storms": [{"name": x["name"], "class": x["class"], "wind": _show("windspeedmph", x["wind_mph"], metric, 0),
+                        "distance": _show("miles", x["miles"], metric, 0), "direction": x["direction"], "move": x["move"]}
+                       for x in cache.get("storms", [])],
+            "wind_unit": units.unit("windspeedmph", metric), "distance_unit": units.unit("miles", metric)}
+
+
+RADAR_RIDGE = "https://radar.weather.gov/ridge/standard/"
+
+
+def radar(db, s, now: float) -> dict:
+    if s.latitude is None or s.longitude is None:
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+    try:
+        station = _cached(("radar", s.latitude, s.longitude), now, 86400,
+                          lambda: nws.points(s.latitude, s.longitude, s.nws_contact).get("radar", ""))
+    except Exception as exc:
+        station = ""
+    out = {"available": True, "us_image": RADAR_RIDGE + "CONUS_0.gif", "us_page": "https://radar.weather.gov/"}
+    if station:
+        out.update(local_image=RADAR_RIDGE + f"{station}_0.gif", local_loop=RADAR_RIDGE + f"{station}_loop.gif",
+                   local_page=f"https://radar.weather.gov/station/{station.lower()}/standard", station=station)
+    return out
+
+
+def air(db, s, now: float) -> dict:
+    key = keystore.get_key("airnow")
+    if not key:
+        return {"available": False, "reason": "Add a free AirNow key in Weather Lab's Setup page to show air quality."}
+    if s.latitude is None or s.longitude is None:
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+    try:
+        data = _cached(("air", s.latitude, s.longitude), now, 600, lambda: airquality.fetch(s.latitude, s.longitude, key))
+    except Exception as exc:
+        return {"available": False, "reason": str(exc)}
+    if not data:
+        return {"available": False, "reason": "AirNow has no reading for this location right now."}
+    return {"available": True, "aqi": data["aqi"], "category": data["category"], "area": data.get("station", ""),
+            "pollutants": [{"label": label, "aqi": data[k]} for label, k in
+                           (("PM2.5", "pm25_aqi"), ("PM10", "pm10_aqi"), ("Ozone", "ozone_aqi")) if k in data]}
+
+
+def push_info(db, s, now: float) -> dict:
+    """Where the PC sends phone alerts, so the phone can subscribe to the same ntfy topic."""
+    return {"server": s.ntfy_server.strip() or push.DEFAULT_SERVER, "topic": keystore.get_key(push.topic_key()) or ""}
