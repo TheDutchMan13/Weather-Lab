@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.3",
+        "date": "October 24, 2026",
+        "items": [
+            "Fixed the clickable dials and tiles on Now for real: the whole dial or tile is now clickable, not just a strip at the top. The hover tooltip on them is gone.",
+        ],
+    },
+    {
         "version": "0.37.2",
         "date": "October 24, 2026",
         "items": [
