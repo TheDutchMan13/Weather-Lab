@@ -8,7 +8,7 @@ ENTRIES = [
         "version": "0.34.0",
         "date": "October 23, 2026",
         "items": [
-            "On Now, the Feels like and Pressure dials open their history when you click them. The History buttons below them are gone. The ? help stays in the top corner of each dial.",
+            "On Now, the dials and tiles open their history when you click them: Feels like, Pressure, Humidity, Wind, UV index and the three Last 24 hours tiles. The History buttons below them are gone. The ? help stays in the top corner of the Feels like and Pressure dials.",
         ],
     },
     {

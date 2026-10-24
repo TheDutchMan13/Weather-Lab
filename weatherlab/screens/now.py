@@ -273,13 +273,14 @@ def _pressure_change(now_inhg: float) -> float | None:
     return now_inhg - sum(old) / len(old) if old else None
 
 
-def _clickable_dial(key: str, help_key: str, draw) -> None:
-    """A dial that opens that reading's history when clicked. The ? help stays in the corner."""
-    with st.container(key=f"wcard-{key}"):
+def _clickable_dial(key: str, help_key: str | None, draw, where: str = "") -> None:
+    """A dial or tile that opens that reading's history when clicked. The ? help, when there is one, stays in the corner."""
+    with st.container(key=f"wcard-{where}{key}"):
         draw()
-        if st.button("History", key=f"hist-{key}", help=f"Click for {live_history.MEASURES[key][0].lower()} history"):
+        if st.button("History", key=f"hist-{where}{key}", help=f"Click for {live_history.MEASURES[key][0].lower()} history"):
             live_history.request(key)
-        term_help(help_key)
+        if help_key:
+            term_help(help_key)
 
 
 def _feels_dial(s: Settings, data: dict) -> None:
@@ -335,8 +336,7 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
     specs = [("tempf", "Temperature", units.unit("tempf", metric), 1.5 if metric else 3.0, charts.MEASURE["temp"]),
              ("humidity", "Humidity", "%", 5.0, charts.MEASURE["humidity"]),
              ("windspeedmph", "Wind", units.speed_unit(metric), 5.0 if metric else 3.0, charts.MEASURE["wind"])]
-    tiles = []
-    keys = []
+    keys, tile_html = [], []
     for key, label, unit_text, neutral, color in specs:
         if data.get(key) is None:
             continue
@@ -353,18 +353,14 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
         # Colour says what the number means. Near usual stays grey, and red is kept for real problems.
         above = ABOVE_USUAL[key]
         edge = {"up": above, "down": BELOW_USUAL}.get(direction, theme.STRIP_NEUTRAL)
-        tiles.append(sparks.tile_html({"label": label, "value": f"{cur:.0f}", "unit": unit_text, "series": series,
+        tile_html.append(sparks.tile_html({"label": label, "value": f"{cur:.0f}", "unit": unit_text, "series": series,
                                        "color": color, "compare": note, "direction": direction, "edge": edge,
                                        "up_color": above, "down_color": BELOW_USUAL}))
-    if tiles:
+    if tile_html:
         st.markdown(theme.section_html("Last 24 hours", updated=updated), unsafe_allow_html=True)
-        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
-        # The Wind dial further down has the Wind History button, so the Wind tile doesn't add a second one.
-        button_keys = [k for k in keys if k != "windspeedmph"]
-        if button_keys:
-            for col, key in zip(st.columns(len(button_keys)), button_keys):
-                if col.button(f"{live_history.MEASURES[key][0]} history", key=f"hist-{key}"):
-                    live_history.request(key)
+        for col, key, html_out in zip(st.columns(len(keys)), keys, tile_html):
+            with col:
+                _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "tile-")
 
 
 @st.fragment(run_every=REFRESH_SECONDS)
@@ -418,11 +414,9 @@ def live_readings() -> None:
             with right:
                 _clickable_dial("baromrelin", "pressure", lambda: _pressure_dial(s, data))
             if dials:
-                st.markdown(theme.grid_html([html for _, html in dials]), unsafe_allow_html=True)
-                for col, (key, _) in zip(st.columns(len(dials)), dials):
-                    # Humidity already has its History button in the 24-hour section above.
-                    if key != "humidity" and col.button(f"{live_history.MEASURES[key][0]} history", key=f"hist-dial-{key}"):
-                        live_history.request(key)
+                for col, (key, html_out) in zip(st.columns(len(dials)), dials):
+                    with col:
+                        _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "gauge-")
             st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
 
     live_history.show_pending()
