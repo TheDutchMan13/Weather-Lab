@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.2",
+        "date": "October 24, 2026",
+        "items": [
+            "Fixed the clickable dials and tiles on Now. Clicking the temperature ring, Feels like, Pressure, Humidity, Wind, UV and the Last 24 hours tiles opens their history again.",
+        ],
+    },
+    {
         "version": "0.37.1",
         "date": "October 24, 2026",
         "items": [

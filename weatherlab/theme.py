@@ -243,12 +243,17 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
         # A dial that opens its history when clicked: the real button is drawn invisibly over the whole dial.
         _rule("[class*='st-key-wcard-']", "position:relative;border-radius:14px;transition:background .15s"),
         _rule("[class*='st-key-wcard-']:hover", f"background:{p['line']}33"),
-        _rule("[class*='st-key-wcard-'] [data-testid='stButton']", "position:absolute;inset:0;z-index:1"),
+        # Streamlit wraps every element in a box that is position:relative, so the wrapper itself is stretched over the
+        # dial (taken out of the layout, so it adds no gap) and the button fills it.
+        _rule("[class*='st-key-wcard-'] .stElementContainer:has([data-testid='stButton'])",
+              "position:absolute !important;inset:0;width:100% !important;height:100% !important;margin:0;padding:0;"
+              "z-index:1;overflow:visible !important"),
+        _rule("[class*='st-key-wcard-'] [data-testid='stButton']", "width:100%;height:100%"),
         _rule("[class*='st-key-wcard-'] [data-testid='stButton'] button",
               "width:100%;height:100%;opacity:0;cursor:pointer;min-height:0"),
-        _rule("[class*='st-key-wcard-'] .stElementContainer:has([data-testid='stButton'],[data-testid='stPopover'])",
-              "height:0;margin:0;padding:0"),
-        _rule("[class*='st-key-wcard-'] [data-testid='stPopover']", "position:absolute;top:2px;right:2px;z-index:2;width:auto"),
+        _rule("[class*='st-key-wcard-'] .stElementContainer:has([data-testid='stPopover'])",
+              "position:absolute !important;inset:2px 2px auto auto;width:auto !important;height:auto !important;"
+              "min-width:0;margin:0;z-index:2"),
         "@keyframes wl-sweep{from{stroke-dasharray:0.001,var(--c)}to{stroke-dasharray:var(--v),var(--c)}}",
         "@media (prefers-reduced-motion:no-preference){.wl-sweep{animation:wl-sweep .9s ease-out}}",
     ]
