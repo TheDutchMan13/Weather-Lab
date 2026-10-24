@@ -277,7 +277,7 @@ def _clickable_dial(key: str, help_key: str | None, draw, where: str = "") -> No
     """A dial or tile that opens that reading's history when clicked. The ? help, when there is one, stays in the corner."""
     with st.container(key=f"wcard-{where}{key}"):
         draw()
-        if st.button("History", key=f"hist-{where}{key}", help=f"Click for {live_history.MEASURES[key][0].lower()} history"):
+        if st.button("History", key=f"hist-{where}{key}"):
             live_history.request(key)
         if help_key:
             term_help(help_key)
