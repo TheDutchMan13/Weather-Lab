@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.35.0",
+        "date": "October 23, 2026",
+        "items": [
+            "The Android app connection can now also read daily charts for the last 7 and 30 days, the last 60 days of highs, lows and rain, every figure kept for any one day (including yesterday), and the all-time records with the day each happened. These are read-only, like the rest, and use the same token.",
+        ],
+    },
+    {
         "version": "0.34.0",
         "date": "October 23, 2026",
         "items": [

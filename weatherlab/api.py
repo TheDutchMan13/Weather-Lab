@@ -12,6 +12,10 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/history   the last 24 hours of temperature, one point about every half hour
   /api/v1/week      high, low and rain for the last 7 days, today included
   /api/v1/storm     the last lightning strike, strikes in the last 10 and 30 minutes and today, and a simple trend
+  /api/v1/charts/7  (or /30) a daily high, low, average, rain and gust for each of the last 7 (or 30) days
+  /api/v1/days      the last 60 days with data, newest first: high, low and rain
+  /api/v1/days/2026-10-20  (or /yesterday) every figure kept for that one day
+  /api/v1/records   the all-time highs and lows, with the day each happened
 """
 
 import hashlib
@@ -25,6 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
 
 from weatherlab import secrets as keystore
+from weatherlab import history as history_db
 from weatherlab import stations, storage, units
 from weatherlab.config import APP_VERSION
 
@@ -228,6 +233,131 @@ def storm(db, s, now: float) -> dict:
     }
 
 
+# ------------------------------------------------------------------ charts, days, records
+
+# (daily summary key, label, units key or None, unit text when there is no units key)
+DAY_FIELDS = [
+    ("tempf_max", "High", "tempf", ""), ("tempf_min", "Low", "tempf", ""), ("tempf_avg", "Average", "tempf", ""),
+    ("heat_index_max", "Heat index high", "tempf", ""),
+    ("humidity_max", "Humidity high", None, "%"), ("humidity_min", "Humidity low", None, "%"),
+    ("rain_in", "Rain", "dailyrainin", ""), ("rainrate_max", "Rain rate peak", "rainratein", ""),
+    ("gust_max", "Highest gust", "windgustmph", ""), ("wind_max", "Highest sustained wind", "windspeedmph", ""),
+    ("wind_run_mi", "Wind run", "miles", ""),
+    ("baro_max", "Pressure high", "baromrelin", ""), ("baro_min", "Pressure low", "baromrelin", ""),
+    ("uvi", "UV index", None, ""), ("sun_hours", "Sun hours", None, "h"),
+]
+_DIGITS = {"dailyrainin": 2, "baromrelin": 2, "rainratein": 2}
+
+
+def _shown(key: str | None, value, metric: bool):
+    if value is None:
+        return None
+    if key is None:
+        return round(value, 1)
+    return round(units.convert(key, value, metric), _DIGITS.get(key, 1))
+
+
+def _today_summary(db, s, now: float) -> tuple[str, dict]:
+    """(today's date, a daily-style summary from the readings so far)."""
+    live = today(db, s, now)
+    data = {}
+    if live["high"]:
+        data["tempf_max"] = _raw(live["high"], "tempf", units.is_metric(s.units))
+    if live["low"]:
+        data["tempf_min"] = _raw(live["low"], "tempf", units.is_metric(s.units))
+    if live["rain"]:
+        data["rain_in"] = _raw(live["rain"], "dailyrainin", units.is_metric(s.units))
+    return live["date"], data
+
+
+def _raw(shown: dict, key: str, metric: bool) -> float:
+    """Back to stored (US) units from an API value."""
+    value = shown["value"]
+    if not metric or key not in units.METRIC_UNIT:
+        return value
+    return (value * 9 / 5 + 32) if key == "tempf" else value / units._FACTOR[key]
+
+
+def charts(db, s, now: float, days: int) -> dict:
+    """A daily series for the last 7 or 30 local days, oldest first. Days without a summary are None."""
+    tz = _tz(s)
+    metric = units.is_metric(s.units)
+    last = datetime.fromtimestamp(now, tz).date()
+    first = last - timedelta(days=days - 1)
+    held = {d.isoformat(): data for d, data in history_db.daily_between(db, first, last)}
+    live_date, live = _today_summary(db, s, now)
+    held[live_date] = {**held.get(live_date, {}), **live}
+    out = []
+    for i in range(days):
+        iso = (first + timedelta(days=i)).isoformat()
+        d = held.get(iso, {})
+        out.append({"date": iso, "high": _shown("tempf", d.get("tempf_max"), metric),
+                    "low": _shown("tempf", d.get("tempf_min"), metric),
+                    "avg": _shown("tempf", d.get("tempf_avg"), metric),
+                    "rain": _shown("dailyrainin", d.get("rain_in"), metric),
+                    "gust": _shown("windgustmph", d.get("gust_max"), metric)})
+    return {"days": out, "metric": metric, "temp_unit": units.unit("tempf", metric),
+            "rain_unit": units.unit("dailyrainin", metric), "wind_unit": units.unit("windgustmph", metric)}
+
+
+def days_list(db, s, now: float) -> dict:
+    """The last 60 days that have data, newest first, with the high, low and rain."""
+    tz = _tz(s)
+    metric = units.is_metric(s.units)
+    last = datetime.fromtimestamp(now, tz).date()
+    rows = history_db.daily_between(db, last - timedelta(days=59), last)
+    held = {d.isoformat(): data for d, data in rows}
+    live_date, live = _today_summary(db, s, now)
+    if live:
+        held[live_date] = {**held.get(live_date, {}), **live}
+    out = [{"date": iso, "high": _shown("tempf", d.get("tempf_max"), metric),
+            "low": _shown("tempf", d.get("tempf_min"), metric), "rain": _shown("dailyrainin", d.get("rain_in"), metric)}
+           for iso, d in sorted(held.items(), reverse=True)]
+    return {"days": out, "metric": metric, "temp_unit": units.unit("tempf", metric),
+            "rain_unit": units.unit("dailyrainin", metric)}
+
+
+def day_detail(db, s, now: float, which: str) -> dict:
+    """Every figure kept for one day: 'yesterday' or a date such as 2026-10-20."""
+    tz = _tz(s)
+    metric = units.is_metric(s.units)
+    last = datetime.fromtimestamp(now, tz).date()
+    if which == "yesterday":
+        day = last - timedelta(days=1)
+    else:
+        try:
+            day = datetime.strptime(which, "%Y-%m-%d").date()
+        except ValueError:
+            return {"error": "Use a date like 2026-10-20, or yesterday."}
+    iso = day.isoformat()
+    row = db.execute("SELECT data FROM daily WHERE date = ?", (iso,)).fetchone()
+    data = json.loads(row[0]) if row else {}
+    if iso == last.isoformat():
+        data = {**data, **_today_summary(db, s, now)[1]}
+    if not data:
+        return {"date": iso, "found": False, "metric": metric, "values": []}
+    values = []
+    for key, label, ukey, text in DAY_FIELDS:
+        if data.get(key) is None:
+            continue
+        values.append({"key": key, "label": label, "value": _shown(ukey, data[key], metric),
+                       "unit": units.unit(ukey, metric) if ukey else text})
+    return {"date": iso, "found": True, "estimated": bool(data.get("estimated")),
+            "partial": iso == last.isoformat(), "metric": metric, "values": values}
+
+
+def records_list(db, s, now: float) -> dict:
+    """All-time highs and lows from the daily summaries, with the day each happened."""
+    metric = units.is_metric(s.units)
+    out = []
+    for item in history_db.records(db):
+        ukey = history_db.RECORD_UNIT.get(item["key"])
+        out.append({"key": item["key"], "label": item["label"], "value": _shown(ukey, item["value"], metric),
+                    "unit": units.unit(ukey, metric) if ukey else item["unit"].strip(),
+                    "date": item["date"].isoformat(), "estimated": item["estimated"]})
+    return {"records": out, "metric": metric}
+
+
 # ------------------------------------------------------------------ routing
 
 def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int, dict]:
@@ -245,7 +375,15 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
                 "/api/v1/history": lambda: history(db, s, now),
                 "/api/v1/week": lambda: week(db, s, now),
                 "/api/v1/storm": lambda: storm(db, s, now)}
-    build = builders.get(path.rstrip("/") or "/")
+    clean = path.rstrip("/") or "/"
+    builders["/api/v1/days"] = lambda: days_list(db, s, now)
+    builders["/api/v1/records"] = lambda: records_list(db, s, now)
+    if clean in ("/api/v1/charts/7", "/api/v1/charts/30"):
+        builders[clean] = lambda: charts(db, s, now, int(clean.rsplit("/", 1)[1]))
+    if clean.startswith("/api/v1/days/"):
+        which = clean.rsplit("/", 1)[1]
+        builders[clean] = lambda: day_detail(db, s, now, which)
+    build = builders.get(clean)
     if build is None:
         return 404, {"error": "No such address in the API."}
     return 200, build()
