@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.5",
+        "date": "October 24, 2026",
+        "items": [
+            "Now page: the Air and Wind and rain readings that have a history are now clickable, like the trend cards.",
+        ],
+    },
+    {
         "version": "0.37.4",
         "date": "October 24, 2026",
         "items": [

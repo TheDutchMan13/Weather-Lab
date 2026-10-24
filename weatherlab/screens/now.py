@@ -381,6 +381,18 @@ def _trend_card(s: Settings, key: str, label: str, unit: str, data: dict, day: l
                  f'<div class="wl-label" style="margin-top:4px">{html.escape(sub)}</div></div>')
 
 
+def _tile_rows(items: list) -> None:
+    """Readings in rows of up to three. A reading with a history opens it when clicked; others stay still."""
+    for start in range(0, len(items), 3):
+        row = items[start:start + 3]
+        for col, (key, html_out) in zip(st.columns(len(row)), row):
+            with col:
+                if key in live_history.MEASURES:
+                    _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "card-")
+                else:
+                    st.markdown(html_out, unsafe_allow_html=True)
+
+
 def _pill(text: str) -> str:
     return (f'<span style="display:inline-block;padding:4px 11px;margin:0 6px 6px 0;border-radius:999px;'
             f'background:rgba(127,127,127,.14)">{text}</span>')
@@ -426,9 +438,9 @@ def live_readings() -> None:
             if key in data:
                 label, unit = CARD_LABELS[key]
                 text = units.format_value(key, data[key], metric) if units.converts(key) else f"{data[key]:g} {unit}".strip()
-                (wind if any(w in label.lower() for w in ("wind", "gust", "rain")) else air).append(_tile(label, text))
+                (wind if any(w in label.lower() for w in ("wind", "gust", "rain")) else air).append((key, _tile(label, text)))
         for comfort_tile in _comfort_tiles(data):
-            (wind if "Wind" in comfort_tile or "Rain" in comfort_tile else air).append(comfort_tile)
+            (wind if "Wind" in comfort_tile or "Rain" in comfort_tile else air).append((None, comfort_tile))
         compact = st.toggle("Compact sections", key="live_compact", value=False)
         with st.expander("Details", expanded=not compact):
             _clickable_dial("tempf", None, lambda: _temp_ring(s, data))
@@ -443,10 +455,10 @@ def live_readings() -> None:
                         _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "gauge-")
             if air:
                 st.markdown(theme.section_html("Air"), unsafe_allow_html=True)
-                st.markdown(theme.grid_html(air), unsafe_allow_html=True)
+                _tile_rows(air)
             if wind:
                 st.markdown(theme.section_html("Wind and rain"), unsafe_allow_html=True)
-                st.markdown(theme.grid_html(wind), unsafe_allow_html=True)
+                _tile_rows(wind)
 
     live_history.show_pending()
     dot = _status_dot(row[0]) if row else ""
