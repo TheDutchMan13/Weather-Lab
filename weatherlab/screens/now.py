@@ -363,6 +363,29 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
                 _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "tile-")
 
 
+def _trend_card(s: Settings, key: str, label: str, unit: str, data: dict, day: list,
+                color: str) -> tuple[str, str] | None:
+    """Option B: a reading with its last 24 hours as a trend line and its low and high. Clicking opens its history."""
+    if data.get(key) is None:
+        return None
+    metric = units.is_metric(s.units)
+    series = [units.convert(key, r[key], metric) for _, r in day if r.get(key) is not None]
+    cur = units.convert(key, data[key], metric)
+    sub = f"low {min(series):.0f} · high {max(series):.0f}" if len(series) >= 2 else ""
+    if key == "uv":
+        sub = "scale 0 to 11"
+    return key, ('<div class="wl-tile" style="text-align:left">'
+                 f'<div class="wl-label">{html.escape(label)}</div>'
+                 f'<div class="wl-value">{cur:.0f}<span style="font-size:13px;font-weight:400;opacity:.7"> {html.escape(unit)}</span></div>'
+                 f'{sparks.spark_svg(series, color, h=56)}'
+                 f'<div class="wl-label" style="margin-top:4px">{html.escape(sub)}</div></div>')
+
+
+def _pill(text: str) -> str:
+    return (f'<span style="display:inline-block;padding:4px 11px;margin:0 6px 6px 0;border-radius:999px;'
+            f'background:rgba(127,127,127,.14)">{text}</span>')
+
+
 @st.fragment(run_every=REFRESH_SECONDS)
 def live_readings() -> None:
     """Cards and status line. Streamlit re-runs just this part every REFRESH_SECONDS."""
@@ -389,22 +412,23 @@ def live_readings() -> None:
             with st.expander("Alert map", expanded=True):
                 _alert_map(s, alerts)
         _glance(s, data, row[0])
-        tiles = []
-        dials = []
         metric = units.is_metric(s.units)
-        for key, lo, hi, label, fmt in [("humidity", 0, 100, "Humidity %", "{:.0f}"),
-                                        ("windspeedmph", 0, 40, f"Wind {units.speed_unit(metric)}", "{:.0f}"),
-                                        ("uv", 0, 11, "UV index", "{:.0f}")]:
-            if data.get(key) is not None:
-                dials.append((key, theme.gauge_html(units.convert(key, data[key], metric),
-                                                    units.convert(key, lo, metric), units.convert(key, hi, metric),
-                                                    label, fmt, dark, animate=s.animate)))
+        p = theme.DARK if dark else theme.LIGHT
+        now = time.time()
+        day = [(ts, r) for ts, r in _recent_thinned(int(now // 600), stations.current()) if ts >= now - 86400]
+        trends = [_trend_card(s, key, label, unit, data, day, color) for key, label, unit, color in [
+            ("humidity", "Humidity", "%", charts.MEASURE["humidity"]),
+            ("windspeedmph", f"Wind {units.speed_unit(metric)}", "", charts.MEASURE["wind"]),
+            ("uv", "UV index", "", p["accent"])]]
+        trends = [c for c in trends if c]  # (key, html) pairs for the readings that exist
+        air, wind = [], []
         for key in s.live_cards:
             if key in data:
                 label, unit = CARD_LABELS[key]
                 text = units.format_value(key, data[key], metric) if units.converts(key) else f"{data[key]:g} {unit}".strip()
-                tiles.append(_tile(label, text))
-        tiles.extend(_comfort_tiles(data))
+                (wind if any(w in label.lower() for w in ("wind", "gust", "rain")) else air).append(_tile(label, text))
+        for comfort_tile in _comfort_tiles(data):
+            (wind if "Wind" in comfort_tile or "Rain" in comfort_tile else air).append(comfort_tile)
         compact = st.toggle("Compact sections", key="live_compact", value=False)
         with st.expander("Details", expanded=not compact):
             _clickable_dial("tempf", None, lambda: _temp_ring(s, data))
@@ -413,23 +437,28 @@ def live_readings() -> None:
                 _clickable_dial("feelslikef", "feels_like", lambda: _feels_dial(s, data))
             with right:
                 _clickable_dial("baromrelin", "pressure", lambda: _pressure_dial(s, data))
-            if dials:
-                for col, (key, html_out) in zip(st.columns(len(dials)), dials):
+            if trends:
+                for col, (key, html_out) in zip(st.columns(len(trends)), trends):
                     with col:
                         _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "gauge-")
-            st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+            if air:
+                st.markdown(theme.section_html("Air"), unsafe_allow_html=True)
+                st.markdown(theme.grid_html(air), unsafe_allow_html=True)
+            if wind:
+                st.markdown(theme.section_html("Wind and rain"), unsafe_allow_html=True)
+                st.markdown(theme.grid_html(wind), unsafe_allow_html=True)
 
     live_history.show_pending()
     dot = _status_dot(row[0]) if row else ""
-    parts = []
+    pills = []
     if status.last_ok:
-        parts.append(f"Last reading {_clock(status.last_ok)}")
+        pills.append(_pill(f"{dot}Last reading {_clock(status.last_ok)}"))
     if status.last_attempt:
-        parts.append(f"last attempt {_clock(status.last_attempt)}")
+        pills.append(_pill(f"Last attempt {_clock(status.last_attempt)}"))
     if status.started:
-        parts.append(f"reader started {_clock(status.started)}")
-    if parts:
-        st.markdown(f'<div class="wl-status">{dot}{" · ".join(parts)}</div>', unsafe_allow_html=True)
+        pills.append(_pill(f"Reader started {_clock(status.started)}"))
+    if pills:
+        st.markdown(f'<div class="wl-status">{"".join(pills)}</div>', unsafe_allow_html=True)
 
 
 def _status_dot(ts: float) -> str:
