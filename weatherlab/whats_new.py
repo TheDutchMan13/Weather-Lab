@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.4",
+        "date": "October 24, 2026",
+        "items": [
+            "Now page: the Humidity, Wind and UV readings are now trend cards showing the last 24 hours with their low and high. Click any card for its history.",
+            "Now page: the other readings are grouped under Air and Wind and rain, and the status line is now a row of small pills.",
+        ],
+    },
+    {
         "version": "0.37.3",
         "date": "October 24, 2026",
         "items": [
