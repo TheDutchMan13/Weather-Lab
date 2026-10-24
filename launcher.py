@@ -91,7 +91,10 @@ def open_window() -> int:
     host = "0.0.0.0" if allow else "127.0.0.1"
     token = secrets.token_urlsafe(16)  # lets this window in past the password, without a password
     url = f"http://127.0.0.1:{port}/?wl_token={token}"
-    env = dict(os.environ, WEATHERLAB_PORT=str(port), WEATHERLAB_WINDOW_TOKEN=token)
+    # The bundled protobuf C extension (upb) crashed the server with an access violation on 2026-10-24.
+    # The pure-Python protobuf is slower but avoids that module; the page's messages are small.
+    env = dict(os.environ, WEATHERLAB_PORT=str(port), WEATHERLAB_WINDOW_TOKEN=token,
+               PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python")
     with open(log_path(), "a", encoding="utf-8") as log:
         log.write(f"\n--- starting {time.strftime('%Y-%m-%d %H:%M:%S')} on {host}:{port}\n")
         log.flush()

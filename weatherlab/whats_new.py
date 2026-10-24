@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.6",
+        "date": "October 24, 2026",
+        "items": [
+            "Fixed a crash in the background server that could stop the app with a connection error. Pages may load slightly slower.",
+        ],
+    },
+    {
         "version": "0.37.5",
         "date": "October 24, 2026",
         "items": [
