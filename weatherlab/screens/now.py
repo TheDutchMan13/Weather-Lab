@@ -407,7 +407,7 @@ def live_readings() -> None:
         tiles.extend(_comfort_tiles(data))
         compact = st.toggle("Compact sections", key="live_compact", value=False)
         with st.expander("Details", expanded=not compact):
-            _temp_ring(s, data)
+            _clickable_dial("tempf", None, lambda: _temp_ring(s, data))
             left, right = st.columns(2)
             with left:
                 _clickable_dial("feelslikef", "feels_like", lambda: _feels_dial(s, data))
