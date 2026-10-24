@@ -50,6 +50,10 @@ def serve(port: int, host: str = "127.0.0.1") -> int:
     sys.path.insert(0, str(base_dir()))
     from streamlit.web import cli
 
+    from weatherlab import api, keepalive
+    keepalive.keep_awake()  # Windows keeps the PC and its network running while the server is up
+    keepalive.start_heartbeat(api.status_text)
+    print(f"server starting on {host}:{port}", flush=True)
     sys.argv = ["streamlit", "run", str(base_dir() / "app.py"),
                 "--server.headless=true", f"--server.address={host}", f"--server.port={port}"]
     cli.main()
