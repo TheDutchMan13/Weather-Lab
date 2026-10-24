@@ -16,6 +16,16 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/days      the last 60 days with data, newest first: high, low and rain
   /api/v1/days/2026-10-20  (or /yesterday) every figure kept for that one day
   /api/v1/records   the all-time highs and lows, with the day each happened
+  /api/v1/rankings  the top 10 days for warmest, coolest, coldest nights, wettest, windiest, UV and sunniest
+  /api/v1/rain/calendar/2026-10  rain for each day of a month, and the totals for every year
+  /api/v1/rain/events  the wet spells of the last 60 days
+  /api/v1/wind/1  (or /7, /30) where the wind came from and how strong
+  /api/v1/lightning/days  strikes per day for the last 30 days, with the closest
+  /api/v1/sun  UV, sunshine hours, sunrise and sunset, and sunburn times
+  /api/v1/heat  heat index now, today's peak, hot days this year and the heat safety levels
+  /api/v1/station  how complete the data is, gaps, each sensor, and battery and signal when the station can be reached
+  /api/v1/whatsnew  what each Weather Lab version added
+  /api/v1/forecast  the National Weather Service forecast for the station's location
 """
 
 import hashlib
@@ -29,6 +39,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
 
 from weatherlab import secrets as keystore
+from weatherlab import api_pages
 from weatherlab import history as history_db
 from weatherlab import stations, storage, units
 from weatherlab.config import APP_VERSION
@@ -287,6 +298,10 @@ def charts(db, s, now: float, days: int) -> dict:
     held = {d.isoformat(): data for d, data in history_db.daily_between(db, first, last)}
     live_date, live = _today_summary(db, s, now)
     held[live_date] = {**held.get(live_date, {}), **live}
+    every = 3600 if days <= 7 else 10800
+    start = datetime.combine(first, datetime.min.time(), tzinfo=tz).timestamp()
+    points = [[ts, round(units.convert("tempf", r["tempf"], metric), 1)]
+              for ts, r in storage.readings_sampled(db, start, now + 1, every_s=every) if r.get("tempf") is not None]
     out = []
     for i in range(days):
         iso = (first + timedelta(days=i)).isoformat()
@@ -296,7 +311,7 @@ def charts(db, s, now: float, days: int) -> dict:
                     "avg": _shown("tempf", d.get("tempf_avg"), metric),
                     "rain": _shown("dailyrainin", d.get("rain_in"), metric),
                     "gust": _shown("windgustmph", d.get("gust_max"), metric)})
-    return {"days": out, "metric": metric, "temp_unit": units.unit("tempf", metric),
+    return {"days": out, "temp_points": points, "metric": metric, "temp_unit": units.unit("tempf", metric),
             "rain_unit": units.unit("dailyrainin", metric), "wind_unit": units.unit("windgustmph", metric)}
 
 
@@ -380,6 +395,19 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
     builders["/api/v1/records"] = lambda: records_list(db, s, now)
     if clean in ("/api/v1/charts/7", "/api/v1/charts/30"):
         builders[clean] = lambda: charts(db, s, now, int(clean.rsplit("/", 1)[1]))
+    builders.update({"/api/v1/rankings": lambda: api_pages.rankings(db, s, now),
+                     "/api/v1/rain/events": lambda: api_pages.rain_event_list(db, s, now),
+                     "/api/v1/lightning/days": lambda: api_pages.lightning_days(db, s, now),
+                     "/api/v1/sun": lambda: api_pages.sun(db, s, now),
+                     "/api/v1/heat": lambda: api_pages.heat(db, s, now),
+                     "/api/v1/station": lambda: api_pages.station(db, s, now),
+                     "/api/v1/whatsnew": lambda: api_pages.whats_new_list(db, s, now),
+                     "/api/v1/forecast": lambda: api_pages.forecast(db, s, now)})
+    if clean in ("/api/v1/wind/1", "/api/v1/wind/7", "/api/v1/wind/30"):
+        builders[clean] = lambda: api_pages.wind_rose_data(db, s, now, int(clean.rsplit("/", 1)[1]))
+    if clean.startswith("/api/v1/rain/calendar/"):
+        month = clean.rsplit("/", 1)[1]
+        builders[clean] = lambda: api_pages.rain_calendar(db, s, now, month)
     if clean.startswith("/api/v1/days/"):
         which = clean.rsplit("/", 1)[1]
         builders[clean] = lambda: day_detail(db, s, now, which)

@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.36.0",
+        "date": "October 23, 2026",
+        "items": [
+            "The Android app connection can now also read more pages: the top 10 days (warmest, coolest, coldest nights, wettest, windiest, UV, sunniest), a rain calendar with yearly totals, rain events, the wind rose, lightning by day, sun and UV with sunburn times, heat safety, station health and sensors, this What's New list, and the National Weather Service forecast. The 7 and 30 day charts also send temperature readings so the phone can show them in more detail. These are read-only, like the rest, and use the same token.",
+        ],
+    },
+    {
         "version": "0.35.0",
         "date": "October 23, 2026",
         "items": [
