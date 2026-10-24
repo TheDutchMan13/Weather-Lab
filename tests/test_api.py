@@ -186,6 +186,63 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(api._trend([(self.now - 1000, 3.0), (self.now - 100, 9.0)], self.now), "receding")
         self.assertEqual(api._trend([(self.now - 3000, 3.0)], self.now), "none")
 
+    def _seed_days(self):
+        import json
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        today = datetime.fromtimestamp(self.now, ZoneInfo(PHX)).date()
+        with self.db:
+            for n, hi in ((1, 95.0), (2, 101.0), (10, 88.0)):
+                self.db.execute("INSERT INTO daily (date, data) VALUES (?, ?)", (
+                    (today - timedelta(days=n)).isoformat(),
+                    json.dumps({"tempf_max": hi, "tempf_min": hi - 25, "tempf_avg": hi - 12, "rain_in": 0.25 if n == 1 else 0.0,
+                                "gust_max": 30.0, "humidity_max": 60.0, "baro_max": 29.9})))
+        return today
+
+    def test_charts_give_a_series_for_7_and_30_days(self):
+        today = self._seed_days()
+        t = self.token()
+        code, body = api.route("/api/v1/charts/7", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertEqual((code, len(body["days"])), (200, 7))
+        self.assertEqual(body["days"][-1]["date"], today.isoformat())
+        self.assertEqual(body["days"][-2]["high"], 95.0)
+        self.assertEqual(body["days"][-2]["rain"], 0.25)
+        _, month = api.route("/api/v1/charts/30", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertEqual(len(month["days"]), 30)
+        self.assertEqual(api.route("/api/v1/charts/9", f"Bearer {t}", self.db, self.s, self.now)[0], 404)
+
+    def test_days_lists_newest_first(self):
+        self._seed_days()
+        t = self.token()
+        _, body = api.route("/api/v1/days", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertEqual([d["high"] for d in body["days"]], [95.0, 101.0, 88.0])
+
+    def test_day_detail_for_yesterday_a_date_and_a_gap(self):
+        today = self._seed_days()
+        t = self.token()
+        _, y = api.route("/api/v1/days/yesterday", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertTrue(y["found"])
+        self.assertEqual(y["values"][0], {"key": "tempf_max", "label": "High", "value": 95.0, "unit": "°F"})
+        _, mt = api.route(f"/api/v1/days/{(today.fromordinal(today.toordinal() - 1)).isoformat()}", f"Bearer {t}",
+                          self.db, replace(self.s, units="Metric"), self.now)
+        self.assertEqual(mt["values"][0]["value"], 35.0)
+        self.assertEqual(mt["values"][0]["unit"], "°C")
+        gap = (today.fromordinal(today.toordinal() - 5)).isoformat()
+        _, none = api.route(f"/api/v1/days/{gap}", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertFalse(none["found"])
+        _, bad = api.route("/api/v1/days/nonsense", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertIn("error", bad)
+
+    def test_records_use_the_chosen_units(self):
+        self._seed_days()
+        t = self.token()
+        _, us = api.route("/api/v1/records", f"Bearer {t}", self.db, self.s, self.now)
+        top = next(r for r in us["records"] if r["key"] == "tempf_max")
+        self.assertEqual((top["value"], top["unit"]), (101.0, "°F"))
+        _, mt = api.route("/api/v1/records", f"Bearer {t}", self.db, replace(self.s, units="Metric"), self.now)
+        top = next(r for r in mt["records"] if r["key"] == "tempf_max")
+        self.assertEqual((top["value"], top["unit"]), (38.3, "°C"))
+
     # --- the server
     def test_server_starts_answers_and_stops(self):
         sock = socket.socket()
