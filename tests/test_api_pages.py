@@ -14,7 +14,9 @@ from weatherlab import api, api_pages, nws, storage
 from weatherlab.settings import Settings
 
 
-class ApiPagesTests(unittest.TestCase):
+class ApiHelpers:
+    """Shared setup for the API page tests."""
+
     def setUp(self):
         keys = FakeKeys()
         p = mock.patch.object(api, "keystore", keys)
@@ -47,6 +49,8 @@ class ApiPagesTests(unittest.TestCase):
                                             "windgustmph": 12.0, "uv": 6.0, "solarradiation": 600.0,
                                             "dailyrainin": 0.0, "rainratein": 0.0}, ts)
 
+
+class ApiPagesTests(ApiHelpers, unittest.TestCase):
     def test_rankings(self):
         self.seed_days()
         code, body = self.get("/api/v1/rankings")

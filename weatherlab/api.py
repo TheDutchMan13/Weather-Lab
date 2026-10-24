@@ -26,6 +26,21 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/station  how complete the data is, gaps, each sensor, and battery and signal when the station can be reached
   /api/v1/whatsnew  what each Weather Lab version added
   /api/v1/forecast  the National Weather Service forecast for the station's location
+  /api/v1/onthisday/10-23  (or /today) that calendar day in every year with data
+  /api/v1/compare  months of the last three years side by side, rain to date, hot days by year
+  /api/v1/month/2026-10  a month card: averages, extremes, rain and every day
+  /api/v1/year/2026  a year in review
+  /api/v1/milestones  first and last freeze, 90 and 100 degree day of each year
+  /api/v1/anomalies  readings from the last 24 hours far outside the last month
+  /api/v1/alerts/history  alerts from the last 14 days
+  /api/v1/forecast/accuracy  how close the forecast highs were
+  /api/v1/export/daily  every daily summary as CSV text
+  /api/v1/rewind/2026-10-20  one past day, every 10 minutes
+  /api/v1/airport  the station next to the nearest airport observation
+  /api/v1/tropics  tropical storms from the National Hurricane Center, with distance from home
+  /api/v1/radar  radar image addresses for the station's location
+  /api/v1/air  AirNow air quality (only when an AirNow key is set)
+  /api/v1/push  the phone-alert server and topic
 """
 
 import hashlib
@@ -411,6 +426,25 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
     if clean.startswith("/api/v1/days/"):
         which = clean.rsplit("/", 1)[1]
         builders[clean] = lambda: day_detail(db, s, now, which)
+    builders.update({"/api/v1/compare": lambda: api_pages.compare(db, s, now),
+                     "/api/v1/milestones": lambda: api_pages.milestones(db, s, now),
+                     "/api/v1/anomalies": lambda: api_pages.anomalies(db, s, now),
+                     "/api/v1/alerts/history": lambda: api_pages.alert_history(db, s, now),
+                     "/api/v1/forecast/accuracy": lambda: api_pages.forecast_accuracy(db, s, now),
+                     "/api/v1/export/daily": lambda: api_pages.export_daily(db, s, now),
+                     "/api/v1/airport": lambda: api_pages.airport(db, s, now),
+                     "/api/v1/tropics": lambda: api_pages.tropics_list(db, s, now),
+                     "/api/v1/radar": lambda: api_pages.radar(db, s, now),
+                     "/api/v1/air": lambda: api_pages.air(db, s, now),
+                     "/api/v1/push": lambda: api_pages.push_info(db, s, now)})
+    for prefix, make in (("/api/v1/onthisday/", api_pages.on_this_day), ("/api/v1/month/", api_pages.month_card),
+                         ("/api/v1/rewind/", api_pages.rewind)):
+        if clean.startswith(prefix):
+            builders[clean] = lambda make=make, arg=clean.rsplit("/", 1)[1]: make(db, s, now, arg)
+    if clean.startswith("/api/v1/year/"):
+        year = clean.rsplit("/", 1)[1]
+        builders[clean] = lambda: (api_pages.year_card(db, s, now, int(year)) if year.isdigit()
+                                   else {"error": "Use a year like 2026."})
     build = builders.get(clean)
     if build is None:
         return 404, {"error": "No such address in the API."}
