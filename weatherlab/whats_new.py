@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.17",
+        "date": "October 25, 2026",
+        "items": [
+            "The small ? icons beside terms are gone from every page, including the Live page. Hover help is off; the glossary is kept for later.",
+        ],
+    },
+    {
         "version": "0.37.16",
         "date": "October 25, 2026",
         "items": [
