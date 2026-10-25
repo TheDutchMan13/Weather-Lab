@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.14",
+        "date": "October 25, 2026",
+        "items": [
+            "The Records page is now Records and analysis. It has summary tiles at the top and chips to pick a group (Records, Heat, Rain and storms, Climate and comparisons) and a view (Extreme events, Records board, Distribution).",
+            "Extreme events lists the hottest, coldest, windiest and wettest days with counts for each. Distribution shows how many days fell in each daily-high range.",
+        ],
+    },
+    {
         "version": "0.37.13",
         "date": "October 25, 2026",
         "items": [
