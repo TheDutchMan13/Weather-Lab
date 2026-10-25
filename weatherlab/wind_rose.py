@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+CALM_MPH = 1.0  # readings under this count as calm
 WINDY_MPH = 5.0  # readings at or above this count as windy for the monthly table
 
 NAMES = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
@@ -60,6 +61,7 @@ def patterns(items, tz) -> dict:
     often came from, what share of them, and the average speed of all readings with a direction."""
     overall = [[0] * len(NAMES) for _ in SPEED_BINS]
     total = 0
+    calm = 0
     months: dict[str, dict] = {}
     for ts, r in items:
         d, s = r.get("winddir"), r.get("windspeedmph")
@@ -71,6 +73,8 @@ def patterns(items, tz) -> dict:
         i = int(((d % 360) + 11.25) // 22.5) % len(NAMES)
         overall[b][i] += 1
         total += 1
+        if s < CALM_MPH:
+            calm += 1
         m = months.setdefault(datetime.fromtimestamp(ts, tz).strftime("%Y-%m"),
                               {"windy": [0] * len(NAMES), "speed_sum": 0.0, "n": 0})
         m["n"] += 1
@@ -86,4 +90,4 @@ def patterns(items, tz) -> dict:
                      "from": NAMES[top] if top is not None else None,
                      "share": round(100 * m["windy"][top] / windy_total, 1) if top is not None else None,
                      "avg_mph": round(m["speed_sum"] / m["n"], 1)})
-    return {"counts": overall, "total": total, "months": rows}
+    return {"counts": overall, "total": total, "calm": calm, "months": rows}

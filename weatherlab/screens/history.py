@@ -13,6 +13,11 @@ from weatherlab.settings import load_settings
 from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
 
+# Light to dark blues for the wind rose, slowest to fastest. The set for a dark page starts lighter so every band shows.
+ROSE_BLUES_LIGHT = ["#8ec3f5", "#3b8de0", "#1f5fa8", "#0b3470", "#061f45"]
+ROSE_BLUES_DARK = ["#bcd9fb", "#8ec3f5", "#4f9cf7", "#2f6fd0", "#1f4c9a"]
+
+
 def _conv(key: str, values: list, metric: bool) -> list:
     """Each US value converted to the chosen units. None stays None."""
     return [units.convert(key, v, metric) for v in values]
@@ -176,6 +181,44 @@ def _daily_bars(days: list, values: list, title: str, unit_text: str, colour: st
     return fig
 
 
+def _live_strip(s, db, tz) -> None:
+    """A slim strip at the top of the page: the latest temperature, wind, humidity and rain, and whether any warning is active."""
+    from weatherlab import hero
+    from weatherlab.screens import now as live_now
+    latest = storage.latest(db)
+    if not latest:
+        return
+    ts, r = latest
+    metric = units.is_metric(s.units)
+    age_min = max(0, int((time.time() - ts) // 60))
+    state, dot = ("just now", "#3ddc84") if age_min < 2 else (f"{age_min} min ago", "#3ddc84" if age_min < 10 else "#f6d55c")
+    parts = []
+    if r.get("feelslikef") is not None:
+        parts.append("feels " + units.format_value("feelslikef", r["feelslikef"], metric, 0).replace(" °F", "°").replace(" °C", "°"))
+    if r.get("windspeedmph") is not None:
+        direction = wind_rose.NAMES[int(((r["winddir"] % 360) + 11.25) // 22.5) % 16] + " " if r.get("winddir") is not None and r["windspeedmph"] >= 1 else ""
+        parts.append(f"wind {direction}{units.format_value('windspeedmph', r['windspeedmph'], metric, 0)}")
+    if r.get("humidity") is not None:
+        parts.append(f"humidity {r['humidity']:.0f}%")
+    if r.get("dailyrainin") is not None:
+        parts.append(f"rain today {units.format_value('dailyrainin', r['dailyrainin'], metric, 2)}")
+    alerts = []
+    if s.latitude is not None and s.longitude is not None:
+        alerts = live_now._live_alerts(s.latitude, s.longitude, s.nws_contact)
+    pill = (html.escape(alerts[0]["event"]) + (f" (+{len(alerts) - 1})" if len(alerts) > 1 else "")) if alerts else "No weather alerts"
+    pill_bg = "rgba(240,140,0,.35)" if alerts else "rgba(0,0,0,.25)"
+    temp = units.format_value("tempf", r.get("tempf"), metric, 0)
+    g = hero.GRADS["clear_day"]
+    st.markdown(
+        f'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:12px 18px;border-radius:12px;'
+        f'color:#fff;background:{hero.sky_bg("clear_day", g)}">'
+        f'<span style="font-size:12px"><span style="color:{dot}">&#9679;</span> Live &middot; {state}</span>'
+        f'<span style="font-size:28px;font-weight:600">{html.escape(temp.replace(" °F", "°").replace(" °C", "°"))}</span>'
+        f'<span style="font-size:14px;flex:1;min-width:200px;color:#e8edf5">{html.escape(" · ".join(parts))}</span>'
+        f'<span style="font-size:12.5px;background:{pill_bg};border-radius:99px;padding:4px 12px">{pill}</span></div>',
+        unsafe_allow_html=True)
+
+
 def _history_charts(rows: list, dark: bool, metric: bool) -> None:
     days = [d for d, _ in rows]
 
@@ -247,9 +290,9 @@ def _wind_section(rows: list, tz, metric: bool, all_time: bool, today: date, dar
     counts, total = info["counts"], info["total"]
     pct = wind_rose.percentages(counts, total)
     fig = charts.figure(dark, height=420)
+    ramp = ROSE_BLUES_DARK if dark else ROSE_BLUES_LIGHT
     for i in range(len(wind_rose.SPEED_BINS)):
-        fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric),
-                         marker_color=charts.CHART_COLORS[i % len(charts.CHART_COLORS)])
+        fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric), marker_color=ramp[i % len(ramp)])
     fig.update_layout(title=dict(text="Wind rose for this period", x=0, xanchor="left", font=dict(size=13)),
                       polar=dict(barmode="stack", angularaxis=dict(direction="clockwise", rotation=90),
                                  radialaxis=dict(ticksuffix="%")))
@@ -259,6 +302,7 @@ def _wind_section(rows: list, tz, metric: bool, all_time: bool, today: date, dar
         top = wind_rose.dominant(counts)
         top_share = round(100 * max(sum(row[i] for row in counts) for i in range(len(wind_rose.NAMES))) / total, 1)
         st.caption(f"Bars point to where the wind comes from. Most often from the {top} ({top_share:g}% of readings). "
+                   f"Calm ({'under 2 km/h' if metric else 'under 1 mph'}) {round(100 * info['calm'] / total):g}% of the time. "
                    f"Based on {total:,} readings, about one every ten minutes.")
     with c2:
         st.markdown("**Prevailing wind by month**")
@@ -275,6 +319,7 @@ def history_page() -> None:
     metric = units.is_metric(s.units)
     today = datetime.now(tz).date()
     yesterday = today - timedelta(days=1)
+    _live_strip(s, db, tz)
     st.markdown(theme.page_head("Daily history", "Each day's high, low, rain, wind and humidity over the range you choose."), unsafe_allow_html=True)
 
     choice = st.radio("Time range", list(HISTORY_RANGES), index=2, horizontal=True, key="history_range")

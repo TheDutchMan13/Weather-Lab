@@ -73,3 +73,11 @@ class SampledReadingsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_calm_readings_are_counted(self):
+        jan = 1767225600
+        items = [(jan, self._reading(10, 0.0)), (jan + 600, self._reading(10, 0.9)),
+                 (jan + 1200, self._reading(10, 1.0)), (jan + 1800, self._reading(10, 4.0))]
+        out = wind_rose.patterns(items, timezone.utc)
+        self.assertEqual(out["total"], 4)
+        self.assertEqual(out["calm"], 2)  # under 1 mph
