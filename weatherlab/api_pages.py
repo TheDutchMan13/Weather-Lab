@@ -118,9 +118,9 @@ def wind_rose_data(db, s, now: float, days: int) -> dict:
     speeds = [r["windspeedmph"] for r in rows if r.get("windspeedmph") is not None]
     gusts = [r["windgustmph"] for r in rows if r.get("windgustmph") is not None]
     return {"days": days, "total": total, "dominant": wind_rose.dominant(counts) if total else None,
-            "bins": [wind_rose.label(i, metric) for i in range(len(wind_rose.SPEED_BINS))],
-            "directions": [{"name": name, "bins": [pct[b][i] for b in range(len(wind_rose.SPEED_BINS))],
-                            "percent": round(sum(pct[b][i] for b in range(len(wind_rose.SPEED_BINS))), 1)}
+            "bins": [wind_rose.label(i, metric) for i in wind_rose.DRAWN],
+            "directions": [{"name": name, "bins": [pct[b][i] for b in wind_rose.DRAWN],
+                            "percent": round(sum(pct[b][i] for b in wind_rose.DRAWN), 1)}
                            for i, name in enumerate(wind_rose.NAMES)],
             "average": _show("windspeedmph", sum(speeds) / len(speeds), metric) if speeds else None,
             "strongest_gust": _show("windgustmph", max(gusts), metric) if gusts else None,

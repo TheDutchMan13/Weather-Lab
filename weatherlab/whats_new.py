@@ -5,6 +5,20 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.11",
+        "date": "October 25, 2026",
+        "items": [
+            "The wind rose now splits light wind into 1 mph, 2 mph, 3-4 mph and 5+ mph bands, with calm (under 1 mph) left out of the bands and reported in the caption. The Android wind page picks this up from the PC.",
+        ],
+    },
+    {
+        "version": "0.37.11",
+        "date": "October 25, 2026",
+        "items": [
+            "The wind rose now splits light wind into 1 mph, 2 mph, 3-4 mph and 5+ mph bands, with calm (under 1 mph) left out of the bands and reported in the caption. The Android wind page picks this up from the PC.",
+        ],
+    },
+    {
         "version": "0.37.10",
         "date": "October 25, 2026",
         "items": [
