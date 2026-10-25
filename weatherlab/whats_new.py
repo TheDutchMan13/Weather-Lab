@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.15",
+        "date": "October 25, 2026",
+        "items": [
+            "The Heat safety page now shows hours at Danger or worse today, dotted level lines on the chart, a ladder of all five heat safety levels with yours marked, hours spent in each level today, and a list of dangerous heat days.",
+        ],
+    },
+    {
         "version": "0.37.14",
         "date": "October 25, 2026",
         "items": [
