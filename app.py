@@ -7,6 +7,7 @@ import streamlit.components.v1 as components
 import time
 from weatherlab import auth, autofit, health, stations, storage, theme
 from weatherlab.config import APP_NAME, APP_VERSION
+from weatherlab.nav_groups import DEFAULT_PAGE, GROUPS
 from weatherlab.settings import load_settings
 from weatherlab import api
 from weatherlab.screens.common import start_poller
@@ -18,17 +19,6 @@ from weatherlab.screens.now import alerts_log_page, live_page, sensors_page
 from weatherlab.screens.outlook import astronomy_page, forecast_page, heat_page, sun_page, wind_map_page, wind_page
 from weatherlab.screens.help import help_page
 from weatherlab.screens.system import health_check_page, settings_page, setup_page, stations_page, status_page, whats_new_page
-
-
-GROUPS = {  # sidebar sections, each with its pages
-    "Now": ["Live", "Sensors", "Alert history"],
-    "History": ["Daily", "Records", "Coverage", "Rankings", "Rewind", "Climate charts", "My year"],
-    "Explore": ["Rain calendar", "Rain events", "Ask", "Unusual days", "Replay"],
-    "Outlook": ["Forecast", "Heat", "Wind", "Wind map", "Sun", "Astronomy"],
-    "Hazards": ["Air", "Fire", "Lightning", "Tropics", "Radar"],
-    "Data": ["Import", "Export", "Reports"],
-    "Configure": ["Setup", "Settings", "Stations", "Status", "Health check", "Help", "What's New"],
-}
 
 
 def access_gate() -> bool:
@@ -94,7 +84,7 @@ PAGE_FUNCS = {"Live": live_page, "Sensors": sensors_page, "Status": status_page,
 
 def _sections() -> dict:
     """The sidebar sections and their pages, as Streamlit page objects."""
-    return {group: [st.Page(PAGE_FUNCS[name], title=name, icon=PAGE_ICONS[name], default=(name == "Live"))
+    return {group: [st.Page(PAGE_FUNCS[name], title=name, icon=PAGE_ICONS[name], default=(name == DEFAULT_PAGE))
                     for name in names]
             for group, names in GROUPS.items()}
 
