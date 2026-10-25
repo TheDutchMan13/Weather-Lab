@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.9",
+        "date": "October 25, 2026",
+        "items": [
+            "Android app: tapping a Live tile now opens that reading's history for 24 hours, 7 days or 30 days, with its high, low and average. The app gets it from the new /api/v1/measure/<reading>/<days> address.",
+        ],
+    },
+    {
         "version": "0.37.8",
         "date": "October 24, 2026",
         "items": [

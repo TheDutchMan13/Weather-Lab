@@ -11,6 +11,7 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/alerts    the 20 most recent alerts
   /api/v1/history   the last 24 hours of temperature, one point about every half hour
   /api/v1/tiles     what the Live page tiles need: 24-hour lines for humidity, wind, gust, pressure and solar, today's peaks and the pressure trend
+  /api/v1/measure/<reading>/<1|7|30>  one reading over 1, 7 or 30 days with its high, low and average (for tapping a Live tile)
   /api/v1/week      high, low and rain for the last 7 days, today included
   /api/v1/storm     the last lightning strike, strikes in the last 10 and 30 minutes and today, and a simple trend
   /api/v1/charts/7  (or /30) a daily high, low, average, rain and gust for each of the last 7 (or 30) days
@@ -57,7 +58,7 @@ from zoneinfo import ZoneInfo
 from weatherlab import secrets as keystore
 from weatherlab import api_pages
 from weatherlab import history as history_db
-from weatherlab import stations, storage, units
+from weatherlab import history_series, stations, storage, units
 from weatherlab.config import APP_VERSION
 
 VERSION = 1
@@ -225,6 +226,26 @@ def tiles(db, s, now: float) -> dict:
             change = latest[1]["baromrelin"] - sum(old) / len(old)
             pressure = {"word": _pressure_word(change), "change": round(units.convert_change("baromrelin", change, metric), 3)}
     return {"hours": 24, "metric": metric, "series": series, "peaks": peaks, "pressure": pressure}
+
+
+HISTORY_KEYS = ("tempf", "feelslikef", "dewpointf", "humidity", "windspeedmph", "windgustmph", "baromrelin", "uv",
+                "solarradiation", "dailyrainin", "rainratein", "tempinf", "humidityin")
+_HISTORY_BUCKET = {1: 600, 7: 1800, 30: 7200}  # seconds per point, to keep the answer small for a phone
+_HISTORY_UNIT = {"humidity": "%", "humidityin": "%", "solarradiation": "W/m\u00b2", "uv": ""}
+
+
+def measure_history(db, s, now: float, key: str, days: int) -> dict:
+    """One reading over the last 1, 7 or 30 days as [timestamp, value] pairs, in the units chosen in Settings."""
+    if key not in HISTORY_KEYS or days not in _HISTORY_BUCKET:
+        return {"error": "Use /api/v1/measure/<reading>/<1, 7 or 30>."}
+    metric = units.is_metric(s.units)
+    raw = [(ts, r[key]) for ts, r in storage.readings_between(db, now - days * 86400, now + 1) if r.get(key) is not None]
+    points = [[ts, round(units.convert(key, v, metric), 2)] for ts, v in history_series.thin(raw, _HISTORY_BUCKET[days])]
+    values = [p[1] for p in points]
+    return {"key": key, "days": days, "metric": metric, "unit": _HISTORY_UNIT.get(key, units.unit(key, metric)),
+            "points": points,
+            "high": max(values) if values else None, "low": min(values) if values else None,
+            "average": round(sum(values) / len(values), 2) if values else None}
 
 
 def week(db, s, now: float) -> dict:
@@ -477,6 +498,10 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
                          ("/api/v1/rewind/", api_pages.rewind)):
         if clean.startswith(prefix):
             builders[clean] = lambda make=make, arg=clean.rsplit("/", 1)[1]: make(db, s, now, arg)
+    if clean.startswith("/api/v1/measure/"):
+        parts = clean[len("/api/v1/measure/"):].split("/")
+        if len(parts) == 2 and parts[1].isdigit():
+            builders[clean] = lambda: measure_history(db, s, now, parts[0], int(parts[1]))
     if clean.startswith("/api/v1/year/"):
         year = clean.rsplit("/", 1)[1]
         builders[clean] = lambda: (api_pages.year_card(db, s, now, int(year)) if year.isdigit()
