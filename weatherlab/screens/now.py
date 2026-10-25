@@ -590,8 +590,18 @@ def _welcome(s: Settings) -> None:
             st.markdown(f"{mark} **{title}**  \n<span style='opacity:.7'>{detail}</span>", unsafe_allow_html=True)
 
 
+# Roomier cards on the Live page (0.37.18): more padding inside each card, bigger numbers, and space between cards.
+LIVE_ROOMY_CSS = ("<style>"
+                  ".wl-tile{padding:16px 18px !important}"
+                  ".wl-value{font-size:24px !important;margin-top:6px !important}"
+                  ".wl-label{font-size:13px !important}"
+                  ".wl-grid{gap:14px !important;margin-bottom:16px !important}"
+                  "</style>")
+
+
 def live_page() -> None:
     s = load_settings()
+    st.markdown(LIVE_ROOMY_CSS, unsafe_allow_html=True)
     st.markdown(theme.page_head("Live", "Right now at your station, with the last 24 hours and any active alerts."), unsafe_allow_html=True)
     if not s.station_ip:
         _welcome(s)

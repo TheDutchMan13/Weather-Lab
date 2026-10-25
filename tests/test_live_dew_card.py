@@ -23,5 +23,12 @@ class LiveDewCard(unittest.TestCase):
         self.assertEqual(whats_new.ENTRIES[0]["version"], config.APP_VERSION)
 
 
+class LiveRoomyCards(unittest.TestCase):
+    def test_live_page_injects_roomier_card_css(self):
+        start = SRC.index("def live_page() -> None:")
+        self.assertIn("LIVE_ROOMY_CSS", SRC[start:SRC.index("def alerts_log_page", start)])
+        self.assertIn(".wl-tile{padding:16px 18px !important}", SRC)
+
+
 if __name__ == "__main__":
     unittest.main()
