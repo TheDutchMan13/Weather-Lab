@@ -108,4 +108,4 @@ Weather Lab was built with help from Claude, an AI assistant made by Anthropic, 
 
 ## License
 
-MIT. See `LICENSE`.
+GNU GPL v3.0 or later. Copyright (C) 2026 Hans De Kryger. See `LICENSE`.
