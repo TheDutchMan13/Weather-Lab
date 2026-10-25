@@ -109,15 +109,19 @@ def rain_event_list(db, s, now: float) -> dict:
 
 # ------------------------------------------------------------------ wind and lightning
 
-def wind_rose_data(db, s, now: float, days: int) -> dict:
+def wind_rose_data(db, s, now: float, days: int | None) -> dict:
+    """days None = every reading kept, sampled hourly."""
     metric = units.is_metric(s.units)
-    items = storage.readings_sampled(db, now - days * 86400, now + 1, every_s=120 if days == 1 else 600)
+    if days is None:
+        items = storage.readings_sampled(db, 0, now + 1, every_s=3600)
+    else:
+        items = storage.readings_sampled(db, now - days * 86400, now + 1, every_s=120 if days == 1 else 600)
     rows = [r for _, r in items]
     counts, total = wind_rose.rose(rows)
     pct = wind_rose.percentages(counts, total)
     speeds = [r["windspeedmph"] for r in rows if r.get("windspeedmph") is not None]
     gusts = [r["windgustmph"] for r in rows if r.get("windgustmph") is not None]
-    return {"days": days, "total": total, "dominant": wind_rose.dominant(counts) if total else None,
+    return {"days": days or 0, "total": total, "dominant": wind_rose.dominant(counts) if total else None,
             "bins": [wind_rose.label(i, metric) for i in wind_rose.DRAWN],
             "directions": [{"name": name, "bins": [pct[b][i] for b in wind_rose.DRAWN],
                             "percent": round(sum(pct[b][i] for b in wind_rose.DRAWN), 1)}

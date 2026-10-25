@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.22",
+        "date": "October 25, 2026",
+        "items": [
+            "The Android Daily page can now show 1 day, 7 days, 30 days or all days, with summary numbers, charts, the wind rose and rain totals. Weather Lab shares the daily series and the rain totals over the phone connection.",
+        ],
+    },
+    {
         "version": "0.37.21",
         "date": "October 25, 2026",
         "items": [
