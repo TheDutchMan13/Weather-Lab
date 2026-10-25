@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.19",
+        "date": "October 25, 2026",
+        "items": [
+            "Every card on the Live page with history is a chart now: outdoor and indoor temperature, humidity, wind, gust and rain today each show their last 24 hours, with low and high.",
+        ],
+    },
+    {
         "version": "0.37.18",
         "date": "October 25, 2026",
         "items": [
