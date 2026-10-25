@@ -14,7 +14,7 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/measure/<reading>/<1|7|30>  one reading over 1, 7 or 30 days with its high, low and average (for tapping a Live tile)
   /api/v1/week      high, low and rain for the last 7 days, today included
   /api/v1/storm     the last lightning strike, strikes in the last 10 and 30 minutes and today, and a simple trend
-  /api/v1/charts/7  (or /30) a daily high, low, average, rain and gust for each of the last 7 (or 30) days
+  /api/v1/charts/7  (or /30, /all) a daily high, low, average, rain and gust for each of the last 7 (or 30, or all) days, with the rain totals
   /api/v1/days      the last 60 days with data, newest first: high, low and rain
   /api/v1/days/2026-10-20  (or /yesterday) every figure kept for that one day
   /api/v1/records   the all-time highs and lows, with the day each happened
@@ -22,7 +22,7 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/rankings  the top 10 days for warmest, coolest, coldest nights, wettest, windiest, UV and sunniest
   /api/v1/rain/calendar/2026-10  rain for each day of a month, and the totals for every year
   /api/v1/rain/events  the wet spells of the last 60 days
-  /api/v1/wind/1  (or /7, /30) where the wind came from and how strong
+  /api/v1/wind/1  (or /7, /30, /all) where the wind came from and how strong
   /api/v1/lightning/days  strikes per day for the last 30 days, with the closest
   /api/v1/sun  UV, sunshine hours, sunrise and sunset, and sunburn times
   /api/v1/heat  heat index now, today's peak, hot days this year and the heat safety levels
@@ -361,19 +361,31 @@ def _raw(shown: dict, key: str, metric: bool) -> float:
     return (value * 9 / 5 + 32) if key == "tempf" else value / units._FACTOR[key]
 
 
-def charts(db, s, now: float, days: int) -> dict:
-    """A daily series for the last 7 or 30 local days, oldest first. Days without a summary are None."""
+ALL_DAYS_CAP = 1500  # "all" stops here so the reply stays small
+
+
+def charts(db, s, now: float, days: int | None) -> dict:
+    """A daily series for the last 7 or 30 local days (None = every day kept), oldest first. Days without a summary are None.
+
+    Also carries the rain totals (today, last 7 days, this month, this year) for the Daily page."""
     tz = _tz(s)
     metric = units.is_metric(s.units)
     last = datetime.fromtimestamp(now, tz).date()
-    first = last - timedelta(days=days - 1)
+    if days is None:
+        every_day = history_db.all_daily(db)
+        first = every_day[0][0] if every_day else last
+        first = max(first, last - timedelta(days=ALL_DAYS_CAP - 1))
+        days = (last - first).days + 1
+    else:
+        first = last - timedelta(days=days - 1)
     held = {d.isoformat(): data for d, data in history_db.daily_between(db, first, last)}
     live_date, live = _today_summary(db, s, now)
     held[live_date] = {**held.get(live_date, {}), **live}
     every = 3600 if days <= 7 else 10800
     start = datetime.combine(first, datetime.min.time(), tzinfo=tz).timestamp()
-    points = [[ts, round(units.convert("tempf", r["tempf"], metric), 1)]
+    points = [] if days > 30 else [[ts, round(units.convert("tempf", r["tempf"], metric), 1)]
               for ts, r in storage.readings_sampled(db, start, now + 1, every_s=every) if r.get("tempf") is not None]
+    totals = history_db.rain_totals(db, last, held.get(live_date, {}).get("rain_in"))
     out = []
     for i in range(days):
         iso = (first + timedelta(days=i)).isoformat()
@@ -384,7 +396,8 @@ def charts(db, s, now: float, days: int) -> dict:
                     "rain": _shown("dailyrainin", d.get("rain_in"), metric),
                     "gust": _shown("windgustmph", d.get("gust_max"), metric)})
     return {"days": out, "temp_points": points, "metric": metric, "temp_unit": units.unit("tempf", metric),
-            "rain_unit": units.unit("dailyrainin", metric), "wind_unit": units.unit("windgustmph", metric)}
+            "rain_unit": units.unit("dailyrainin", metric), "wind_unit": units.unit("windgustmph", metric),
+            "rain_totals": {k: _shown("dailyrainin", v, metric) for k, v in totals.items()}}
 
 
 def days_list(db, s, now: float) -> dict:
@@ -516,8 +529,9 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
     builders["/api/v1/days"] = lambda: days_list(db, s, now)
     builders["/api/v1/records"] = lambda: records_list(db, s, now)
     builders["/api/v1/records/analysis"] = lambda: records_analysis(db, s, now)
-    if clean in ("/api/v1/charts/7", "/api/v1/charts/30"):
-        builders[clean] = lambda: charts(db, s, now, int(clean.rsplit("/", 1)[1]))
+    if clean in ("/api/v1/charts/7", "/api/v1/charts/30", "/api/v1/charts/all"):
+        tail = clean.rsplit("/", 1)[1]
+        builders[clean] = lambda: charts(db, s, now, None if tail == "all" else int(tail))
     builders.update({"/api/v1/rankings": lambda: api_pages.rankings(db, s, now),
                      "/api/v1/rain/events": lambda: api_pages.rain_event_list(db, s, now),
                      "/api/v1/lightning/days": lambda: api_pages.lightning_days(db, s, now),
@@ -526,8 +540,9 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
                      "/api/v1/station": lambda: api_pages.station(db, s, now),
                      "/api/v1/whatsnew": lambda: api_pages.whats_new_list(db, s, now),
                      "/api/v1/forecast": lambda: api_pages.forecast(db, s, now)})
-    if clean in ("/api/v1/wind/1", "/api/v1/wind/7", "/api/v1/wind/30"):
-        builders[clean] = lambda: api_pages.wind_rose_data(db, s, now, int(clean.rsplit("/", 1)[1]))
+    if clean in ("/api/v1/wind/1", "/api/v1/wind/7", "/api/v1/wind/30", "/api/v1/wind/all"):
+        tail = clean.rsplit("/", 1)[1]
+        builders[clean] = lambda: api_pages.wind_rose_data(db, s, now, None if tail == "all" else int(tail))
     if clean.startswith("/api/v1/rain/calendar/"):
         month = clean.rsplit("/", 1)[1]
         builders[clean] = lambda: api_pages.rain_calendar(db, s, now, month)
