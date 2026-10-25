@@ -83,7 +83,7 @@ class ApiPagesTests(ApiHelpers, unittest.TestCase):
         top = max(body["directions"], key=lambda d: d["percent"])
         self.assertEqual(top["name"], "W")
         self.assertEqual(body["dominant"], "W")
-        self.assertEqual(len(body["bins"]), 5)
+        self.assertEqual(len(body["bins"]), 4)  # 1 mph, 2 mph, 3-4 mph, 5+ mph (calm is not drawn)
         self.assertEqual(self.get("/api/v1/wind/9")[0], 404)
 
     def test_lightning_days(self):

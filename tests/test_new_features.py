@@ -47,13 +47,14 @@ class WindTests(unittest.TestCase):
                                         {"winddir": 180, "windspeedmph": 12},
                                         {"windspeedmph": 5}])
         self.assertEqual(total, 2)
-        self.assertEqual(counts[0][0], 1)   # 0-5 mph, from the north
-        self.assertEqual(counts[2][8], 1)   # 10-15 mph, from the south
+        self.assertEqual(counts[3][0], 1)   # 3-4 mph, from the north
+        self.assertEqual(counts[4][8], 1)   # 5+ mph, from the south
 
     def test_dominant_and_percentages(self):
         counts, total = wind_rose.rose([{"winddir": 90, "windspeedmph": 7}] * 3 + [{"winddir": 270, "windspeedmph": 7}])
         self.assertEqual(wind_rose.dominant(counts), "E")
-        self.assertEqual(wind_rose.percentages(counts, total)[1][4], 75.0)
+        self.assertEqual(wind_rose.percentages(counts, total)[1][4], 0.0)  # 1 mph band: none of these
+        self.assertEqual(wind_rose.percentages(counts, total)[4][4], 75.0)  # 5+ mph band
 
 
 class AlertTests(unittest.TestCase):

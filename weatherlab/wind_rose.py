@@ -6,7 +6,10 @@ CALM_MPH = 1.0  # readings under this count as calm
 WINDY_MPH = 5.0  # readings at or above this count as windy for the monthly table
 
 NAMES = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
-SPEED_BINS = [(0, 5, "0-5 mph"), (5, 10, "5-10 mph"), (10, 15, "10-15 mph"), (15, 20, "15-20 mph"), (20, None, "20+ mph")]
+# Calm (under 1 mph) is counted in the totals and the monthly table but not drawn on the rose: the rose shows the
+# bands in DRAWN, 1 mph up to 5+ mph, which is what the wind rose and its legend use.
+SPEED_BINS = [(0, 1, "Calm (under 1 mph)"), (1, 2, "1 mph"), (2, 3, "2 mph"), (3, 5, "3-4 mph"), (5, None, "5+ mph")]
+DRAWN = list(range(1, len(SPEED_BINS)))
 
 
 def label(index: int, metric: bool = False) -> str:
@@ -14,8 +17,11 @@ def label(index: int, metric: bool = False) -> str:
     lo, hi, us_text = SPEED_BINS[index]
     if not metric:
         return us_text
-    lo_k = round(lo * 1.609344)
-    return f"{lo_k}+ km/h" if hi is None else f"{lo_k}-{round(hi * 1.609344)} km/h"
+    if hi is None:
+        return f"{round(lo * 1.609344)}+ km/h"
+    if lo == 0:
+        return f"Calm (under {round(hi * 1.609344)} km/h)"
+    return f"{round(lo * 1.609344)}-{round(hi * 1.609344)} km/h"
 
 
 def _bin(speed):

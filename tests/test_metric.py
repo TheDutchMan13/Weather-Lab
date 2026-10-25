@@ -61,9 +61,11 @@ class AlertTextTests(unittest.TestCase):
 
 class LabelTests(unittest.TestCase):
     def test_wind_bins(self):
-        self.assertEqual(wind_rose.label(0), "0-5 mph")
-        self.assertEqual(wind_rose.label(0, True), "0-8 km/h")
-        self.assertEqual(wind_rose.label(4, True), "32+ km/h")
+        self.assertEqual(wind_rose.label(0), "Calm (under 1 mph)")
+        self.assertEqual(wind_rose.label(1), "1 mph")
+        self.assertEqual(wind_rose.label(3), "3-4 mph")
+        self.assertEqual(wind_rose.label(4), "5+ mph")
+        self.assertEqual(wind_rose.label(4, True), "8+ km/h")
 
     def test_tropics_move_has_number_and_direction(self):
         raw = {"activeStorms": [{"latitudeNumeric": 20, "longitudeNumeric": -70, "name": "Test",

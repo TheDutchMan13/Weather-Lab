@@ -14,8 +14,9 @@ from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
 
 # Light to dark blues for the wind rose, slowest to fastest. The set for a dark page starts lighter so every band shows.
-ROSE_BLUES_LIGHT = ["#8ec3f5", "#3b8de0", "#1f5fa8", "#0b3470", "#061f45"]
-ROSE_BLUES_DARK = ["#bcd9fb", "#8ec3f5", "#4f9cf7", "#2f6fd0", "#1f4c9a"]
+# The four drawn bands: 1 mph, 2 mph, 3-4 mph, 5+ mph.
+ROSE_BLUES_LIGHT = ["#8ec3f5", "#3b8de0", "#1f5fa8", "#0b3470"]
+ROSE_BLUES_DARK = ["#bcd9fb", "#4f9cf7", "#2f6fd0", "#1f4c9a"]
 
 
 def _conv(key: str, values: list, metric: bool) -> list:
@@ -291,8 +292,8 @@ def _wind_section(rows: list, tz, metric: bool, all_time: bool, today: date, dar
     pct = wind_rose.percentages(counts, total)
     fig = charts.figure(dark, height=420)
     ramp = ROSE_BLUES_DARK if dark else ROSE_BLUES_LIGHT
-    for i in range(len(wind_rose.SPEED_BINS)):
-        fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric), marker_color=ramp[i % len(ramp)])
+    for n, i in enumerate(wind_rose.DRAWN):
+        fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric), marker_color=ramp[n % len(ramp)])
     fig.update_layout(title=dict(text="Wind rose for this period", x=0, xanchor="left", font=dict(size=13)),
                       polar=dict(barmode="stack", angularaxis=dict(direction="clockwise", rotation=90),
                                  radialaxis=dict(ticksuffix="%")))

@@ -172,9 +172,9 @@ def wind_page() -> None:
     ]), unsafe_allow_html=True)
     pct = wind_rose.percentages(counts, total)
     fig = charts.figure(dark, height=480)
-    for i in range(len(wind_rose.SPEED_BINS)):
+    for n, i in enumerate(wind_rose.DRAWN):
         fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric),
-                         marker_color=charts.CHART_COLORS[i % len(charts.CHART_COLORS)])
+                         marker_color=charts.CHART_COLORS[n % len(charts.CHART_COLORS)])
     fig.update_layout(polar=dict(barmode="stack", angularaxis=dict(direction="clockwise", rotation=90),
                                  radialaxis=dict(ticksuffix="%")))
     charts.show(fig)
