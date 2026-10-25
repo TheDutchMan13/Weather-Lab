@@ -10,6 +10,7 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/today     today's high, low and rain so far
   /api/v1/alerts    the 20 most recent alerts
   /api/v1/history   the last 24 hours of temperature, one point about every half hour
+  /api/v1/tiles     what the Live page tiles need: 24-hour lines for humidity, wind, gust, pressure and solar, today's peaks and the pressure trend
   /api/v1/week      high, low and rain for the last 7 days, today included
   /api/v1/storm     the last lightning strike, strikes in the last 10 and 30 minutes and today, and a simple trend
   /api/v1/charts/7  (or /30) a daily high, low, average, rain and gust for each of the last 7 (or 30) days
@@ -190,6 +191,40 @@ def history(db, s, now: float) -> dict:
             and latest[0] >= now - 24 * 3600:
         points.append([latest[0], round(units.convert("tempf", latest[1]["tempf"], metric), 1)])
     return {"hours": 24, "unit": units.unit("tempf", metric), "metric": metric, "points": points}
+
+
+TILE_SERIES = ("humidity", "windspeedmph", "windgustmph", "baromrelin", "solarradiation")
+TILE_PEAKS = ("windgustmph", "uv", "solarradiation")
+
+
+def _pressure_word(change: float) -> str:
+    return ("rising fast" if change > 0.06 else "rising" if change > 0.02 else
+            "falling fast" if change < -0.06 else "falling" if change < -0.02 else "steady")
+
+
+def tiles(db, s, now: float) -> dict:
+    """What the Android Live tiles show besides the latest reading: a 24-hour line for each measure, today's peaks
+    and how the pressure has changed over the last three hours. Values are in the units chosen in Settings."""
+    metric = units.is_metric(s.units)
+    rows = storage.readings_sampled(db, now - 24 * 3600, now + 1, every_s=1800)
+    series = {k: [[ts, round(units.convert(k, r[k], metric), 2)] for ts, r in rows if r.get(k) is not None]
+              for k in TILE_SERIES}
+    tz = _tz(s)
+    start = datetime.fromtimestamp(now, tz).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    day = [r for _, r in storage.readings_between(db, start, now + 1)]
+    peaks = {}
+    for k in TILE_PEAKS:
+        values = [r[k] for r in day if r.get(k) is not None]
+        peaks[k] = round(units.convert(k, max(values), metric), 1) if values else None
+    pressure = None
+    latest = storage.latest(db)
+    if latest and latest[1].get("baromrelin") is not None:
+        old = [r["baromrelin"] for _, r in storage.readings_between(db, now - 3 * 3600 - 300, now - 3 * 3600 + 300)
+               if r.get("baromrelin") is not None]
+        if old:
+            change = latest[1]["baromrelin"] - sum(old) / len(old)
+            pressure = {"word": _pressure_word(change), "change": round(units.convert_change("baromrelin", change, metric), 3)}
+    return {"hours": 24, "metric": metric, "series": series, "peaks": peaks, "pressure": pressure}
 
 
 def week(db, s, now: float) -> dict:
@@ -403,6 +438,7 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
                 "/api/v1/today": lambda: today(db, s, now),
                 "/api/v1/alerts": lambda: alerts(db),
                 "/api/v1/history": lambda: history(db, s, now),
+                "/api/v1/tiles": lambda: tiles(db, s, now),
                 "/api/v1/week": lambda: week(db, s, now),
                 "/api/v1/storm": lambda: storm(db, s, now)}
     clean = path.rstrip("/") or "/"

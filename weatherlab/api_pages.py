@@ -538,6 +538,9 @@ def airport(db, s, now: float) -> dict:
     return {"available": True, "name": station.get("name", ""), "airport": bool(station.get("airport")),
             "distance": round(units.convert("miles", km / 1.609344, metric), 1), "distance_unit": units.unit("miles", metric),
             "time": obs.get("time", ""), "text": obs.get("text", ""),
+            "visibility": None if obs.get("visibility_mi") is None else
+            {"value": round(units.convert("miles", obs["visibility_mi"], metric), 1), "unit": units.unit("miles", metric)},
+            "present": [w for w in obs.get("present", []) if w],
             "rows": [row("Temperature", "tempf", mine.get("tempf"), obs.get("temp_f")),
                      row("Humidity", None, mine.get("humidity"), obs.get("humidity")),
                      row("Wind", "windspeedmph", mine.get("windspeedmph"), obs.get("wind_mph")),

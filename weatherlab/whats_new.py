@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.8",
+        "date": "October 24, 2026",
+        "items": [
+            "Android app: the Live tiles can now show 24-hour trend lines, today's peaks, the pressure trend and airport visibility. The app asks Weather Lab for them through new /api/v1/tiles and airport details.",
+        ],
+    },
+    {
         "version": "0.37.7",
         "date": "October 24, 2026",
         "items": [
