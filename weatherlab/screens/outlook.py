@@ -113,6 +113,23 @@ def forecast_page() -> None:
 WIND_PERIODS = {"Last 24 hours": 1, "Last 7 days": 7, "Last 30 days": 30}
 
 
+def _level_ladder_html(current: str | None, metric: bool) -> str:
+    """All five heat safety levels with the current one marked."""
+    rows = []
+    for low, name, advice in heat_safety.LEVELS:
+        start = "under " + units.format_value("heat_index", 80, metric, 0) if low <= -999 else units.format_value("heat_index", low, metric, 0) + " and up"
+        on = name == current
+        bg = "background:rgba(232,131,58,0.14);border:1px solid rgba(232,131,58,0.5);" if on else "border:1px solid transparent;"
+        rows.append(
+            f'<div style="display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;{bg}">'
+            f'<span style="width:12px;height:12px;border-radius:50%;background:{heat_safety.LEVEL_COLOURS[name]};flex:none"></span>'
+            f'<span style="width:130px;font-weight:600">{html.escape(name)}</span>'
+            f'<span style="flex:1;font-size:13px;opacity:0.8">{html.escape(advice.split(".")[0])}'
+            f'{" · <b>you are here</b>" if on else ""}</span>'
+            f'<span style="font-size:13px;opacity:0.8;white-space:nowrap">{html.escape(start)}</span></div>')
+    return "".join(rows)
+
+
 def heat_page() -> None:
     s = load_settings()
     dark = theme.is_dark()
@@ -128,6 +145,7 @@ def heat_page() -> None:
     today = storage.readings_between(db, _start_of_today(s), time.time() + 1)
     series = [(ts, r.get("tempf"), heat_safety.heat_index(r.get("tempf"), r.get("humidity"))) for ts, r in today]
     peak = max((x for x in series if x[2] is not None), key=lambda x: x[2], default=None)
+    hours = heat_safety.hours_by_level([(ts, hi) for ts, _, hi in series])
     st.markdown(theme.grid_html([
         theme.strip_tile_html("Heat index now", units.format_value("heat_index", now["heat_index"], metric, 0),
                               now["level"], _heat_tone(now["heat_index"]), word="", help_key="heat_index"),
@@ -135,6 +153,8 @@ def heat_page() -> None:
         theme.strip_tile_html("Highest heat index today", units.format_value("heat_index", peak[2] if peak else None, metric, 0),
                               _clock(peak[0]) if peak else "no data yet", _heat_tone(peak[2] if peak else None),
                               help_key="heat_index"),
+        theme.strip_tile_html("Hours at Danger or worse", f"{heat_safety.danger_hours(hours):.1f} h", "today so far",
+                              "bad" if heat_safety.danger_hours(hours) > 0 else "ok"),
     ]), unsafe_allow_html=True)
     if now["advice"]:
         show = st.warning if now["level"] in ("Extreme caution", "Danger", "Extreme danger") else st.info
@@ -145,8 +165,32 @@ def heat_page() -> None:
                     line=dict(color=charts.MEASURE["temp"]))
     fig.add_scatter(x=xs, y=[units.convert("heat_index", h, metric) for _, _, h in series], name="Heat index", mode="lines",
                     line=dict(color=charts.CHART_COLORS[1]))
+    for low, name, _ in heat_safety.LEVELS:
+        if low >= 91:   # shade the caution levels that matter outdoors: Extreme caution and above
+            fig.add_hline(y=units.convert("heat_index", low, metric), line_dash="dot", line_width=1,
+                          line_color=heat_safety.LEVEL_COLOURS[name], annotation_text=name, annotation_position="top left")
     charts.show(fig)
-    st.caption("Heat index combines air temperature and humidity. This is general guidance, not medical advice.")
+    st.caption("Heat index combines air temperature and humidity. Dotted lines mark where each heat safety level starts.")
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown(theme.section_html("Heat safety levels"), unsafe_allow_html=True)
+        st.markdown(_level_ladder_html(now["level"] if now["heat_index"] is not None else None, metric), unsafe_allow_html=True)
+    with right:
+        st.markdown(theme.section_html("Time in each level today"), unsafe_allow_html=True)
+        theme.table([{"Level": name, "Hours": f"{hours[name]:.1f} h"} for name in heat_safety.LEVEL_NAMES])
+
+    bad = heat_safety.dangerous_days(history.all_daily(db))
+    st.markdown(theme.section_html("Dangerous heat days", f"days with a heat index of {units.format_value('heat_index', heat_safety.DANGER_INDEX, metric, 0)} or more"),
+                unsafe_allow_html=True)
+    if bad:
+        theme.table([{"Day": f"{d:%b} {d.day}, {d.year}", "Highest heat index": units.format_value("heat_index", hi, metric, 0), "Level": lvl}
+                     for d, hi, lvl in bad[:15]])
+        if len(bad) > 15:
+            st.caption(f"Showing the worst 15 of {len(bad)}.")
+    else:
+        st.caption("None recorded yet.")
+    st.caption("This is general guidance, not medical advice.")
 
 
 def wind_page() -> None:
