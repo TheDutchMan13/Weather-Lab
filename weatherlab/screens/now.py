@@ -460,6 +460,13 @@ def live_readings() -> None:
                 st.markdown(theme.section_html("Wind and rain"), unsafe_allow_html=True)
                 _tile_rows(wind)
 
+    if row is not None and row[1].get("dewpointf") is not None:
+        end = time.time()
+        day = storage.readings_between(storage.connect(), end - 86400, end + 1)
+        key, card = _trend_card(s, "dewpointf", "Dew point", "°F", row[1], day, "#4f9cf7") or (None, "")
+        if card:
+            _tile_rows([(key, card)])
+            st.caption("Dew point: " + dew.text(row[1]["dewpointf"]) + ". Tap the card for its history.")
     live_history.show_pending()
     dot = _status_dot(row[0]) if row else ""
     pills = []
@@ -504,22 +511,6 @@ def _today_vs_yesterday(s: Settings) -> None:
                          pair("windgustmph", "Gust so far", 0)) if p]
     if parts:
         st.caption(" · ".join(parts))
-
-
-def _dew_line(s: Settings) -> None:
-    """Dew point in plain words: how muggy it feels right now."""
-    latest = storage.latest(storage.connect())
-    if not latest or latest[1].get("dewpointf") is None:
-        return
-    dew_point = latest[1]["dewpointf"]
-    shown = units.format_value("dewpointf", dew_point, units.is_metric(s.units), 0)
-    st.caption(f"Dew point {shown}: {dew.text(dew_point)}.")
-    left, right = st.columns([0.85, 0.15], vertical_alignment="center")
-    with left:
-        if st.button("Dew point history", key="hist-dewpointf"):
-            live_history.request("dewpointf")
-    with right:
-        term_help("dew_point")
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -607,7 +598,6 @@ def live_page() -> None:
         return
     freshness_line()
     _today_vs_yesterday(s)
-    _dew_line(s)
     airport_card(s)
     live_readings()
 
