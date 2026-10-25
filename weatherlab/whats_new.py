@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.13",
+        "date": "October 25, 2026",
+        "items": [
+            "The sidebar is regrouped to match the dashboard: Now, History, Air, sun and heat, Forecast and storms, Season, Tools, Health and Settings. Every page is still there; some moved to a new section.",
+        ],
+    },
+    {
         "version": "0.37.12",
         "date": "October 25, 2026",
         "items": [
