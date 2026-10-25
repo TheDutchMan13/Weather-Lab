@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.10",
+        "date": "October 25, 2026",
+        "items": [
+            "Daily history now starts with a live strip: the latest temperature, wind, humidity and rain today, and whether any weather warning is active.",
+            "The wind rose uses blues from light to dark by wind speed, and says how much of the time the air was calm.",
+        ],
+    },
+    {
         "version": "0.37.9",
         "date": "October 25, 2026",
         "items": [
