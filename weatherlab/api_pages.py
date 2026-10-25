@@ -121,7 +121,9 @@ def wind_rose_data(db, s, now: float, days: int | None) -> dict:
     pct = wind_rose.percentages(counts, total)
     speeds = [r["windspeedmph"] for r in rows if r.get("windspeedmph") is not None]
     gusts = [r["windgustmph"] for r in rows if r.get("windgustmph") is not None]
-    return {"days": days or 0, "total": total, "dominant": wind_rose.dominant(counts) if total else None,
+    calm = sum(counts[0])  # readings under 1 mph: counted in the total, not drawn on the rose
+    return {"days": days or 0, "total": total, "calm": calm, "calm_percent": round(100 * calm / total, 1) if total else 0.0,
+            "dominant": wind_rose.dominant(counts) if total else None,
             "bins": [wind_rose.label(i, metric) for i in wind_rose.DRAWN],
             "directions": [{"name": name, "bins": [pct[b][i] for b in wind_rose.DRAWN],
                             "percent": round(sum(pct[b][i] for b in wind_rose.DRAWN), 1)}
