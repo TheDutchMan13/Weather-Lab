@@ -175,6 +175,7 @@ def heat(db, s, now: float) -> dict:
     series = [(ts, heat_safety.heat_index(r.get("tempf"), r.get("humidity"))) for ts, r in today]
     series = [(ts, hi) for ts, hi in series if hi is not None]
     peak = max(series, key=lambda x: x[1], default=None)
+    hours = heat_safety.hours_by_level(series)
     year = datetime.fromtimestamp(now, tz).year
     highs = [d.get("tempf_max") for day, d in history.all_daily(db) if day.year == year and d.get("tempf_max") is not None]
     return {"heat_index": _show("heat_index", status["heat_index"], metric, 0), "level": status["level"],
@@ -185,7 +186,22 @@ def heat(db, s, now: float) -> dict:
             "days_110": sum(1 for h in highs if h >= 110), "year": year,
             "levels": [{"level": name, "from": _show("heat_index", low, metric, 0) if low > -900 else None, "advice": advice}
                        for low, name, advice in reversed(heat_safety.LEVELS)],
-            "unit": units.unit("heat_index", metric), "metric": metric}
+            "unit": units.unit("heat_index", metric), "metric": metric,
+            # Added in 0.37.21 for the Android Heat safety page.
+            "hours": [{"level": name, "hours": round(hours[name], 1)} for name in heat_safety.LEVEL_NAMES],
+            "danger_hours": round(heat_safety.danger_hours(hours), 1),
+            "danger_limit": _show("heat_index", heat_safety.DANGER_INDEX, metric, 0),
+            "danger_days": [{"date": d.isoformat(), "value": _show("heat_index", hi, metric, 0), "level": lvl}
+                            for d, hi, lvl in heat_safety.dangerous_days(history.all_daily(db))[:15]],
+            "series": _heat_series(today, metric)}
+
+
+def _heat_series(today: list, metric: bool) -> list:
+    """Today's [timestamp, air temperature, heat index] about every few minutes, at most 150 points."""
+    rows = [(ts, r.get("tempf"), heat_safety.heat_index(r.get("tempf"), r.get("humidity"))) for ts, r in today]
+    rows = [x for x in rows if x[1] is not None and x[2] is not None]
+    step = -(-len(rows) // 150) if len(rows) > 150 else 1
+    return [[ts, _show("tempf", t_, metric, 1), _show("heat_index", hi, metric, 1)] for ts, t_, hi in rows[::step]]
 
 
 def station(db, s, now: float) -> dict:

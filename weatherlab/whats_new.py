@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.21",
+        "date": "October 25, 2026",
+        "items": [
+            "The Android Heat safety page can now show hours in each heat level today, hours at Danger or worse, the dangerous heat days, and today's heat index chart. Weather Lab shares them over the phone connection.",
+        ],
+    },
+    {
         "version": "0.37.20",
         "date": "October 25, 2026",
         "items": [
