@@ -363,20 +363,25 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
                 _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "tile-")
 
 
+# Colour of each card's trend line on the Live page (0.37.18): temperature orange, humidity and wind blue-violet and blue.
+TREND_COLOURS = {"tempf": "#e8833a", "tempinf": "#e8833a", "humidity": "#7c86c9", "humidityin": "#7c86c9",
+                 "windspeedmph": "#4f9cf7", "windgustmph": "#4f9cf7", "dailyrainin": "#4f9cf7", "uv": "#d9a441"}
+
+
 def _trend_card(s: Settings, key: str, label: str, unit: str, data: dict, day: list,
-                color: str) -> tuple[str, str] | None:
+                color: str, decimals: int = 0) -> tuple[str, str] | None:
     """Option B: a reading with its last 24 hours as a trend line and its low and high. Clicking opens its history."""
     if data.get(key) is None:
         return None
     metric = units.is_metric(s.units)
     series = [units.convert(key, r[key], metric) for _, r in day if r.get(key) is not None]
     cur = units.convert(key, data[key], metric)
-    sub = f"low {min(series):.0f} · high {max(series):.0f}" if len(series) >= 2 else ""
+    sub = f"low {min(series):.{decimals}f} · high {max(series):.{decimals}f}" if len(series) >= 2 else ""
     if key == "uv":
         sub = "scale 0 to 11"
     return key, ('<div class="wl-tile" style="text-align:left">'
                  f'<div class="wl-label">{html.escape(label)}</div>'
-                 f'<div class="wl-value">{cur:.0f}<span style="font-size:13px;font-weight:400;opacity:.7"> {html.escape(unit)}</span></div>'
+                 f'<div class="wl-value">{cur:.{decimals}f}<span style="font-size:13px;font-weight:400;opacity:.7"> {html.escape(unit)}</span></div>'
                  f'{sparks.spark_svg(series, color, h=56)}'
                  f'<div class="wl-label" style="margin-top:4px">{html.escape(sub)}</div></div>')
 
@@ -438,7 +443,10 @@ def live_readings() -> None:
             if key in data:
                 label, unit = CARD_LABELS[key]
                 text = units.format_value(key, data[key], metric) if units.converts(key) else f"{data[key]:g} {unit}".strip()
-                (wind if any(w in label.lower() for w in ("wind", "gust", "rain")) else air).append((key, _tile(label, text)))
+                decimals = 2 if key == "dailyrainin" else 0
+                card = _trend_card(s, key, label, unit, data, day, TREND_COLOURS.get(key, "#7c86c9"), decimals)
+                html_out = card[1] if card else _tile(label, text)
+                (wind if any(w in label.lower() for w in ("wind", "gust", "rain")) else air).append((key, html_out))
         for comfort_tile in _comfort_tiles(data):
             (wind if "Wind" in comfort_tile or "Rain" in comfort_tile else air).append((None, comfort_tile))
         compact = st.toggle("Compact sections", key="live_compact", value=False)
