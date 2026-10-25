@@ -18,6 +18,7 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/days      the last 60 days with data, newest first: high, low and rain
   /api/v1/days/2026-10-20  (or /yesterday) every figure kept for that one day
   /api/v1/records   the all-time highs and lows, with the day each happened
+  /api/v1/records/analysis  summary numbers, the heat, cold, wind and rain event lists, and the daily-high distribution (for Records and analysis)
   /api/v1/rankings  the top 10 days for warmest, coolest, coldest nights, wettest, windiest, UV and sunniest
   /api/v1/rain/calendar/2026-10  rain for each day of a month, and the totals for every year
   /api/v1/rain/events  the wet spells of the last 60 days
@@ -58,7 +59,7 @@ from zoneinfo import ZoneInfo
 from weatherlab import secrets as keystore
 from weatherlab import api_pages
 from weatherlab import history as history_db
-from weatherlab import history_series, stations, storage, units
+from weatherlab import history_series, record_board, records_events, stations, storage, units
 from weatherlab.config import APP_VERSION
 
 VERSION = 1
@@ -444,6 +445,55 @@ def records_list(db, s, now: float) -> dict:
     return {"records": out, "metric": metric}
 
 
+def records_analysis(db, s, now: float) -> dict:
+    """Numbers and lists for the Records and analysis page (0.37.20): summary, extreme events, daily-high distribution."""
+    metric = units.is_metric(s.units)
+    days = history_db.all_daily(db)
+    sm = records_events.summary(days)
+    ev = records_events.events(days)
+
+    def pick(found, ukey, limit=15):
+        return [{"date": d.isoformat(), "value": _shown(ukey, v, metric)} for d, v in found[:limit]]
+
+    def one(pair, ukey):
+        return None if pair is None else {"value": _shown(ukey, pair[0], metric), "date": pair[1].isoformat()}
+
+    return {
+        "metric": metric,
+        "units": {"temp": units.unit("tempf", metric), "gust": units.unit("windgustmph", metric),
+                  "rain": units.unit("dailyrainin", metric)},
+        "summary": {"days100": sm["days_100"], "days110": sm["days_110"], "hottest": one(sm["hottest"], "tempf"),
+                    "gust": one(sm["gust"], "windgustmph"), "rainTotal": _shown("dailyrainin", sm["rain_total"], metric),
+                    "rainDays": sm["rain_days"]},
+        "counts": {k: len(v) for k, v in ev.items()},
+        "events": {"heat": pick(ev["heat"], "tempf"), "cold": pick(ev["cold"], "tempf"),
+                   "wind": pick(ev["wind"], "windgustmph"), "rain": pick(ev["rain"], "dailyrainin")},
+        "limits": {"heat": _shown("tempf", records_events.HEAT_F, metric), "cold": _shown("tempf", records_events.COLD_F, metric),
+                   "wind": _shown("windgustmph", records_events.WIND_MPH, metric),
+                   "rain": _shown("dailyrainin", records_events.RAIN_IN, metric)},
+        "distribution": [{"from": _shown("tempf", b, metric), "count": c} for b, c in records_events.distribution(days)],
+        "board": _board(days, s, now, metric),
+    }
+
+
+def _board(days, s, now: float, metric: bool) -> list:
+    """The records board grouped as on the Windows page: [{title, rows: [{label, value, unit, when, new, high}]}]."""
+    today = datetime.fromtimestamp(now, ZoneInfo(s.timezone)).date()
+    out = []
+    for title, rows in record_board.board(days, today)["groups"]:
+        shown = []
+        for r in rows:
+            if r["unit_key"]:
+                value = round(units.convert(r["unit_key"], r["value"], metric), r["dec"])
+                unit = units.unit(r["unit_key"], metric)
+            else:
+                value, unit = round(r["value"], r["dec"]), r["plain"].strip()
+            shown.append({"label": r["label"], "value": value, "unit": unit, "when": r["when"],
+                          "new": r["new"], "high": r["high"]})
+        out.append({"title": title, "rows": shown})
+    return out
+
+
 # ------------------------------------------------------------------ routing
 
 def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int, dict]:
@@ -465,6 +515,7 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
     clean = path.rstrip("/") or "/"
     builders["/api/v1/days"] = lambda: days_list(db, s, now)
     builders["/api/v1/records"] = lambda: records_list(db, s, now)
+    builders["/api/v1/records/analysis"] = lambda: records_analysis(db, s, now)
     if clean in ("/api/v1/charts/7", "/api/v1/charts/30"):
         builders[clean] = lambda: charts(db, s, now, int(clean.rsplit("/", 1)[1]))
     builders.update({"/api/v1/rankings": lambda: api_pages.rankings(db, s, now),
