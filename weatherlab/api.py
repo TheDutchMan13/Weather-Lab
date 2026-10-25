@@ -59,7 +59,7 @@ from zoneinfo import ZoneInfo
 from weatherlab import secrets as keystore
 from weatherlab import api_pages
 from weatherlab import history as history_db
-from weatherlab import history_series, records_events, stations, storage, units
+from weatherlab import history_series, record_board, records_events, stations, storage, units
 from weatherlab.config import APP_VERSION
 
 VERSION = 1
@@ -472,7 +472,26 @@ def records_analysis(db, s, now: float) -> dict:
                    "wind": _shown("windgustmph", records_events.WIND_MPH, metric),
                    "rain": _shown("dailyrainin", records_events.RAIN_IN, metric)},
         "distribution": [{"from": _shown("tempf", b, metric), "count": c} for b, c in records_events.distribution(days)],
+        "board": _board(days, s, now, metric),
     }
+
+
+def _board(days, s, now: float, metric: bool) -> list:
+    """The records board grouped as on the Windows page: [{title, rows: [{label, value, unit, when, new, high}]}]."""
+    today = datetime.fromtimestamp(now, ZoneInfo(s.timezone)).date()
+    out = []
+    for title, rows in record_board.board(days, today)["groups"]:
+        shown = []
+        for r in rows:
+            if r["unit_key"]:
+                value = round(units.convert(r["unit_key"], r["value"], metric), r["dec"])
+                unit = units.unit(r["unit_key"], metric)
+            else:
+                value, unit = round(r["value"], r["dec"]), r["plain"].strip()
+            shown.append({"label": r["label"], "value": value, "unit": unit, "when": r["when"],
+                          "new": r["new"], "high": r["high"]})
+        out.append({"title": title, "rows": shown})
+    return out
 
 
 # ------------------------------------------------------------------ routing

@@ -17,6 +17,10 @@ class RecordsAnalysisTests(ApiHelpers, unittest.TestCase):
         self.assertEqual(body["units"]["temp"], "°F")
         self.assertEqual(sum(x["count"] for x in body["distribution"]), 4)
         self.assertEqual(body["limits"]["heat"], 105)
+        self.assertTrue(body["board"])
+        first = body["board"][0]
+        self.assertIn("title", first)
+        self.assertTrue({"label", "value", "unit", "when", "new", "high"} <= set(first["rows"][0]))
 
     def test_metric_units(self):
         from dataclasses import replace
@@ -33,6 +37,7 @@ class RecordsAnalysisTests(ApiHelpers, unittest.TestCase):
         self.assertEqual(body["counts"], {"heat": 0, "cold": 0, "wind": 0, "rain": 0})
         self.assertIsNone(body["summary"]["hottest"])
         self.assertEqual(body["distribution"], [])
+        self.assertEqual(body["board"], [])
 
     def test_needs_token(self):
         from weatherlab import api
