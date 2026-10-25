@@ -46,15 +46,16 @@ Each download is checked against a published checksum before the installer runs.
 
 ## Pages
 
-The sidebar groups the pages into seven sections: Now, History, Explore, Outlook, Hazards, Data and Configure.
+The sidebar groups the pages into eight sections.
 
-- **Now:** **Live** (current readings with heat index, wind chill, and humidex when they apply), **Sensors** (how complete the readings are, and any gaps), and **Alert history**.
-- **History:** **Daily** (one day's summary, with a PDF report download), **History** (rain totals and daily charts), **Records** (highs and lows since the app started collecting data), **Coverage**, **Rankings**, **Rewind**, **Climate charts**, and **My year**.
-- **Explore:** **Rain calendar**, **Rain events**, **Ask**, **Unusual days**, and **Replay**.
-- **Outlook:** **Forecast** (NWS alerts, an Overview of the next 24 hours with rain streaks when rain is likely, and the next 7 days with rain chance and wind; United States only), **Heat**, **Wind**, **Wind map** (arrows across the area around the station, for now and up to 12 hours ahead), **Sun**, and **Astronomy**.
-- **Hazards:** **Air** (AirNow air quality; needs a key and a location), **Fire** (Canadian Fire Weather Index and forecast; United States forecast only), **Lightning** (recent strikes), **Tropics**, and **Radar**.
-- **Data:** **Import** (including **NOAA history**, which needs a free NOAA Climate Data Online token), **Export** (downloads of readings and daily summaries, plus the database backups, and an **Old readings** section that moves raw readings to an archive table without deleting them), and **Reports** (monthly and yearly PDF reports, which can be made automatically).
-- **Configure:** **Setup**, **Settings**, **Stations**, **Status**, **Health check**, and **What's New**.
+- **Now:** **Live** (current readings, each with its last 24 hours as a chart and its low and high, the dew point trend at the bottom, and heat index, wind chill and humidex when they apply) and **Alert history**.
+- **History:** **Daily** (one page for one day or a span of days: pick 1 day, 7 days, 30 days or All), **Records and analysis** (all-time records, with groups for Records, Heat, Rain and storms, and Climate and comparisons), **Rankings**, and **Coverage**.
+- **Air, sun and heat:** **Air** (AirNow air quality; needs a key and a location), **Wind** (rose by direction and speed, for 24 hours, 7 days or 30 days), **Wind map**, **Sun**, **Heat safety** (heat index now, today's peak, hours at each heat safety level, and dangerous heat days), and **Astronomy**.
+- **Forecast and storms:** **Forecast** (NWS alerts, the next 24 hours and the next 7 days; United States only), **Lightning** (recent strikes), **Fire** (Canadian Fire Weather Index and forecast; United States forecast only), **Tropics**, and **Radar**.
+- **Season:** **Rain calendar**, **Rain events**, **My year**, **Rewind**, and **Climate charts**.
+- **Tools:** **Ask**, **Unusual days**, **Replay**, **Reports** (monthly and yearly PDF reports, which can be made automatically), **Import** (including **NOAA history**, which needs a free NOAA Climate Data Online token), and **Export** (readings and daily summaries, database backups, and an **Old readings** section that moves raw readings to an archive table without deleting them).
+- **Health:** **Sensors** (how complete the readings are, and any gaps), **Status**, and **Health check**.
+- **Settings:** **Settings**, **Setup**, **Stations**, **Help**, and **What's New**.
 
 ## Phone and other devices
 
