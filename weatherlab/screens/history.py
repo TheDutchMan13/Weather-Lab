@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date, datetime, timedelta
-from weatherlab import charts, coverage, daily, daily_ranges, history, history_compare, record_board, report, stations, storage, theme, units, wind_rose, yearly
+from weatherlab import charts, coverage, daily, daily_ranges, history, history_compare, record_board, records_events, report, stations, storage, theme, units, wind_rose, yearly
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
@@ -550,22 +550,66 @@ def _group_html(title: str, rows: list, metric: bool, dark: bool) -> str:
             + "".join(body) + '</div>')
 
 
-def records_page() -> None:
-    s = load_settings()
-    metric, dark = units.is_metric(s.units), theme.is_dark()
-    db = storage.connect()
-    st.markdown(theme.page_head("Weather records", "All-time records for your station, with the day each one happened."), unsafe_allow_html=True)
-    days = history.all_daily(db)
-    if not days:
-        empty_card("Records aren't ready yet", "Records appear once there are a few days of summaries to compare. They fill in as Weather Lab keeps collecting.")
+def _chip_row(label: str, options: list, key: str) -> str:
+    """A row of pill buttons (a horizontal radio) that remembers the choice."""
+    return st.radio(label, options, horizontal=True, key=key, label_visibility="collapsed")
+
+
+def _tile_row(items: list) -> None:
+    """items: [(label, value, sub, colour)] as a grey panel of tiles."""
+    cells = "".join(
+        f'<div style="background:#ffffff;border:1px solid #e6e9ef;border-left:4px solid {c};border-radius:8px;padding:12px 14px;color:#31333f">'
+        f'<div style="font-size:12.5px;color:#6b7080">{html.escape(l)}</div>'
+        f'<div style="font-size:26px;font-weight:600;margin-top:2px">{html.escape(v)}</div>'
+        f'<div style="font-size:12px;color:#6b7080;margin-top:2px">{html.escape(sub)}</div></div>'
+        for l, v, sub, c in items)
+    st.markdown('<div style="background:rgba(128,134,150,0.12);border-radius:14px;padding:12px;margin:6px 0 14px">'
+                f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">{cells}</div></div>',
+                unsafe_allow_html=True)
+
+
+def _event_list(title: str, found: list, key: str, metric: bool, decimals: int) -> None:
+    st.markdown(f"**{title}**")
+    if not found:
+        st.caption("None recorded in this period.")
         return
-    today = datetime.now(_tz(s)).date()
+    theme.table([{"Day": f"{d:%Y-%m-%d}", "Value": units.format_value(key, v, metric, decimals)} for d, v in found[:15]])
+    if len(found) > 15:
+        st.caption(f"Showing the top 15 of {len(found)}.")
+
+
+def _day_text(d) -> str:
+    return f"{d:%b} {d.day}, {d.year}"
+
+
+def _extreme_events(days: list, metric: bool) -> None:
+    ev = records_events.events(days)
+    sm = records_events.summary(days)
+    hot = ev["heat"][0][1] if ev["heat"] else None
+    _tile_row([
+        ("Heat events", str(len(ev["heat"])), "hottest " + units.format_value("tempf", hot, metric, 1) if hot is not None else "none recorded", "#e5534b"),
+        ("Cold events", str(len(ev["cold"])), "lowest " + units.format_value("tempf", ev["cold"][0][1], metric, 1) if ev["cold"] else "none recorded", "#5b8def"),
+        ("Wind events", str(len(ev["wind"])), "highest " + units.format_value("windgustmph", ev["wind"][0][1], metric, 0) if ev["wind"] else "none recorded", "#e8833a"),
+        ("Rain events", str(len(ev["rain"])), "wettest " + units.format_value("dailyrainin", ev["rain"][0][1], metric, 2) if ev["rain"] else "none recorded", "#4f9cf7"),
+    ])
+    left, right = st.columns(2)
+    with left:
+        _event_list("Heat events", ev["heat"], "tempf", metric, 1)
+        _event_list("Wind events", ev["wind"], "windgustmph", metric, 0)
+    with right:
+        _event_list("Cold events", ev["cold"], "tempf", metric, 1)
+        _event_list("Rain events", ev["rain"], "dailyrainin", metric, 2)
+    st.caption(f"An event is a day with a high of {units.format_value('tempf', records_events.HEAT_F, metric, 0)} or more, "
+               f"a low of {units.format_value('tempf', records_events.COLD_F, metric, 0)} or less, "
+               f"a gust of {units.format_value('windgustmph', records_events.WIND_MPH, metric, 0)} or more, "
+               f"or {units.format_value('dailyrainin', records_events.RAIN_IN, metric, 2)} of rain or more.")
+
+
+def _records_board(days: list, today: date, metric: bool, dark: bool) -> None:
     board = record_board.board(days, today)
-    st.caption(f"All-time records for your station · {len(board['records'])} records")
+    st.caption(f"All-time records for your station · {len(board['records'])} records · NEW = set in the last 30 days")
     if board["highlights"]:
         st.markdown(_highlights_html(board["highlights"], metric), unsafe_allow_html=True)
-    st.markdown(theme.section_html("Every record", "grouped by type · NEW = set in the last 30 days"),
-                unsafe_allow_html=True)
     cards = "".join(_group_html(title, rows, metric, dark) for title, rows in board["groups"])
     st.markdown('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">'
                 + cards + '</div>', unsafe_allow_html=True)
@@ -573,8 +617,73 @@ def records_page() -> None:
                 f'<span style="color:{HIGH_DOT}">●</span> highest / most &nbsp; '
                 f'<span style="color:{LOW_DOT}">●</span> lowest / least</div>', unsafe_allow_html=True)
     st.caption("Records cover only the time since this app started collecting data. Records marked estimate come from 4-hour readings.")
-    _on_this_day(storage.connect(), datetime.now(_tz(s)).date())
-    _heat_days_section(storage.connect(), units.is_metric(s.units))
+
+
+def _distribution(days: list, metric: bool, dark: bool) -> None:
+    buckets = records_events.distribution(days, "tempf_max", 5)
+    if not buckets:
+        st.info("No daily highs yet.")
+        return
+    xs = [units.convert("tempf", b, metric) for b, _ in buckets]
+    fig = go.Figure(go.Bar(x=[f"{x:.0f}" for x in xs], y=[c for _, c in buckets], marker_color="#e8833a"))
+    fig.update_layout(title="Days by daily high (" + units.suffix("tempf", metric).strip() + ", 5-degree steps)",
+                      height=340, margin=dict(l=10, r=10, t=40, b=10), yaxis_title="Days",
+                      template="plotly_dark" if dark else "plotly_white")
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _rain_view(days: list, metric: bool) -> None:
+    ev = records_events.events(days)
+    sm = records_events.summary(days)
+    _tile_row([
+        ("Total rain", units.format_value("dailyrainin", sm["rain_total"], metric, 2), f"{sm['rain_days']} rainy days", "#4f9cf7"),
+        ("Rain events", str(len(ev["rain"])), "wettest " + units.format_value("dailyrainin", ev["rain"][0][1], metric, 2) if ev["rain"] else "none recorded", "#4f9cf7"),
+        ("Wind events", str(len(ev["wind"])), "highest " + units.format_value("windgustmph", ev["wind"][0][1], metric, 0) if ev["wind"] else "none recorded", "#e8833a"),
+    ])
+    _event_list("Wettest days", ev["rain"], "dailyrainin", metric, 2)
+    _event_list("Windiest days", ev["wind"], "windgustmph", metric, 0)
+
+
+def records_page() -> None:
+    s = load_settings()
+    metric, dark = units.is_metric(s.units), theme.is_dark()
+    db = storage.connect()
+    st.markdown(theme.page_head("Records and analysis", "All-time records for your station, with the day each one happened."), unsafe_allow_html=True)
+    days = history.all_daily(db)
+    if not days:
+        empty_card("Records aren't ready yet", "Records appear once there are a few days of summaries to compare. They fill in as Weather Lab keeps collecting.")
+        return
+    today = datetime.now(_tz(s)).date()
+    sm = records_events.summary(days)
+    gust = sm["gust"]
+    hottest = sm["hottest"]
+    _tile_row([
+        ("Days " + units.format_value("tempf", 100, metric, 0) + " or more", str(sm["days_100"]), f"{sm['days_110']} of them {units.format_value('tempf', 110, metric, 0)}+", "#e5534b"),
+        ("Total rain", units.format_value("dailyrainin", sm["rain_total"], metric, 2), f"{sm['rain_days']} rainy days", "#4f9cf7"),
+        ("Highest gust", units.format_value("windgustmph", gust[0], metric, 0) if gust else "-", _day_text(gust[1]) if gust else "", "#e8833a"),
+        ("Hottest day", units.format_value("tempf", hottest[0], metric, 1) if hottest else "-", _day_text(hottest[1]) if hottest else "", "#8b5cf6"),
+    ])
+    st.markdown("**Explore**")
+    group = _chip_row("Group", list(records_events.GROUPS), "records_group")
+    st.caption(records_events.GROUP_NOTES[group])
+    views = records_events.GROUPS[group]
+    view = _chip_row("View", views, "records_view") if views else None
+    if group == "Records":
+        if view == "Records board":
+            _records_board(days, today, metric, dark)
+        elif view == "Distribution":
+            _distribution(days, metric, dark)
+        else:
+            _extreme_events(days, metric)
+    elif group == "Heat":
+        ev = records_events.events(days)
+        _event_list("Heat events", ev["heat"], "tempf", metric, 1)
+        _heat_days_section(db, metric)
+    elif group == "Rain and storms":
+        _rain_view(days, metric)
+    else:
+        _on_this_day(db, today)
+        _compare_periods(db, today)
 
 
 def _fmt(key: str, value, metric: bool, decimals: int = 0) -> str:
