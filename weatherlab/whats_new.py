@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.18",
+        "date": "October 25, 2026",
+        "items": [
+            "The cards on the Live page have more room: more padding inside each card, larger numbers, and more space between cards.",
+        ],
+    },
+    {
         "version": "0.37.17",
         "date": "October 25, 2026",
         "items": [
