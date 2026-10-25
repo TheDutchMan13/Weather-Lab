@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.12",
+        "date": "October 25, 2026",
+        "items": [
+            "Daily and Daily history are one page now. Pick 1 day for a single day with its date box and charts, or 7 days, 30 days or All for the summary, daily charts, wind rose, rain totals and table for that span.",
+            "Daily history is no longer in the sidebar. Its several-day view is under Daily.",
+        ],
+    },
+    {
         "version": "0.37.11",
         "date": "October 25, 2026",
         "items": [
