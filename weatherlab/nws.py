@@ -167,6 +167,7 @@ def parse_observation(data: dict) -> dict:
     p = data.get("properties") or {}
     celsius = _value(p, "temperature")
     kmh, gust = _value(p, "windSpeed"), _value(p, "windGust")
+    vis = _value(p, "visibility")  # metres
     return {
         "time": p.get("timestamp") or "",
         "text": p.get("textDescription") or "",
@@ -175,6 +176,8 @@ def parse_observation(data: dict) -> dict:
         "wind_mph": None if kmh is None else kmh / 1.609344,
         "gust_mph": None if gust is None else gust / 1.609344,
         "direction": _value(p, "windDirection"),
+        "visibility_mi": None if vis is None else vis / 1609.344,
+        "present": [w.get("weather") or w.get("rawString") or "" for w in (p.get("presentWeather") or []) if isinstance(w, dict)],
     }
 
 
