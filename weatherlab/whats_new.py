@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.7",
+        "date": "October 24, 2026",
+        "items": [
+            "The ? beside weather terms is now a blue ring, easier to see and tap. It fills in when you point at it.",
+        ],
+    },
+    {
         "version": "0.37.6",
         "date": "October 24, 2026",
         "items": [

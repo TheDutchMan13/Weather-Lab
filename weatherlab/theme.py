@@ -231,11 +231,18 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
         _rule(".wl-table .wl-num", "text-align:right;font-variant-numeric:tabular-nums"),
         _rule("[data-testid='stImage'] img", "width:100%;height:auto;border-radius:12px"),
         # Small ? beside a term: its one-line meaning shows on hover, and on a phone when the ? is tapped.
-        _rule(".wl-tip", f"position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;"
-                         f"height:16px;margin-left:5px;border-radius:50%;border:1px solid {p['muted']};color:{p['muted']};"
-                         "font-size:11px;font-weight:600;line-height:1;vertical-align:middle;cursor:help;outline:none"),
-        _rule(".wl-tip:focus-visible", f"border-color:{p['accent']};color:{p['text']}"),
-        _rule(".wl-tip-text", f"display:none;position:absolute;left:-6px;top:22px;z-index:5;width:240px;max-width:70vw;"
+        _rule(".wl-tip", f"position:relative;display:inline-flex;align-items:center;justify-content:center;width:22px;"
+                         f"height:22px;box-sizing:border-box;margin-left:8px;border-radius:50%;border:2px solid {p['accent']};"
+                         f"color:{p['accent']};font-size:13px;font-weight:700;line-height:1;vertical-align:middle;"
+                         "cursor:help;outline:none;transition:background .15s,color .15s"),
+        _rule(".wl-tip:hover,.wl-tip:focus-visible", f"background:{p['accent']};color:{p['page']}"),
+        # The ? that opens a full explanation (a popover) wears the same blue ring.
+        _rule("[data-testid='stPopover'] button", f"width:28px;height:28px;min-height:0;padding:0;border-radius:50%;"
+                                                   f"border:2px solid {p['accent']};background:transparent;"
+                                                   f"color:{p['accent']};font-size:14px;font-weight:700"),
+        _rule("[data-testid='stPopover'] button:hover", f"background:{p['accent']};color:{p['page']}"),
+        _rule("[data-testid='stPopover'] button svg", "display:none"),
+        _rule(".wl-tip-text", f"display:none;position:absolute;left:-6px;top:28px;z-index:5;width:240px;max-width:70vw;"
                               f"padding:8px 10px;border-radius:8px;background:{pg['surface']};border:1px solid {p['line']};"
                               f"color:{p['text']};font-size:12.5px;font-weight:400;line-height:1.45;text-align:left;"
                               "white-space:normal;box-shadow:0 6px 18px rgba(0,0,0,.25)"),
