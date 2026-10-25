@@ -153,10 +153,6 @@ def _degrees(x, unit: str = "°F", fmt: str = ".0f") -> str:
 
 
 def term_help(key: str) -> None:
-    """A small ? beside a term. Hover shows its one-line meaning; a tap opens the full explanation."""
-    term = glossary.find(key)
-    if term is None:
-        return
-    with st.popover("?", help=term["short"]):
-        st.markdown(f"**{term['name']}**")
-        st.markdown(term["long"])
+    """Question-mark help beside a term. Turned off (0.37.17): the ? icons were removed from every page.
+    The glossary stays in weatherlab/glossary.py for any page that wants it later."""
+    return None

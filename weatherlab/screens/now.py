@@ -701,8 +701,8 @@ def sensors_page() -> None:
         for b in batteries:
             bs, bt = gateway_sensors.battery_state(b["batt"])
             ss, sg = gateway_sensors.signal_state(b["signal"], b["rssi"])
-            tiles.append(_strip_tile(f"{b['name']}: battery", BATT_WORD.get(bs, "?"), bt, BATT_TONE.get(bs, "info"), word=""))
-            tiles.append(_strip_tile(f"{b['name']}: radio signal", SIG_WORD.get(ss, "?"), sg, SIG_TONE.get(ss, "info"), word=""))
+            tiles.append(_strip_tile(f"{b['name']}: battery", BATT_WORD.get(bs, "Unknown"), bt, BATT_TONE.get(bs, "info"), word=""))
+            tiles.append(_strip_tile(f"{b['name']}: radio signal", SIG_WORD.get(ss, "Unknown"), sg, SIG_TONE.get(ss, "info"), word=""))
         st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
     st.caption("Battery level runs 0 to 5 (5 full, 0 empty). Battery and signal refresh about every five minutes.")
 
