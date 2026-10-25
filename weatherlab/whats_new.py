@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.23",
+        "date": "October 25, 2026",
+        "items": [
+            "The Android Live page can now draw 24-hour lines for indoor temperature, indoor humidity, UV, rain rate, rain today and dew point. Weather Lab shares them over the phone connection.",
+        ],
+    },
+    {
         "version": "0.37.22",
         "date": "October 25, 2026",
         "items": [
