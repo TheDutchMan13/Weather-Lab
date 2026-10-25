@@ -14,7 +14,10 @@ class TilesApiTests(ApiHelpers, unittest.TestCase):
                                             "baromrelin": 29.00 + (400 - m) / 4000, "uv": 3.0, "solarradiation": 500.0}, ts)
         code, body = self.get("/api/v1/tiles")
         self.assertEqual(code, 200)
-        self.assertEqual(set(body["series"]), {"humidity", "windspeedmph", "windgustmph", "baromrelin", "solarradiation"})
+        self.assertEqual(set(body["series"]), {"humidity", "windspeedmph", "windgustmph", "baromrelin", "solarradiation",
+                                               "tempinf", "humidityin", "uv", "rainratein", "dailyrainin", "dewpointf"})
+        self.assertGreater(len(body["series"]["uv"]), 2)
+        self.assertEqual(body["series"]["dailyrainin"], [])
         self.assertGreater(len(body["series"]["humidity"]), 2)
         self.assertEqual(body["peaks"]["uv"], 3.0)
         self.assertEqual(body["peaks"]["windgustmph"], 13.0)

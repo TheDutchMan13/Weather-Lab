@@ -10,7 +10,7 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/today     today's high, low and rain so far
   /api/v1/alerts    the 20 most recent alerts
   /api/v1/history   the last 24 hours of temperature, one point about every half hour
-  /api/v1/tiles     what the Live page tiles need: 24-hour lines for humidity, wind, gust, pressure and solar, today's peaks and the pressure trend
+  /api/v1/tiles     what the Live page tiles need: 24-hour lines for humidity, wind, gust, pressure, solar, indoor temperature and humidity, UV, rain and dew point, today's peaks and the pressure trend
   /api/v1/measure/<reading>/<1|7|30>  one reading over 1, 7 or 30 days with its high, low and average (for tapping a Live tile)
   /api/v1/week      high, low and rain for the last 7 days, today included
   /api/v1/storm     the last lightning strike, strikes in the last 10 and 30 minutes and today, and a simple trend
@@ -195,7 +195,8 @@ def history(db, s, now: float) -> dict:
     return {"hours": 24, "unit": units.unit("tempf", metric), "metric": metric, "points": points}
 
 
-TILE_SERIES = ("humidity", "windspeedmph", "windgustmph", "baromrelin", "solarradiation")
+TILE_SERIES = ("humidity", "windspeedmph", "windgustmph", "baromrelin", "solarradiation",
+               "tempinf", "humidityin", "uv", "rainratein", "dailyrainin", "dewpointf")
 TILE_PEAKS = ("windgustmph", "uv", "solarradiation")
 
 
