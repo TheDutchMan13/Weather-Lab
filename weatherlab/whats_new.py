@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.16",
+        "date": "October 25, 2026",
+        "items": [
+            "Dew point is no longer at the top of the Live page. It is a card at the bottom, in the same style as the other Live charts, with a 24-hour trend and its low and high. Tap it for the full history.",
+        ],
+    },
+    {
         "version": "0.37.15",
         "date": "October 25, 2026",
         "items": [
