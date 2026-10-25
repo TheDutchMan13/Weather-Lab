@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date, datetime, timedelta
-from weatherlab import charts, coverage, daily, history, history_compare, record_board, report, stations, storage, theme, units, wind_rose, yearly
+from weatherlab import charts, coverage, daily, daily_ranges, history, history_compare, record_board, report, stations, storage, theme, units, wind_rose, yearly
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
@@ -49,7 +49,12 @@ def daily_page() -> None:
     tz = _tz(s)
     db = storage.connect()
     today = datetime.now(tz).date()
-    st.markdown(theme.page_head("Daily", "One day from your readings. Today shows what has been recorded so far."), unsafe_allow_html=True)
+    _live_strip(s, db, tz)
+    st.markdown(theme.page_head("Daily", "One day from your readings, or several days together. Today shows what has been recorded so far."), unsafe_allow_html=True)
+    period = st.radio("Range", list(daily_ranges.DAILY_RANGES), index=0, horizontal=True, key="daily_range")
+    if not daily_ranges.is_day_view(period):
+        _period_view(s, db, tz, today, daily_ranges.DAILY_RANGES[period])
+        return
     day = st.date_input("Day", value=today - timedelta(days=1), max_value=today)
 
     rows = daily.day_rows(db, day, tz)
@@ -117,7 +122,6 @@ def daily_page() -> None:
 
 
 # ---------------------------------------------------------------- History
-HISTORY_RANGES = {"Last 30 days": 30, "Last 90 days": 90, "Last year": 365, "All": None}
 SUN_COLOUR = "#f4a259"  # the dashboard's sunshine orange
 
 
@@ -313,18 +317,10 @@ def _wind_section(rows: list, tz, metric: bool, all_time: bool, today: date, dar
                      for m in info["months"]])
 
 
-def history_page() -> None:
-    s = load_settings()
-    tz = _tz(s)
-    db = storage.connect()
+def _period_view(s, db, tz, today: date, n) -> None:
+    """Summary strip, charts, wind and rain for the last n days (None = all time, up to yesterday)."""
     metric = units.is_metric(s.units)
-    today = datetime.now(tz).date()
     yesterday = today - timedelta(days=1)
-    _live_strip(s, db, tz)
-    st.markdown(theme.page_head("Daily history", "Each day's high, low, rain, wind and humidity over the range you choose."), unsafe_allow_html=True)
-
-    choice = st.radio("Time range", list(HISTORY_RANGES), index=2, horizontal=True, key="history_range")
-    n = HISTORY_RANGES[choice]
     if n is None:
         rows = [(d, s_) for d, s_ in history.all_daily(db) if d <= yesterday]
     else:
