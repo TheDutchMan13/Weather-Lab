@@ -637,6 +637,32 @@ def alerts_log_page() -> None:
     theme.table(body)
 
 
+def briefing_page() -> None:
+    """Today at a glance: one sentence, the numbers that matter, and a short list worth knowing."""
+    from weatherlab import api_pages
+    s = load_settings()
+    st.markdown(theme.page_head("Briefing", "Today at a glance. Compared with yesterday and the same day last year."), unsafe_allow_html=True)
+    data = api_pages.briefing_page(storage.connect(), s, time.time())
+    st.markdown(f'<div class="wl-card" style="font-size:1.25rem;font-weight:600">{html.escape(data["headline"])}</div>',
+                unsafe_allow_html=True)
+    tiles = []
+    for t in data["tiles"]:
+        if t["value"] is None:
+            continue
+        value = f'{t["value"]}{t["unit"]}' if t["unit"] in ("%", "°F", "°C") else (f'{t["value"]} {t["unit"]}'.strip())
+        tiles.append(_tile(t["label"], value, t.get("note") or ""))
+    if tiles:
+        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    else:
+        empty_card("The briefing fills in once readings arrive.")
+    if not data["forecast"]:
+        st.caption("No forecast available, so the expected high is today's highest reading so far. Set the station's location on the Setup page for the National Weather Service forecast.")
+    if data["notes"]:
+        st.subheader("Worth knowing")
+        for line in data["notes"]:
+            st.markdown(f"- {line}")
+
+
 # ---------------------------------------------------------------- Sensors
 SENSOR_KEY_BY_LABEL = {label: key for label, key in health.SENSORS}
 BATT_WORD = {"good": "Good", "ok": "OK", "watch": "Getting low", "low": "Low", "dc": "Mains", "unknown": "Unknown"}

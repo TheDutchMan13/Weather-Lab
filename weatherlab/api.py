@@ -28,6 +28,7 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/heat  heat index now, today's peak, hot days this year and the heat safety levels
   /api/v1/station  how complete the data is, gaps, each sensor, and battery and signal when the station can be reached
   /api/v1/whatsnew  what each Weather Lab version added
+  /api/v1/briefing  today at a glance: expected high against yesterday and last year, last night's low, heat, UV, rain chance, wind and things worth knowing
   /api/v1/forecast  the National Weather Service forecast for the station's location
   /api/v1/onthisday/10-23  (or /today) that calendar day in every year with data
   /api/v1/compare  months of the last three years side by side, rain to date, hot days by year
@@ -540,7 +541,8 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
                      "/api/v1/heat": lambda: api_pages.heat(db, s, now),
                      "/api/v1/station": lambda: api_pages.station(db, s, now),
                      "/api/v1/whatsnew": lambda: api_pages.whats_new_list(db, s, now),
-                     "/api/v1/forecast": lambda: api_pages.forecast(db, s, now)})
+                     "/api/v1/forecast": lambda: api_pages.forecast(db, s, now),
+                     "/api/v1/briefing": lambda: api_pages.briefing_page(db, s, now)})
     if clean in ("/api/v1/wind/1", "/api/v1/wind/7", "/api/v1/wind/30", "/api/v1/wind/all"):
         tail = clean.rsplit("/", 1)[1]
         builders[clean] = lambda: api_pages.wind_rose_data(db, s, now, None if tail == "all" else int(tail))
