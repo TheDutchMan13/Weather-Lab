@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from weatherlab import alert_rules, airquality, backup, cwop, mqtt_publish, pwsweather, uploads, weathercloud, wunderground, daily, digest, errlog, fire, health_check, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
+from weatherlab import alert_rules, airquality, backup, briefing, cwop, mqtt_publish, pwsweather, uploads, weathercloud, wunderground, daily, digest, errlog, fire, health_check, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
 from weatherlab.config import APP_VERSION
 from weatherlab.settings import load_settings
 
@@ -96,6 +96,7 @@ class Poller(threading.Thread):
         self._last_sensors = 0.0
         self._last_forecast = 0.0
         self._digest_day = None
+        self._briefing_day = None
         self._weekly_day = None
         self._sensor_sent: dict = {}
         self._offline = False
@@ -154,6 +155,8 @@ class Poller(threading.Thread):
                     self._forecast(db, s)
                 if s.digest_enabled:
                     self._digest(db, s)
+                if s.briefing_notice:
+                    self._briefing(db, s)
                 if s.weekly_digest:
                     self._weekly(db, s)
                 if s.offline_alerts and s.station_ip.strip():
@@ -457,6 +460,21 @@ class Poller(threading.Thread):
         line = digest.text(yesterday.strftime("%b %d"), json.loads(held[0]), units.is_metric(s.units))
         if line:
             self._announce(line)
+
+    def _briefing(self, db, s) -> None:
+        """Once a day, after the chosen hour, send today's briefing to the PC and the phone."""
+        now = datetime.now(_zone(s))
+        if not briefing.due(now.hour, s.briefing_hour, self._briefing_day, now.date(), self._quiet):
+            return
+        self._briefing_day = now.date()
+        try:
+            from weatherlab import api_pages
+            text = briefing.notification(api_pages.briefing_page(db, s, time.time()))
+        except Exception as exc:  # no forecast or a bad reply must not stop the collector
+            errlog.log("morning briefing", exc)
+            return
+        if text:
+            self._announce(text)
 
     def _weekly(self, db, s) -> None:
         """On Mondays, after the morning summary hour, send a short summary of the last seven days. Once a week."""

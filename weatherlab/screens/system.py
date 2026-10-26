@@ -482,6 +482,10 @@ def _notifications_section(s: Settings) -> None:
     digest_on = st.checkbox("Send a short summary each morning about yesterday", value=s.digest_enabled, key="notify_digest")
     hour = int(st.number_input("Morning summary time (hour, 0 to 23)", min_value=0, max_value=23,
                                value=int(s.digest_hour), step=1, key="notify_hour"))
+    brief_on = st.checkbox("Send the day's briefing each morning", value=s.briefing_notice, key="notify_briefing",
+                           help="One notification to this PC and your phone: the expected high, how it compares with yesterday, and any warning in effect.")
+    brief_hour = int(st.number_input("Briefing time (hour, 0 to 23)", min_value=0, max_value=23,
+                                     value=int(s.briefing_hour), step=1, key="notify_briefing_hour"))
     weekly_on = st.checkbox("Also send a summary of the last 7 days on Mondays", value=s.weekly_digest, key="notify_weekly")
     offline_on = st.checkbox("Warn when the station stops sending readings", value=s.offline_alerts, key="notify_offline")
     frost_on = st.checkbox("Warn about freezing nights in the forecast", value=s.frost_alerts, key="notify_frost")
@@ -492,12 +496,12 @@ def _notifications_section(s: Settings) -> None:
         value=round(units.convert("tempf", float(s.frost_threshold_f), metric), 1), step=1.0,
         key=f"notify_frost_{'c' if metric else 'f'}"))
     frost_f = round(units.to_us("tempf", frost_shown, metric), 1)
-    if (sensors_on, digest_on, hour, offline_on, frost_on, frost_f, weekly_on) != (
+    if (sensors_on, digest_on, hour, offline_on, frost_on, frost_f, weekly_on, brief_on, brief_hour) != (
             s.sensor_alerts, s.digest_enabled, s.digest_hour, s.offline_alerts, s.frost_alerts,
-            round(s.frost_threshold_f, 1), s.weekly_digest):
+            round(s.frost_threshold_f, 1), s.weekly_digest, s.briefing_notice, s.briefing_hour):
         save_settings(replace(s, sensor_alerts=sensors_on, digest_enabled=digest_on, digest_hour=hour,
                               offline_alerts=offline_on, frost_alerts=frost_on, frost_threshold_f=frost_f,
-                              weekly_digest=weekly_on))
+                              weekly_digest=weekly_on, briefing_notice=brief_on, briefing_hour=brief_hour))
     if st.button("Send a test notification"):
         if alert_rules.notify("Weather Lab", "This is a test notification from Weather Lab."):
             st.success("Sent. If nothing appears, check that Windows notifications are on for this app.")

@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.28",
+        "date": "October 26, 2026",
+        "items": [
+            "New morning briefing notification. Turn it on under Settings, Notifications: each morning at the hour you pick, Weather Lab sends the day's headline, how the expected high compares with yesterday, and any warning in effect, to this PC and your phone. It is off until you turn it on, and it waits during quiet hours.",
+        ],
+    },
+    {
         "version": "0.37.27",
         "date": "October 26, 2026",
         "items": [
