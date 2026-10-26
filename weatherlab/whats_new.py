@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.27",
+        "date": "October 26, 2026",
+        "items": [
+            "My year can now save a picture of the year: the hottest day, days at 100°F or more, the longest hot streak, the wettest day, the year's rain and the highest gust, ready to share. Use Save as image under the year's numbers.",
+        ],
+    },
+    {
         "version": "0.37.26",
         "date": "October 26, 2026",
         "items": [
