@@ -10,7 +10,7 @@ GROUPS = {
     "Air, sun and heat": ["Air", "Wind", "Wind map", "Sun", "Heat", "Astronomy"],
     "Forecast and storms": ["Forecast", "Lightning", "Fire", "Tropics", "Radar"],
     "Season": ["Rain calendar", "Rain events", "My year", "Rewind", "Climate charts"],
-    "Tools": ["Ask", "Unusual days", "Replay", "Reports", "Import", "Export"],
+    "Tools": ["Ask", "Unusual days", "Replay", "Reports", "Import", "Export", "Backup"],
     "Health": ["Sensors", "Status", "Health check"],
     "Settings": ["Settings", "Setup", "Stations", "Help", "What's New"],
 }

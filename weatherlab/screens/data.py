@@ -126,6 +126,64 @@ def weather_underground_page() -> None:
                  "Bring in a history CSV downloaded from Weather Underground.")
 
 
+# ---------------------------------------------------------------- Backup
+def backup_page() -> None:
+    """Back up now, see every backup with its size, and restore one after a confirmation."""
+    s = load_settings()
+    st.markdown(theme.page_head("Backup", "Your readings and daily summaries live in one database file on this PC. Back it up here, or restore an earlier copy."), unsafe_allow_html=True)
+    folder = backup.folder_for(storage.db_path())
+    rows = backup.describe(folder)
+    with st.container(border=True):
+        st.markdown("**Back up now**")
+        st.caption("Saves a copy of your whole history. It is safe to do while Weather Lab is running.")
+        if st.button("Back up now", key="backup_now"):
+            path = backup.make_backup(storage.db_path(), folder, datetime.now())
+            backup.prune(folder, s.backup_keep)
+            ok, text = backup.verify(path)
+            try:
+                backup.copy_to_folder(path, s.backup_copy_folder, s.backup_keep)
+            except OSError as exc:
+                st.warning(f"Couldn't copy the backup to the second folder: {exc}")
+            (st.success if ok else st.error)(f"Saved {path.name}. Checked: {text}")
+            rows = backup.describe(folder)
+        newest = f"{rows[0]['when']:%b %d, %Y %H:%M} ({rows[0]['size']})" if rows else "none yet"
+        st.caption(f"Backup folder: {folder}. Last backup: {newest}. Keeping the newest {s.backup_keep}.")
+    st.markdown(theme.section_html("Backups on this PC"), unsafe_allow_html=True)
+    if not rows:
+        empty_card("No backups yet", "Press Back up now, or wait for the daily backup.")
+    else:
+        theme.table([{"Backup": r["name"], "Made": f"{r['when']:%b %d, %Y %H:%M}", "Size": r["size"]} for r in rows])
+        pick = st.selectbox("Backup to restore", [r["name"] for r in rows], key="restore_pick_page")
+        chosen = next(r for r in rows if r["name"] == pick)
+        if st.button("Restore this backup", key="restore_ask"):
+            st.session_state["restore_confirm"] = chosen["name"]
+        if st.session_state.get("restore_confirm") == chosen["name"]:
+            with st.container(border=True):
+                st.markdown(f"**Restore {chosen['name']}?**")
+                st.write(f"This replaces your current history with the backup from {chosen['when']:%b %d, %Y}. "
+                         "A copy of your current history is saved first, so you can undo this. "
+                         "Restart Weather Lab afterwards so every page shows the restored data.")
+                yes, no = st.columns(2)
+                if yes.button("Yes, restore", key="restore_yes", type="primary"):
+                    st.session_state["restore_confirm"] = None
+                    ok, text = backup.verify(chosen["path"])
+                    if not ok:
+                        st.error(f"This backup can't be restored. {text}")
+                    else:
+                        try:
+                            safety = backup.restore(chosen["path"], storage.db_path(), folder, datetime.now())
+                        except (OSError, sqlite3.Error) as exc:
+                            st.error(f"Couldn't restore: {exc}")
+                        else:
+                            st.success(f"Restored {chosen['name']}. The data from before the restore is saved as {safety.name}. "
+                                       "Restart Weather Lab now.")
+                if no.button("Cancel", key="restore_no"):
+                    st.session_state["restore_confirm"] = None
+                    st.rerun()
+    with st.expander("Settings"):
+        _backups_section(s)
+
+
 # ---------------------------------------------------------------- Export
 def _backups_section(s: Settings) -> None:
     """Daily database backups: the on/off setting, how many copies are kept, and a button to back up now."""
@@ -288,8 +346,7 @@ def export_page() -> None:
         _daily_export(db, today)
         st.divider()
         _readings_export(db, tz, today)
-    with st.expander("Database backups"):
-        _backups_section(s)
+    st.caption("Database backups and restore have their own page: Tools, Backup.")
     with st.expander("Old readings"):
         _archive_section(s)
 

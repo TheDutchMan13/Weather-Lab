@@ -47,6 +47,25 @@ def backups(folder: Path) -> list[Path]:
     return sorted(p for p in folder.glob(f"{PREFIX}*{SUFFIX}") if p.is_file())
 
 
+def size_text(size: int) -> str:
+    """File size in plain words: 412 MB, 38 KB."""
+    if size >= 1024 * 1024 * 1024:
+        return f"{size / 1024 ** 3:.1f} GB"
+    if size >= 1024 * 1024:
+        return f"{size / 1024 ** 2:.0f} MB"
+    return f"{max(1, round(size / 1024))} KB"
+
+
+def describe(folder: Path) -> list[dict]:
+    """The backups newest first as {"name", "when", "size", "bytes", "path"}, for the Backup page."""
+    rows = []
+    for path in reversed(backups(folder)):
+        info = path.stat()
+        rows.append({"name": path.name, "when": datetime.fromtimestamp(info.st_mtime), "bytes": info.st_size,
+                     "size": size_text(info.st_size), "path": path})
+    return rows
+
+
 def prune(folder: Path, keep: int) -> list[Path]:
     """Delete all but the newest `keep` backups. Returns the files removed."""
     items = backups(folder)

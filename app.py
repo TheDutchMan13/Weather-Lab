@@ -11,7 +11,7 @@ from weatherlab.nav_groups import DEFAULT_PAGE, GROUPS
 from weatherlab.settings import load_settings
 from weatherlab import api
 from weatherlab.screens.common import start_poller
-from weatherlab.screens.data import _import_page, export_page, reports_page
+from weatherlab.screens.data import _import_page, backup_page, export_page, reports_page
 from weatherlab.screens.explore import ask_page, rain_calendar_page, rain_events_page, replay_page, unusual_page
 from weatherlab.screens.hazards import air_page, fire_page, lightning_page, radar_page, tropics_page
 from weatherlab.screens.history import climate_page, coverage_page, daily_page, my_year_page, rankings_page, records_page, rewind_page
@@ -60,7 +60,7 @@ PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
     "Forecast": "🔮", "Heat": "🥵", "Wind": "🌬️", "Wind map": "💨",
     "Sun": "☀️", "Astronomy": "🔭",
     "Air": "😷", "Fire": "🚒", "Lightning": "⚡", "Tropics": "🌀", "Radar": "📡",
-    "Import": "📥", "Export": "📤", "Reports": "📄",
+    "Import": "📥", "Export": "📤", "Backup": "💾", "Reports": "📄",
     "Status": "✅", "Health check": "🩺",
     "What's New": "🆕", "Help": "❔", "Setup": "🧰", "Settings": "⚙️", "Stations": "📍",
 }
@@ -79,7 +79,7 @@ PAGE_FUNCS = {"Live": live_page, "Sensors": sensors_page, "Status": status_page,
               "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,
               "Wind": wind_page, "Wind map": wind_map_page, "Sun": sun_page, "Astronomy": astronomy_page, "Air": air_page,
               "Fire": fire_page, "Lightning": lightning_page, "Tropics": tropics_page, "Radar": radar_page,
-              "Import": _import_page, "Export": export_page, "Setup": setup_page, "Stations": stations_page}
+              "Import": _import_page, "Export": export_page, "Backup": backup_page, "Setup": setup_page, "Stations": stations_page}
 
 
 def _sections() -> dict:
