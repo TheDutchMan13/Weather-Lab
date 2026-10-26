@@ -5,7 +5,7 @@ Kept apart from app.py so the layout can be tested without the page's dependenci
 DEFAULT_PAGE = "Live"
 
 GROUPS = {
-    "Now": ["Live", "Alert history"],
+    "Now": ["Live", "Briefing", "Alert history"],
     "History": ["Daily", "Records", "Rankings", "Coverage"],
     "Air, sun and heat": ["Air", "Wind", "Wind map", "Sun", "Heat", "Astronomy"],
     "Forecast and storms": ["Forecast", "Lightning", "Fire", "Tropics", "Radar"],

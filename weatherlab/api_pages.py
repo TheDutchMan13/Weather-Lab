@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 from statistics import mean, pstdev
 
-from weatherlab import (airquality, astro, forecast_check, gateway_sensors, health, heat_safety, history,
+from weatherlab import (airquality, astro, briefing, dew, forecast_check, gateway_sensors, health, heat_safety, history,
                         history_compare, lightning_history, nws, push, rain_events, storage, sun_uv, tropics, units,
                         whats_new, wind_rose, yearly)
 from weatherlab import secrets as keystore
@@ -619,3 +619,76 @@ def air(db, s, now: float) -> dict:
 def push_info(db, s, now: float) -> dict:
     """Where the PC sends phone alerts, so the phone can subscribe to the same ntfy topic."""
     return {"server": s.ntfy_server.strip() or push.DEFAULT_SERVER, "topic": keystore.get_key(push.topic_key()) or ""}
+
+
+# ------------------------------------------------------------------ briefing
+
+def briefing_page(db, s, now: float) -> dict:
+    """Today at a glance: the expected high against yesterday and last year, last night's low, heat, UV, rain
+    chance, wind and a short list of things worth knowing. Added in 0.37.26."""
+    tz = _tz(s)
+    metric = units.is_metric(s.units)
+    unit = units.unit("tempf", metric)
+    local = datetime.fromtimestamp(now, tz)
+    today = local.date()
+    start = _midnight(now, tz)
+    rows = [r for _, r in storage.readings_between(db, start, now + 1)]
+    temps = [r["tempf"] for r in rows if r.get("tempf") is not None]
+    daily = dict(history.all_daily(db))
+    highs = {d: x["tempf_max"] for d, x in daily.items() if x.get("tempf_max") is not None}
+
+    def shown(f):
+        return None if f is None else _show("tempf", f, metric, 0)
+    fc = forecast(db, s, now)
+    period = next((p for p in fc.get("periods", []) if p["is_day"]), None) if fc.get("available") else None
+    high_f = None
+    if period and period["temp"] is not None:
+        high_f = period["temp"] if not metric else period["temp"] * 9 / 5 + 32
+    elif temps:
+        high_f = max(temps)
+    yesterday = highs.get(today - timedelta(days=1))
+    try:
+        last_year = highs.get(today.replace(year=today.year - 1))
+    except ValueError:  # Feb 29
+        last_year = None
+    low_f = min(temps) if temps else (daily.get(today - timedelta(days=1)) or {}).get("tempf_min")
+    heat_info = heat(db, s, now)
+    sun_info = sun(db, s, now)
+    latest = storage.latest(db)
+    data = latest[1] if latest else {}
+    alerts = [f"{a['event']}: {a['headline']}" if a.get("headline") else a["event"] for a in fc.get("alerts", [])]
+    rain_chance = period["rain_chance"] if period else None
+    wind = period["wind"] if period else None
+    from weatherlab import api as _api  # late: api imports this module
+    try:
+        pressure = ((_api.tiles(db, s, now) or {}).get("pressure") or {}).get("word")
+    except Exception:
+        pressure = None
+    streak = briefing.hot_streak(highs, today, max(temps) if temps else None)
+    dew_f = data.get("dewpointf")
+    tiles_ = [
+        {"label": "Expected high", "value": shown(high_f), "unit": unit,
+         "note": briefing.difference(shown(high_f), shown(yesterday), unit, "yesterday")},
+        {"label": "Same day last year", "value": shown(last_year), "unit": unit,
+         "note": briefing.difference(shown(high_f), shown(last_year), unit, "last year")},
+        {"label": "Low last night", "value": shown(low_f), "unit": unit, "note": None},
+        {"label": "Heat index peak", "value": heat_info["peak_today"], "unit": heat_info["unit"],
+         "note": None if heat_info["peak_today"] is None else
+         f"{heat_safety.level_for(_f(heat_info['peak_today'], metric))[0]} at {heat_info['peak_time']}"},
+        {"label": "UV peak", "value": sun_info["uv_peak"], "unit": "", "note": sun_info["uv_peak_word"]},
+        {"label": "Rain chance", "value": rain_chance, "unit": "%", "note": None},
+        {"label": "Wind", "value": wind, "unit": "", "note": None},
+    ]
+    notes = briefing.worth_knowing(alerts, sun_info["sunrise"], sun_info["sunset"],
+                                   None if dew_f is None else dew.text(dew_f),
+                                   None if dew_f is None else _show("dewpointf", dew_f, metric, 0),
+                                   streak, pressure, heat_info["danger_hours"])
+    return {"date": today.isoformat(), "metric": metric, "unit": unit, "forecast": bool(period),
+            "headline": briefing.headline(shown(high_f), unit, period["short"] if period else None, rain_chance,
+                                          len(alerts), heat_info["level"]),
+            "tiles": tiles_, "notes": notes, "streak": streak}
+
+
+def _f(value, metric):
+    """A displayed temperature back in °F."""
+    return value * 9 / 5 + 32 if metric else value
