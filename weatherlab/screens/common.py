@@ -32,7 +32,8 @@ def start_poller() -> Poller:
 
 
 def _clock(ts: float) -> str:
-    return time.strftime("%H:%M:%S", time.localtime(ts))
+    from weatherlab import timefmt
+    return timefmt.time_text(datetime.fromtimestamp(ts), seconds=True)
 
 
 def empty_card(message: str, detail: str = "") -> None:

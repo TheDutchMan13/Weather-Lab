@@ -6,7 +6,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import time
 from datetime import datetime, timedelta
-from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons
+from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons, timefmt
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
@@ -629,7 +629,7 @@ def alerts_log_page() -> None:
         empty_card("Alerts appear here once Weather Lab sends its first notification.")
         return
     query = st.text_input("Search alerts", key="alert_search").strip().lower()
-    body = [{"When": datetime.fromtimestamp(ts, tz).strftime("%a %b %d, %I:%M %p"), "Alert": text}
+    body = [{"When": timefmt.stamp(datetime.fromtimestamp(ts, tz), "%a %b %d"), "Alert": text}
             for ts, text in rows if not query or query in text.lower()]
     if not body:
         empty_card("No alerts match that search")

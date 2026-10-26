@@ -3,7 +3,8 @@
 import streamlit as st
 import time
 from dataclasses import replace
-from weatherlab import alert_rules, api, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground
+from datetime import datetime
+from weatherlab import alert_rules, api, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground, timefmt
 from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
@@ -105,6 +106,8 @@ def _appearance_section(s: Settings) -> None:
                             help="US: °F, mph and inches. Metric: °C, km/h and millimetres. Every page and chart "
                                  "follows this, except export files, which stay in US units, and the Ask page, "
                                  "which reads questions in °F.")
+    clock_choice = st.radio("Time format", ["12-hour", "24-hour"], index=1 if s.time_24h else 0, horizontal=True,
+                            key="ap_time_format", help="12-hour shows 2:30 PM. 24-hour shows 14:30. Every page and chart follows this.")
     tooltips = st.checkbox("Show helpful tooltips", value=s.tooltips, help="Hover text on charts.", key="ap_tooltips")
     animate = st.checkbox("Animate gauges", value=s.animate, help="Gauges sweep into place when a page loads.",
                           key="ap_animate")
@@ -117,13 +120,14 @@ def _appearance_section(s: Settings) -> None:
                                "The camera button saves the chart as a PNG picture.", key="ap_toolbar")
     cards = st.multiselect("Live readings", options=list(CARD_LABELS), default=s.live_cards,
                            format_func=lambda k: CARD_LABELS[k][0], key="ap_cards")
-    current = (theme_mode, color_scheme, units_choice, tooltips, animate, compact, tuple(cards), large, toolbar)
+    time_24h = clock_choice == "24-hour"
+    current = (theme_mode, color_scheme, units_choice, tooltips, animate, compact, tuple(cards), large, toolbar, time_24h)
     saved = (s.theme_mode, s.color_scheme, s.units, s.tooltips, s.animate, s.compact, tuple(s.live_cards),
-             s.large_text, s.chart_toolbar)
+             s.large_text, s.chart_toolbar, s.time_24h)
     if current != saved:
         save_settings(replace(s, theme_mode=theme_mode, color_scheme=color_scheme, units=units_choice,
                               tooltips=tooltips, animate=animate, compact=compact, live_cards=list(cards),
-                              large_text=large, chart_toolbar=toolbar))
+                              large_text=large, chart_toolbar=toolbar, time_24h=time_24h))
         st.rerun()
 
 
@@ -650,7 +654,7 @@ def status_page() -> None:
     if poller.status.skipped_log:
         with st.expander(f"Skipped readings ({poller.status.skipped} since Weather Lab started)"):
             for ts, reason in poller.status.skipped_log[:20]:
-                st.write(f"{time.strftime('%b %d, %H:%M', time.localtime(ts))}: {reason}")
+                st.write(f"{timefmt.stamp(datetime.fromtimestamp(ts))}: {reason}")
 
     ip = s.station_ip.strip()
     raw = _gateway_sensors(ip) if ip else []

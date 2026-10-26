@@ -4,7 +4,7 @@ import html
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import datetime, timedelta
-from weatherlab import airquality, charts, lightning_history, nws, secrets, storage, theme, tropics, units
+from weatherlab import airquality, charts, lightning_history, nws, secrets, storage, theme, tropics, units, timefmt
 from weatherlab.config import RISK_COLORS
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _clock, _tile, _tz, empty_card, start_poller
@@ -63,7 +63,7 @@ def lightning_page() -> None:
         empty_card("No lightning recorded yet", "Strikes appear here when the station reports them.")
     else:
         last_ts, last_mi = last
-        when = datetime.fromtimestamp(last_ts, tz).strftime("%b %d, %H:%M")
+        when = timefmt.stamp(datetime.fromtimestamp(last_ts, tz))
         closest = min((d for _, d in today), default=None)
         st.markdown(theme.grid_html([
             _tile("Last strike", units.format_value("miles", last_mi, metric, 1), when, help_key="lightning"),
@@ -73,7 +73,7 @@ def lightning_page() -> None:
 
     if today:
         st.markdown(theme.section_html("Today"), unsafe_allow_html=True)
-        theme.table([{"time": datetime.fromtimestamp(ts, tz).strftime("%H:%M"),
+        theme.table([{"time": timefmt.time_text(datetime.fromtimestamp(ts, tz)),
                    f"Distance ({units.unit('miles', metric)})": round(units.convert("miles", d, metric), 1)}
                   for ts, d in reversed(today[-20:])])
     st.caption("Counts only strikes the app saw while it was running. Distances follow the switch on the Setup page.")

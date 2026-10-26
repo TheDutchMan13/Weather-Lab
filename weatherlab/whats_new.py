@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.29",
+        "date": "October 26, 2026",
+        "items": [
+            "Times now show in 12-hour form, such as 2:30 PM, on the Live alerts, backups, lightning, rain events, charts and everywhere else. New Time format switch under Settings, Appearance: choose 12-hour or 24-hour, and every page and chart follows it.",
+        ],
+    },
+    {
         "version": "0.37.28",
         "date": "October 26, 2026",
         "items": [

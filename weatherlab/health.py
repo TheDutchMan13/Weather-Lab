@@ -82,4 +82,5 @@ def age_status(last_ts: float | None, now_ts: float) -> tuple[str, str]:
 
 
 def clock(ts: float, tz) -> str:
-    return datetime.fromtimestamp(ts, tz).strftime("%b %d %H:%M")
+    from weatherlab import timefmt
+    return timefmt.stamp(datetime.fromtimestamp(ts, tz), sep=" ")
