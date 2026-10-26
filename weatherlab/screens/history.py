@@ -827,6 +827,15 @@ def my_year_page() -> None:
     tiles.append(_tile("Days at 38°C or hotter" if metric else "Days at 100°F or hotter", str(summary["hot_days"])))
     tiles.append(_tile("Days at or below freezing", str(summary["freezing"])))
     st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    try:
+        from weatherlab import api_pages, year_image
+        card = api_pages.year_card(storage.connect(), s, time.time(), year)
+        if card.get("found"):
+            st.download_button("Save as image", year_image.render(card),
+                               file_name=f"my-weather-year-{year}.png", mime="image/png", key=f"year_png_{year}",
+                               help="A picture of this year's best numbers, ready to share.")
+    except Exception as exc:  # the picture is a bonus; never break the page
+        st.caption(f"The picture couldn't be made: {exc}")
     monthly_rain = yearly.monthly(days).get(year, {})
     if monthly_rain:
         months = sorted(monthly_rain)

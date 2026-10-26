@@ -397,6 +397,21 @@ def _longest_run(rows, wet: bool):
     return best
 
 
+def _longest_hot(rows, threshold: float = 100.0):
+    """(length, first day, last day) of the longest run of consecutive days with a high at or above the threshold."""
+    best, cur, prev = (0, None, None), None, None
+    for d, x in rows:
+        h = x.get("tempf_max")
+        if h is not None and h >= threshold:
+            cur = (cur[0] + 1, cur[1], d) if cur and prev is not None and (d - prev).days == 1 else (1, d, d)
+        else:
+            cur = None
+        prev = d
+        if cur and cur[0] > best[0]:
+            best = cur
+    return best
+
+
 def year_card(db, s, now: float, year: int) -> dict:
     metric = units.is_metric(s.units)
     days = history.all_daily(db)
@@ -412,7 +427,10 @@ def year_card(db, s, now: float, year: int) -> dict:
         n, a, b = _longest_run(rows, wet)
         return None if not n else {"days": n, "from": a.isoformat(), "to": b.isoformat()}
     highs = [x["tempf_max"] for _, x in rows if x.get("tempf_max") is not None]
-    return {"year": year, "found": True, "days_with_data": sm["days"], "rain": _show("dailyrainin", sm["rain"], metric, 2),
+    wet = max(((d, x["rain_in"]) for d, x in rows if (x.get("rain_in") or 0) > 0), key=lambda p: p[1], default=None)
+    hot = _longest_hot(rows)
+    return {"year": year, "found": True, "wettest": at(wet, "dailyrainin", 2),
+            "longest_hot": None if not hot[0] else {"days": hot[0], "from": hot[1].isoformat(), "to": hot[2].isoformat()}, "days_with_data": sm["days"], "rain": _show("dailyrainin", sm["rain"], metric, 2),
             "rainy_days": sm["rainy_days"], "hottest": at(sm["hottest"], "tempf"), "coldest": at(sm["coldest"], "tempf"),
             "windiest": at(sm["windiest"], "windgustmph"), "days_90": sum(1 for h in highs if h >= 90),
             "days_100": sm["hot_days"], "freezing_nights": sm["freezing"], "longest_dry": run(False),
