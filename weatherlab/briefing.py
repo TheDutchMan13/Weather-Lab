@@ -65,3 +65,22 @@ def worth_knowing(alerts: list, sunrise, sunset, dew_text, dew_point, streak: in
     if pressure_word:
         lines.append(f"Pressure is {pressure_word}.")
     return lines
+
+
+def notification(data: dict) -> str:
+    """The morning notification: the headline, then how today's high compares with yesterday and the first alert."""
+    parts = [data.get("headline", "").strip()]
+    tiles = data.get("tiles") or []
+    high = next((t for t in tiles if t.get("label") == "Expected high"), None)
+    if high and high.get("note"):
+        parts.append(high["note"][0].upper() + high["note"][1:] + ".")
+    if data.get("notes"):
+        first = data["notes"][0]
+        if "Warning" in first or "Advisory" in first or "Watch" in first:
+            parts.append(first if first.endswith(".") else first + ".")
+    return " ".join(p for p in parts if p)
+
+
+def due(hour_now: int, send_hour: int, last_day, today, quiet: bool) -> bool:
+    """True once a day, after the chosen hour, outside quiet hours."""
+    return not quiet and hour_now >= send_hour and last_day != today

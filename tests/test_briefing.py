@@ -69,3 +69,34 @@ class BriefingApiTests(ApiHelpers, unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MorningNotificationTests(unittest.TestCase):
+    def test_notification_text(self):
+        data = {"headline": "A high near 104°F, sunny.",
+                "tiles": [{"label": "Expected high", "note": "4°F warmer than yesterday"}],
+                "notes": ["Excessive Heat Warning: until 8 PM", "Sunrise 05:30, sunset 19:40."]}
+        self.assertEqual(briefing.notification(data),
+                         "A high near 104°F, sunny. 4°F warmer than yesterday. Excessive Heat Warning: until 8 PM.")
+
+    def test_notification_without_extras(self):
+        self.assertEqual(briefing.notification({"headline": "No forecast yet today.", "tiles": [], "notes": ["Sunrise 05:30, sunset 19:40."]}),
+                         "No forecast yet today.")
+
+    def test_due_once_a_day_after_the_hour(self):
+        today = date(2026, 10, 26)
+        self.assertFalse(briefing.due(6, 7, None, today, False))
+        self.assertTrue(briefing.due(7, 7, None, today, False))
+        self.assertFalse(briefing.due(9, 7, today, today, False))
+        self.assertTrue(briefing.due(9, 7, today - timedelta(days=1), today, False))
+        self.assertFalse(briefing.due(9, 7, None, today, True))
+
+    def test_setting_defaults_off_and_wired(self):
+        from pathlib import Path
+        from weatherlab.settings import Settings
+        s = Settings()
+        self.assertFalse(s.briefing_notice)
+        self.assertEqual(s.briefing_hour, 7)
+        root = Path(__file__).resolve().parent.parent
+        self.assertIn("self._briefing(db, s)", (root / "weatherlab" / "poller.py").read_text(encoding="utf-8"))
+        self.assertIn("briefing_notice=brief_on", (root / "weatherlab" / "screens" / "system.py").read_text(encoding="utf-8"))
