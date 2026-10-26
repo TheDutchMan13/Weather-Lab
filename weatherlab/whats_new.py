@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.25",
+        "date": "October 26, 2026",
+        "items": [
+            "New Backup page under Tools. Back up now, see every backup with its date and size, and restore one after a confirmation. A new backup is checked as soon as it is saved, and a backup is checked again before it replaces your data. Backup settings moved here from Export.",
+        ],
+    },
+    {
         "version": "0.37.24",
         "date": "October 25, 2026",
         "items": [
