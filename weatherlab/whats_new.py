@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.26",
+        "date": "October 26, 2026",
+        "items": [
+            "New Briefing page under Now: one sentence about today, the expected high against yesterday and the same day last year, last night's low, the heat index peak, UV, rain chance and wind, plus a short list of things worth knowing such as alerts, sunrise and sunset, and hot-day streaks. The Android app can read it too.",
+        ],
+    },
+    {
         "version": "0.37.25",
         "date": "October 26, 2026",
         "items": [
