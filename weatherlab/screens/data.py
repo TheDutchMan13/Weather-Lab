@@ -5,7 +5,7 @@ import sqlite3
 import streamlit as st
 from dataclasses import replace
 from datetime import date, datetime, timedelta
-from weatherlab import auto_reports, backup, ecowitt_import, exports, history, importer, noaa, report, secrets, storage, theme, units
+from weatherlab import auto_reports, backup, ecowitt_import, exports, history, importer, noaa, report, secrets, storage, theme, units, timefmt
 from weatherlab.settings import Settings, load_settings, save_settings
 from zoneinfo import ZoneInfo
 from weatherlab.screens.common import _tz, empty_card, start_poller
@@ -146,13 +146,13 @@ def backup_page() -> None:
                 st.warning(f"Couldn't copy the backup to the second folder: {exc}")
             (st.success if ok else st.error)(f"Saved {path.name}. Checked: {text}")
             rows = backup.describe(folder)
-        newest = f"{rows[0]['when']:%b %d, %Y %H:%M} ({rows[0]['size']})" if rows else "none yet"
+        newest = f"{timefmt.stamp(rows[0]['when'], '%b %d, %Y')} ({rows[0]['size']})" if rows else "none yet"
         st.caption(f"Backup folder: {folder}. Last backup: {newest}. Keeping the newest {s.backup_keep}.")
     st.markdown(theme.section_html("Backups on this PC"), unsafe_allow_html=True)
     if not rows:
         empty_card("No backups yet", "Press Back up now, or wait for the daily backup.")
     else:
-        theme.table([{"Backup": r["name"], "Made": f"{r['when']:%b %d, %Y %H:%M}", "Size": r["size"]} for r in rows])
+        theme.table([{"Backup": r["name"], "Made": timefmt.stamp(r['when'], '%b %d, %Y'), "Size": r["size"]} for r in rows])
         pick = st.selectbox("Backup to restore", [r["name"] for r in rows], key="restore_pick_page")
         chosen = next(r for r in rows if r["name"] == pick)
         if st.button("Restore this backup", key="restore_ask"):
@@ -204,7 +204,7 @@ def _backups_section(s: Settings) -> None:
     items = backup.backups(folder)
     if items:
         newest = datetime.fromtimestamp(items[-1].stat().st_mtime)
-        st.caption(f"{len(items)} kept. Newest: {newest:%b %d, %Y %H:%M}. Saved in {folder}.")
+        st.caption(f"{len(items)} kept. Newest: {timefmt.stamp(newest, "%b %d, %Y")}. Saved in {folder}.")
     else:
         st.caption(f"No backups yet. They are saved in {folder}.")
     if st.button("Back up now"):
@@ -400,7 +400,7 @@ def ecowitt_import_page() -> None:
     if found:
         first = datetime.fromtimestamp(min(found), tz)
         last = datetime.fromtimestamp(max(found), tz)
-        st.write(f"The file has {len(found)} readings, from {first:%b %d, %Y %I:%M %p} to {last:%b %d, %Y %I:%M %p}.")
+        st.write(f"The file has {len(found)} readings, from {timefmt.stamp(first, "%b %d, %Y")} to {timefmt.stamp(last, "%b %d, %Y")}.")
         if widest > 5:
             st.caption(f"The readings are {widest:g} minutes apart, so a high or a low can fall between two readings "
                        "and those summaries can be a few degrees off.")

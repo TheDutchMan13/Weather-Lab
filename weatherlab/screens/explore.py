@@ -5,7 +5,7 @@ import html
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date, datetime, timedelta
-from weatherlab import ask, charts, history, history_compare, rain_calendar, rain_events, replay, stations, storage, theme, units
+from weatherlab import ask, charts, history, history_compare, rain_calendar, rain_events, replay, stations, storage, theme, units, timefmt
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
@@ -77,7 +77,7 @@ def rain_events_page() -> None:
         _tile("Rain events", str(len(found))),
         _tile("Total", units.format_value("dailyrainin", total, metric, 2)),
         _tile("Wettest event", units.format_value("dailyrainin", wettest["inches"], metric, 2),
-              datetime.fromtimestamp(wettest["start"], tz).strftime("%b %d, %I:%M %p")),
+              timefmt.stamp(datetime.fromtimestamp(wettest["start"], tz))),
     ]), unsafe_allow_html=True)
     body = []
     for e in reversed(found):
@@ -85,7 +85,7 @@ def rain_events_page() -> None:
         length = f"{minutes // 60} h {minutes % 60} min" if minutes >= 60 else f"{minutes} min"
         peak = units.convert("dailyrainin", e["peak_rate"], metric)
         peak_text = f"{peak:.{1 if metric else 2}f} {units.unit('dailyrainin', metric)}/hr"
-        body.append({"Started": datetime.fromtimestamp(e["start"], tz).strftime("%a %b %d, %I:%M %p"),
+        body.append({"Started": timefmt.stamp(datetime.fromtimestamp(e["start"], tz), "%a %b %d"),
                      "Length": length, "Rain": units.format_value("dailyrainin", e["inches"], metric, 2),
                      "Peak rate": peak_text})
     theme.table(body)
@@ -236,7 +236,7 @@ def replay_page() -> None:
         index = 0
     ts, reading = rows[index]
     when = datetime.fromtimestamp(ts, tz)
-    st.caption(f"Showing {when:%a %b %d, %Y at %I:%M %p}. Drag the slider to move through the day.")
+    st.caption(f"Showing {timefmt.stamp(when, "%a %b %d, %Y", sep=" at ")}. Drag the slider to move through the day.")
     st.markdown(theme.grid_html([
         _tile("Outdoor", _shown(reading, "tempf", metric)),
         _tile("Humidity", _shown(reading, "humidity", metric, "%")),

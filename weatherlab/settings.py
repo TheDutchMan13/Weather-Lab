@@ -45,6 +45,7 @@ class Settings:
     color_scheme: str = "Default"  # see theme.SCHEMES
     compact: bool = False  # tighter spacing
     large_text: bool = False  # bigger text and tiles, for easier reading
+    time_24h: bool = False  # show times as 14:30 instead of 2:30 PM
     chart_toolbar: bool = False  # keep the chart buttons visible, including save as picture
     tooltips: bool = True  # hover text on charts (the dashboard's 'Show helpful tooltips')
     animate: bool = True  # gauges sweep into place when a page loads (the dashboard's 'Animate gauges')

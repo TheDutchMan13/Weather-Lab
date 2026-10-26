@@ -4,7 +4,7 @@ import html
 import streamlit as st
 import time
 from datetime import datetime, timedelta, timezone
-from weatherlab import astro, charts, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose
+from weatherlab import astro, charts, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
 from weatherlab.settings import Settings, load_settings
 from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller
 
@@ -263,7 +263,7 @@ def sun_page() -> None:
 
 # ---------------------------------------------------------------- Astronomy
 def _local_time(dt, tz) -> str:
-    return "--" if dt is None else dt.astimezone(tz).strftime("%I:%M %p").lstrip("0")
+    return "--" if dt is None else timefmt.time_text(dt.astimezone(tz))
 
 
 def astronomy_page() -> None:

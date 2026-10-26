@@ -7,7 +7,7 @@ from datetime import datetime
 import plotly.graph_objects as go
 import streamlit as st
 
-from weatherlab import charts, history_series, stations, storage, theme, units
+from weatherlab import charts, history_series, stations, storage, theme, units, timefmt
 from weatherlab.screens.common import _tz, empty_card
 from weatherlab.settings import load_settings
 
@@ -76,7 +76,7 @@ def _open(key: str) -> None:
         return f"{v:.{decimals}f}{suffix}"
 
     def when(ts: float) -> str:
-        return datetime.fromtimestamp(ts, tz).strftime("%b %d, %I:%M %p").replace(" 0", " ")
+        return timefmt.stamp(datetime.fromtimestamp(ts, tz))
 
     tiles = [theme.tile_html("Highest", f"{shown(found['high'][1])}"),
              theme.tile_html("Lowest", f"{shown(found['low'][1])}"),

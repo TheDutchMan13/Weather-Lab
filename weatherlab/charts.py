@@ -75,7 +75,11 @@ def show(fig: go.Figure, **kwargs) -> None:
     for trace in fig.data:
         xs = getattr(trace, "x", None)
         if xs is not None and len(xs) and isinstance(xs[0], datetime):
-            fig.update_xaxes(hoverformat="%b %d, %-I:%M %p")
+            from weatherlab import timefmt
+            fig.update_xaxes(hoverformat=timefmt.hover_format())
+            if not timefmt.use_24h():  # plotly shows 24-hour ticks unless told otherwise
+                fig.update_xaxes(tickformatstops=[dict(dtickrange=[None, 1800000], value="%-I:%M %p"),
+                                                  dict(dtickrange=[1800000, 86400000], value="%-I %p")])
             break
     config = dict(CONFIG, displayModeBar=True) if load_settings().chart_toolbar else CONFIG
     st.plotly_chart(fig, config=config, **kwargs)
