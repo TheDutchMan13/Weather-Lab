@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.30",
+        "date": "October 28, 2026",
+        "items": [
+            "The briefing's sunrise and sunset now follow the Time format setting: 5:42 PM in 12-hour, 17:42 in 24-hour.",
+        ],
+    },
+    {
         "version": "0.37.29",
         "date": "October 26, 2026",
         "items": [

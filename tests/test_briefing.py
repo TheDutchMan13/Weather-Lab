@@ -100,3 +100,18 @@ class MorningNotificationTests(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent
         self.assertIn("self._briefing(db, s)", (root / "weatherlab" / "poller.py").read_text(encoding="utf-8"))
         self.assertIn("briefing_notice=brief_on", (root / "weatherlab" / "screens" / "system.py").read_text(encoding="utf-8"))
+
+
+class BriefingSunTimeTests(unittest.TestCase):
+    def test_sun_times_follow_the_24_hour_setting(self):
+        from weatherlab import timefmt
+        self.assertEqual(api_pages._clock_text("17:42", timefmt), "5:42 PM" if not timefmt.use_24h() else "17:42")
+        self.assertEqual(api_pages._clock_text("06:44", timefmt), "6:44 AM" if not timefmt.use_24h() else "06:44")
+        self.assertIsNone(api_pages._clock_text(None, timefmt))
+
+    def test_24_hour_setting_is_respected(self):
+        from weatherlab import timefmt
+        with mock.patch.object(timefmt, "use_24h", return_value=True):
+            self.assertEqual(api_pages._clock_text("17:42", timefmt), "17:42")
+        with mock.patch.object(timefmt, "use_24h", return_value=False):
+            self.assertEqual(api_pages._clock_text("17:42", timefmt), "5:42 PM")
