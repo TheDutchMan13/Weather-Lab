@@ -641,6 +641,14 @@ def push_info(db, s, now: float) -> dict:
 
 # ------------------------------------------------------------------ briefing
 
+def _clock_text(hhmm, timefmt) -> str | None:
+    """"17:42" from the sun times, shown as "5:42 PM" or "17:42" to match the Settings choice."""
+    if not hhmm:
+        return None
+    hour, minute = (int(x) for x in hhmm.split(":"))
+    return timefmt.time_text(datetime(2000, 1, 1, hour, minute))
+
+
 def briefing_page(db, s, now: float) -> dict:
     """Today at a glance: the expected high against yesterday and last year, last night's low, heat, UV, rain
     chance, wind and a short list of things worth knowing. Added in 0.37.26."""
@@ -697,7 +705,8 @@ def briefing_page(db, s, now: float) -> dict:
         {"label": "Rain chance", "value": rain_chance, "unit": "%", "note": None},
         {"label": "Wind", "value": wind, "unit": "", "note": None},
     ]
-    notes = briefing.worth_knowing(alerts, sun_info["sunrise"], sun_info["sunset"],
+    from weatherlab import timefmt
+    notes = briefing.worth_knowing(alerts, _clock_text(sun_info["sunrise"], timefmt), _clock_text(sun_info["sunset"], timefmt),
                                    None if dew_f is None else dew.text(dew_f),
                                    None if dew_f is None else _show("dewpointf", dew_f, metric, 0),
                                    streak, pressure, heat_info["danger_hours"])
