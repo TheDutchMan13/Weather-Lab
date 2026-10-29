@@ -6,7 +6,7 @@ Manager, so the app keeps no copy of it in plain text. Too many wrong tokens loc
 
 Endpoints (all GET, all JSON, version 1):
   /api/v1/status    app and station status
-  /api/v1/current   the latest reading, in the units chosen in Settings
+  /api/v1/current   the latest reading, in the units chosen in Settings, with the plain-language words for dew point, wind direction and UV
   /api/v1/today     today's high, low and rain so far
   /api/v1/alerts    the 20 most recent alerts
   /api/v1/history   the last 24 hours of temperature, one point about every half hour
@@ -60,7 +60,7 @@ from zoneinfo import ZoneInfo
 from weatherlab import secrets as keystore
 from weatherlab import api_pages
 from weatherlab import history as history_db
-from weatherlab import history_series, record_board, records_events, stations, storage, units
+from weatherlab import dew, history_series, nws, record_board, records_events, stations, storage, sun_uv, units
 from weatherlab.config import APP_VERSION
 
 VERSION = 1
@@ -149,13 +149,29 @@ def _convert_all(data: dict, metric: bool) -> dict:
     return out
 
 
+def words_for(data: dict) -> dict:
+    """The plain-language wording for a reading, written once here so the apps never keep their own copies.
+
+    Only words that can be worked out are included: "dew_point" (muggy), "wind_direction" (SSW), "uv" (high).
+    """
+    out = {}
+    if data.get("dewpointf") is not None:
+        out["dew_point"] = dew.text(data["dewpointf"])
+    if data.get("winddir") is not None:
+        out["wind_direction"] = nws.compass(data["winddir"])
+    if data.get("uv") is not None:
+        out["uv"] = sun_uv.uv_word(data["uv"])
+    return out
+
+
 def current(db, s, now: float) -> dict:
     latest = storage.latest(db)
     metric = units.is_metric(s.units)
     if latest is None:
         return {"reading": None, "metric": metric}
     ts, data = latest
-    return {"reading": {"ts": ts, "age_seconds": int(now - ts), "values": _convert_all(data, metric)},
+    return {"reading": {"ts": ts, "age_seconds": int(now - ts), "values": _convert_all(data, metric),
+                        "words": words_for(data)},
             "metric": metric}
 
 

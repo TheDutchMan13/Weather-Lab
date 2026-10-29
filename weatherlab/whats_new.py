@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.36",
+        "date": "October 29, 2026",
+        "items": [
+            "The wording for dew point (dry, muggy...), wind direction and UV level now comes from Weather Lab itself and is sent to the Android app, so both always say the same thing. A new word needs one change instead of two. The Android app needs this version or newer to show those words.",
+        ],
+    },
+    {
         "version": "0.37.35",
         "date": "October 29, 2026",
         "items": [
