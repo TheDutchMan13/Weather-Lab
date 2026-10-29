@@ -1,4 +1,4 @@
-"""Round gauges for the Live page. The temperature ring is ported from the dashboard's wxdash/live.py
+"""Round gauges for the Home page. The temperature ring is ported from the dashboard's wxdash/live.py
 (temp_gauge_html). Inputs are in °F; the text shows the chosen units. Returns (html, height)."""
 
 import html as _h

@@ -71,7 +71,7 @@ def _heat_tone(index) -> str | None:
 
 
 def _uv_tone(uv) -> str | None:
-    """Colour for a UV index, with the same breaks as the Live page: low, moderate, high, very high."""
+    """Colour for a UV index, with the same breaks as the Home page: low, moderate, high, very high."""
     if uv is None:
         return None
     return "ok" if uv < 3 else "info" if uv < 6 else "warn" if uv < 8 else "bad"

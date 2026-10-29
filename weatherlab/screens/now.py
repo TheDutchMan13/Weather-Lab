@@ -363,7 +363,7 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
                 _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "tile-")
 
 
-# Colour of each card's trend line on the Live page (0.37.18): temperature orange, humidity and wind blue-violet and blue.
+# Colour of each card's trend line on the Home page (0.37.18): temperature orange, humidity and wind blue-violet and blue.
 TREND_COLOURS = {"tempf": "#e8833a", "tempinf": "#e8833a", "humidity": "#7c86c9", "humidityin": "#7c86c9",
                  "windspeedmph": "#4f9cf7", "windgustmph": "#4f9cf7", "dailyrainin": "#4f9cf7", "uv": "#d9a441"}
 
@@ -598,7 +598,7 @@ def _welcome(s: Settings) -> None:
             st.markdown(f"{mark} **{title}**  \n<span style='opacity:.7'>{detail}</span>", unsafe_allow_html=True)
 
 
-# Roomier cards on the Live page (0.37.18): more padding inside each card, bigger numbers, and space between cards.
+# Roomier cards on the Home page (0.37.18): more padding inside each card, bigger numbers, and space between cards.
 LIVE_ROOMY_CSS = ("<style>"
                   ".wl-tile{padding:16px 18px !important}"
                   ".wl-value{font-size:24px !important;margin-top:6px !important}"
@@ -607,13 +607,54 @@ LIVE_ROOMY_CSS = ("<style>"
                   "</style>")
 
 
-def live_page() -> None:
+def _customize(s: Settings) -> None:
+    """The Customize button on Home: which readings show, and whether the briefing leads."""
+    from dataclasses import replace
+    with st.popover("Customize"):
+        show = st.checkbox("Show the briefing at the top", value=s.home_briefing, key="home_show_briefing")
+        cards = st.multiselect("Readings on Home", options=list(CARD_LABELS), default=s.live_cards,
+                               format_func=lambda k: CARD_LABELS[k][0], key="home_cards",
+                               help="The order you pick them in is the order they show.")
+    if show != s.home_briefing or list(cards) != list(s.live_cards):
+        from weatherlab.settings import save_settings
+        save_settings(replace(s, home_briefing=show, live_cards=list(cards)))
+        st.rerun()
+
+
+def _briefing_card(s: Settings) -> None:
+    """The briefing at the top of Home: the headline, the numbers that matter, and the sun and dew point line."""
+    from weatherlab import api_pages
+    data = api_pages.briefing_page(storage.connect(), s, time.time())
+    tiles = []
+    for t in data["tiles"]:
+        if t["value"] is None:
+            continue
+        value = f'{t["value"]}{t["unit"]}' if t["unit"] in ("%", "°F", "°C") else (f'{t["value"]} {t["unit"]}'.strip())
+        tiles.append(_tile(t["label"], value, t.get("note") or ""))
+    st.markdown(f'<div class="wl-card" style="font-size:1.25rem;font-weight:600">{html.escape(data["headline"])}</div>',
+                unsafe_allow_html=True)
+    if tiles:
+        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    if data["notes"]:
+        with st.expander("Worth knowing"):
+            for line in data["notes"]:
+                st.markdown(f"- {line}")
+
+
+def home_page() -> None:
+    """Home: the briefing first, then right now, the last 24 hours and the cards you chose."""
     s = load_settings()
     st.markdown(LIVE_ROOMY_CSS, unsafe_allow_html=True)
-    st.markdown(theme.page_head("Live", "Right now at your station, with the last 24 hours and any active alerts."), unsafe_allow_html=True)
+    left, right = st.columns([5, 1])
+    with left:
+        st.markdown(theme.page_head("Home", "Today's briefing, right now at your station, and the last 24 hours."), unsafe_allow_html=True)
     if not s.station_ip:
         _welcome(s)
         return
+    with right:
+        _customize(s)
+    if s.home_briefing:
+        _briefing_card(s)
     freshness_line()
     _today_vs_yesterday(s)
     airport_card(s)
@@ -698,7 +739,7 @@ def sensors_page() -> None:
     now = time.time()
     rows = health.window(db, now - 24 * 3600, now)
     if not rows:
-        empty_card("No readings in the last 24 hours yet", "Check the station's connection on the Live page.")
+        empty_card("No readings in the last 24 hours yet", "Check the station's connection on the Home page.")
         return
 
     last_ts, latest = rows[-1][0], rows[-1][1]

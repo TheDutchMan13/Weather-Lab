@@ -1,4 +1,4 @@
-"""Two dials for the Live page: the feels-like dial and the pressure trend dial. Ported from the dashboard's
+"""Two dials for the Home page: the feels-like dial and the pressure trend dial. Ported from the dashboard's
 utils/visuals.py (ZONES, feels_like_html) and utils/visuals3.py (PRESSURE_BANDS, pressure_dial_html). Inputs are in °F and inHg; the text
 uses the chosen units. Each builder returns (html, height)."""
 

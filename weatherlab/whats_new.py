@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.31",
+        "date": "October 29, 2026",
+        "items": [
+            "Home replaces Live and Briefing. Today's briefing leads, then right now, the last 24 hours and your cards. Customize (top right) picks the readings and hides the briefing.",
+            "History is one page now. Pick Daily, Records, Rankings, Compare, Month or Year at the top. Rewind and Coverage stay in the History section.",
+            "The sidebar is shorter: Rankings, My year and Climate charts moved into History, and Season keeps Rain calendar and Rain events.",
+        ],
+    },
+    {
         "version": "0.37.30",
         "date": "October 28, 2026",
         "items": [

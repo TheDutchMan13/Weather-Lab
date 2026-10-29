@@ -7,7 +7,7 @@ SRC = (pathlib.Path(__file__).resolve().parents[1] / "weatherlab" / "screens" / 
 
 class LiveDewCard(unittest.TestCase):
     def test_no_dew_line_at_top(self):
-        start = SRC.index("def live_page() -> None:")
+        start = SRC.index("def home_page() -> None:")
         end = SRC.index("def alerts_log_page", start)
         self.assertNotIn("_dew_line", SRC[start:end])
 
@@ -25,7 +25,7 @@ class LiveDewCard(unittest.TestCase):
 
 class LiveRoomyCards(unittest.TestCase):
     def test_live_page_injects_roomier_card_css(self):
-        start = SRC.index("def live_page() -> None:")
+        start = SRC.index("def home_page() -> None:")
         self.assertIn("LIVE_ROOMY_CSS", SRC[start:SRC.index("def alerts_log_page", start)])
         self.assertIn(".wl-tile{padding:16px 18px !important}", SRC)
 

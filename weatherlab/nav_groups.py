@@ -2,14 +2,14 @@
 
 Kept apart from app.py so the layout can be tested without the page's dependencies."""
 
-DEFAULT_PAGE = "Live"
+DEFAULT_PAGE = "Home"
 
 GROUPS = {
-    "Now": ["Live", "Briefing", "Alert history"],
-    "History": ["Daily", "Records", "Rankings", "Coverage"],
+    "Now": ["Home", "Alert history"],
+    "History": ["History", "Coverage", "Rewind"],
     "Air, sun and heat": ["Air", "Wind", "Wind map", "Sun", "Heat", "Astronomy"],
     "Forecast and storms": ["Forecast", "Lightning", "Fire", "Tropics", "Radar"],
-    "Season": ["Rain calendar", "Rain events", "My year", "Rewind", "Climate charts"],
+    "Season": ["Rain calendar", "Rain events"],
     "Tools": ["Ask", "Unusual days", "Replay", "Reports", "Import", "Export", "Backup"],
     "Health": ["Sensors", "Status", "Health check"],
     "Settings": ["Settings", "Setup", "Stations", "Help", "What's New"],

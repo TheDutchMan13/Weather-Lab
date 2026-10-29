@@ -111,7 +111,7 @@ def _appearance_section(s: Settings) -> None:
     tooltips = st.checkbox("Show helpful tooltips", value=s.tooltips, help="Hover text on charts.", key="ap_tooltips")
     animate = st.checkbox("Animate gauges", value=s.animate, help="Gauges sweep into place when a page loads.",
                           key="ap_animate")
-    compact = st.checkbox("Compact spacing", value=s.compact, help="Tighter spacing between tiles on the Live page.",
+    compact = st.checkbox("Compact spacing", value=s.compact, help="Tighter spacing between tiles on the Home page.",
                           key="ap_compact")
     large = st.checkbox("Larger text", value=s.large_text,
                         help="Bigger text and tiles, for easier reading on a phone or from a distance.", key="ap_large")

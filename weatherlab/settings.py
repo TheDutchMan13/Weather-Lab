@@ -56,6 +56,7 @@ class Settings:
     digest_hour: int = 7  # local hour the morning summary is sent
     api_enabled: bool = False  # the read-only API for the Android app; needs phones and devices to be allowed too
     api_port: int = 8600  # the port the API listens on
+    home_briefing: bool = True  # show the briefing at the top of Home
     briefing_notice: bool = False  # send today's briefing as a notification each morning
     briefing_hour: int = 7  # local hour the briefing is sent
     weekly_digest: bool = False  # a short summary of the last 7 days, sent on Mondays with the morning summary
