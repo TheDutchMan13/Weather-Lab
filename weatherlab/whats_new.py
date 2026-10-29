@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.34",
+        "date": "October 29, 2026",
+        "items": [
+            "Compare stations (Now section): pick two of your stations and see them side by side. A sentence says which is warmer, a table shows temperature, feels like, humidity, wind, gust, pressure, rain and UV with the difference, and a chart draws both temperatures for the last 24 hours. It needs at least two stations, added under Stations.",
+        ],
+    },
+    {
         "version": "0.37.33",
         "date": "October 29, 2026",
         "items": [

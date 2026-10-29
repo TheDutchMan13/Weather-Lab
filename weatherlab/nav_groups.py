@@ -5,7 +5,7 @@ Kept apart from app.py so the layout can be tested without the page's dependenci
 DEFAULT_PAGE = "Home"
 
 GROUPS = {
-    "Now": ["Home", "Alert history"],
+    "Now": ["Home", "Compare stations", "Alert history"],
     "History": ["History", "Coverage", "Rewind"],
     "Air, sun and heat": ["Air", "Wind", "Wind map", "Sun", "Heat", "Astronomy"],
     "Forecast and storms": ["Forecast", "Lightning", "Fire", "Tropics", "Radar"],
