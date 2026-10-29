@@ -1,4 +1,4 @@
-"""History window for the Live page: click a reading's button for its chart over 24 hours, 7 days or 30 days,
+"""History window for the Home page: click a reading's button for its chart over 24 hours, 7 days or 30 days,
 with the highest, lowest and average. Charts use the app's palette."""
 
 import time
@@ -50,7 +50,7 @@ def _clear() -> None:
 
 
 def show_pending() -> None:
-    """Keeps the window open while the Live page refreshes, until the user closes it."""
+    """Keeps the window open while the Home page refreshes, until the user closes it."""
     key = st.session_state.get("live_history")
     if key in MEASURES:
         _open(key)

@@ -1,4 +1,4 @@
-"""Shapes for the Live page's alert map: each active alert shaded on its zones, the most severe drawn on top.
+"""Shapes for the Home page's alert map: each active alert shaded on its zones, the most severe drawn on top.
 Zone outlines come from the National Weather Service at run time, so no geography is bundled with the app.
 This module only computes the shapes; app.py draws them with Plotly."""
 

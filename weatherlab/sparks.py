@@ -1,4 +1,4 @@
-"""Sparklines and "usual for this hour" notes for the Live page's at-a-glance cards. Ported from the dashboard's
+"""Sparklines and "usual for this hour" notes for the Home page's at-a-glance cards. Ported from the dashboard's
 utils/visuals.py (_spark, usual_delta, compare_text). Values given to these functions are in the stored (US) units,
 unless the caller converts them first."""
 

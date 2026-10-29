@@ -19,6 +19,14 @@ ROSE_BLUES_LIGHT = ["#8ec3f5", "#3b8de0", "#1f5fa8", "#0b3470"]
 ROSE_BLUES_DARK = ["#bcd9fb", "#4f9cf7", "#2f6fd0", "#1f4c9a"]
 
 
+_EMBEDDED = False  # True while the History page draws a view, so the view skips its own title
+
+
+def _head(title: str, subtitle: str = "") -> None:
+    if not _EMBEDDED:
+        st.markdown(theme.page_head(title, subtitle), unsafe_allow_html=True)
+
+
 def _conv(key: str, values: list, metric: bool) -> list:
     """Each US value converted to the chosen units. None stays None."""
     return [units.convert(key, v, metric) for v in values]
@@ -50,7 +58,7 @@ def daily_page() -> None:
     db = storage.connect()
     today = datetime.now(tz).date()
     _live_strip(s, db, tz)
-    st.markdown(theme.page_head("Daily", "One day from your readings, or several days together. Today shows what has been recorded so far."), unsafe_allow_html=True)
+    _head("Daily", "One day from your readings, or several days together. Today shows what has been recorded so far.")
     period = st.radio("Range", list(daily_ranges.DAILY_RANGES), index=0, horizontal=True, key="daily_range")
     if not daily_ranges.is_day_view(period):
         _period_view(s, db, tz, today, daily_ranges.DAILY_RANGES[period])
@@ -648,7 +656,7 @@ def records_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
     db = storage.connect()
-    st.markdown(theme.page_head("Records and analysis", "All-time records for your station, with the day each one happened."), unsafe_allow_html=True)
+    _head("Records and analysis", "All-time records for your station, with the day each one happened.")
     days = history.all_daily(db)
     if not days:
         empty_card("Records aren't ready yet", "Records appear once there are a few days of summaries to compare. They fill in as Weather Lab keeps collecting.")
@@ -704,7 +712,7 @@ RANKINGS = {  # label: (summary key, "max" or "min", units key or None, unit tex
 def rankings_page() -> None:
     s = load_settings()
     metric = units.is_metric(s.units)
-    st.markdown(theme.page_head("Rankings", "The top 10 days for the measure you choose."), unsafe_allow_html=True)
+    _head("Rankings", "The top 10 days for the measure you choose.")
     days = _all_days(stations.current())
     if not days:
         empty_card("Rankings appear once there are daily summaries.", "Each day's summary is written once that day's readings are in.")
@@ -771,7 +779,7 @@ def _year_over_year(dark: bool, metric: bool) -> None:
 def climate_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
-    st.markdown(theme.page_head("Climate charts", "Monthly averages and totals across all of your years of data."), unsafe_allow_html=True)
+    _head("Climate charts", "Monthly averages and totals across all of your years of data.")
     table = yearly.monthly(_all_days(stations.current()))
     if not table:
         empty_card("Monthly charts appear once there are daily summaries.", "Each day's summary is written once that day's readings are in.")
@@ -804,7 +812,7 @@ def climate_page() -> None:
 def my_year_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
-    st.markdown(theme.page_head("My year", "A review of one calendar year at a time."), unsafe_allow_html=True)
+    _head("My year", "A review of one calendar year at a time.")
     days = _all_days(stations.current())
     years = sorted({day.year for day, _ in days}, reverse=True)
     if not years:
@@ -844,3 +852,25 @@ def my_year_page() -> None:
                              y=[units.convert("dailyrainin", monthly_rain[m]["rain"], metric) for m in months],
                              name=f"Rain ({units.unit('dailyrainin', metric)})", marker_color=charts.MEASURE["rain"]))
         charts.show(fig)
+
+
+HISTORY_VIEWS = ["Daily", "Records", "Rankings", "Compare", "Month", "Year"]
+
+
+def _compare_view() -> None:
+    _compare_periods(storage.connect(), datetime.now(_tz(load_settings())).date())
+
+
+def history_page() -> None:
+    """Daily, Records, Rankings, Compare, Month and Year in one page: pick a view, the rest is that page."""
+    global _EMBEDDED
+    views = {"Daily": daily_page, "Records": records_page, "Rankings": rankings_page, "Compare": _compare_view,
+             "Month": climate_page, "Year": my_year_page}
+    st.markdown(theme.page_head("History", "Days, records, rankings, comparisons, months and years from your readings."),
+                unsafe_allow_html=True)
+    choice = st.radio("View", HISTORY_VIEWS, horizontal=True, key="history_view", label_visibility="collapsed")
+    _EMBEDDED = True
+    try:
+        views[choice]()
+    finally:
+        _EMBEDDED = False
