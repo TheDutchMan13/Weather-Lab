@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.32",
+        "date": "October 29, 2026",
+        "items": [
+            "History's Daily view has a Compare with last year switch for 7 days and 30 days. It shows the hottest day, days at 100 or more, and rain, each next to last year's figure for the same days.",
+        ],
+    },
+    {
         "version": "0.37.31",
         "date": "October 29, 2026",
         "items": [

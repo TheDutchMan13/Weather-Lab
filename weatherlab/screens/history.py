@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date, datetime, timedelta
-from weatherlab import charts, coverage, daily, daily_ranges, history, history_compare, record_board, records_events, report, stations, storage, theme, units, wind_rose, yearly
+from weatherlab import charts, coverage, last_year, daily, daily_ranges, history, history_compare, record_board, records_events, report, stations, storage, theme, units, wind_rose, yearly
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
@@ -342,6 +342,25 @@ def _period_view(s, db, tz, today: date, n) -> None:
     tiles = _highlight_tiles(rows, metric)
     with st.container(border=True):
         st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+
+    if n is not None and st.toggle("Compare with last year", key="history_last_year", value=False,
+                                   help="Shows last year's figures for the same days."):
+        last_rows = history.daily_between(db, last_year.year_back(rows[0][0]), last_year.year_back(rows[-1][0]))
+        both = last_year.compare(rows, last_rows)
+        if both["last"] is None:
+            st.caption("No readings for the same days last year.")
+        else:
+            this, last = both["this"], both["last"]
+            def temp(v):
+                return "--" if v is None else units.format_value("tempf", v, metric, 0)
+            def rain_text(v):
+                return "--" if v is None else units.format_value("dailyrainin", v, metric, 2)
+            st.markdown(theme.grid_html([
+                theme.strip_tile_html("Hottest day", temp(this["hottest"]), f"Last year: {temp(last['hottest'])}"),
+                theme.strip_tile_html("Days at 100 or more", "--" if this["hot_days"] is None else str(this["hot_days"]),
+                                      "Last year: " + ("--" if last["hot_days"] is None else str(last["hot_days"]))),
+                theme.strip_tile_html("Rain", rain_text(this["rain"]), f"Last year: {rain_text(last['rain'])}", "info"),
+            ]), unsafe_allow_html=True)
 
     dark = theme.is_dark()
     _history_charts(rows, dark, metric)
