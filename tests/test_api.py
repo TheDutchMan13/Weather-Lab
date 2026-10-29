@@ -107,6 +107,17 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(mt["reading"]["values"]["tempf"], {"value": 100.0, "unit": "°C"})
         self.assertTrue(mt["metric"])
 
+    def test_current_carries_the_words_for_dew_point_wind_and_uv(self):
+        storage.store_reading(self.db, {"tempf": 90.0, "dewpointf": 66.0, "winddir": 200, "uv": 7}, ts=self.now - 60)
+        t = self.token()
+        _, body = api.route("/api/v1/current", f"Bearer {t}", self.db, self.s, self.now)
+        self.assertEqual(body["reading"]["words"], {"dew_point": "muggy", "wind_direction": "SSW", "uv": "high"})
+
+    def test_words_leave_out_what_the_station_did_not_report(self):
+        self.assertEqual(api.words_for({"tempf": 70.0}), {})
+        self.assertEqual(api.words_for({"dewpointf": 50.0})["dew_point"], "dry and comfortable")
+        self.assertEqual(api.words_for({"dewpointf": 72.0})["dew_point"], "oppressive")
+
     def test_today_reports_high_low_and_rain(self):
         from datetime import datetime
         from zoneinfo import ZoneInfo
