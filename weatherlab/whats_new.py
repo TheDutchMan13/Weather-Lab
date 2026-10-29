@@ -5,6 +5,17 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.33",
+        "date": "October 29, 2026",
+        "items": [
+            "A more modern look: cards have softer edges and a light shadow, and lift a little when you point at them. Every card, table and panel now uses the same rounded corners.",
+            "Numbers on the tiles are larger and bolder, with the label above them in a quieter style.",
+            "Home's briefing headline sits on its own tinted card, and a shimmering placeholder shows while the forecast loads.",
+            "The sidebar is slimmer: the page you're on is a tinted pill, and section names are small capitals.",
+            "Page titles fade in gently. Turn on Reduce motion in Windows and the fade is skipped. High contrast keeps strong lines and no shadows.",
+        ],
+    },
+    {
         "version": "0.37.32",
         "date": "October 29, 2026",
         "items": [

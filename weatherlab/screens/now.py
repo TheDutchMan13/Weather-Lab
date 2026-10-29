@@ -624,15 +624,19 @@ def _customize(s: Settings) -> None:
 def _briefing_card(s: Settings) -> None:
     """The briefing at the top of Home: the headline, the numbers that matter, and the sun and dew point line."""
     from weatherlab import api_pages
+    waiting = st.empty()
+    waiting.markdown(theme.skeleton_html((64, 90)), unsafe_allow_html=True)  # the forecast can take a moment
     data = api_pages.briefing_page(storage.connect(), s, time.time())
+    waiting.empty()
     tiles = []
     for t in data["tiles"]:
         if t["value"] is None:
             continue
         value = f'{t["value"]}{t["unit"]}' if t["unit"] in ("%", "°F", "°C") else (f'{t["value"]} {t["unit"]}'.strip())
         tiles.append(_tile(t["label"], value, t.get("note") or ""))
-    st.markdown(f'<div class="wl-card" style="font-size:1.25rem;font-weight:600">{html.escape(data["headline"])}</div>',
-                unsafe_allow_html=True)
+    st.markdown('<div class="wl-card"><div class="wl-label" style="text-transform:uppercase;letter-spacing:.08em">'
+                f"Today's briefing</div><div style=\"font-size:1.4rem;font-weight:700;margin-top:6px\">"
+                f'{html.escape(data["headline"])}</div></div>', unsafe_allow_html=True)
     if tiles:
         st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
     if data["notes"]:
