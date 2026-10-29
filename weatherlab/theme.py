@@ -18,6 +18,13 @@ from weatherlab import glossary
 
 FONT = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"  # tiles and headings (utils/live_cards.py)
 
+# Shape and depth (0.37.33): one set of corner sizes and shadows used everywhere, so every card looks the same.
+RADIUS = {"sm": 10, "md": 14, "lg": 18, "pill": 99}
+SHADOW = {True: "0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.22)",
+          False: "0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.07)"}
+SHADOW_HOVER = {True: "0 2px 4px rgba(0,0,0,.4),0 14px 32px rgba(0,0,0,.3)",
+                False: "0 2px 4px rgba(16,24,40,.08),0 14px 32px rgba(16,24,40,.11)"}
+
 # Card colours (utils/live_cards.py _k).
 LIGHT = {"page": "#ffffff", "surface": "#f8f9fa", "text": "#1c2330", "muted": "#5b6472",
          "card": "#ffffff", "line": "#e3e7ee", "sub": "#f4f6f9", "accent": "#4ea1ff"}
@@ -163,6 +170,9 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
     pg = page_palette(dark, scheme)
     p = palette(dark, scheme)
     tab_bg, tab_text = TAB_ON[bool(dark)]
+    shadow, shadow_hover = SHADOW[bool(dark)], SHADOW_HOVER[bool(dark)]
+    if scheme == "High contrast":  # strong lines matter more than depth here
+        shadow = shadow_hover = "none"
     rules = [
         # Page and sidebar (utils/theme.py apply_theme_css)
         _rule(".stApp", f"background:{pg['background']}"),
@@ -198,10 +208,26 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
               f"background:{tab_bg} !important;border-color:transparent !important"),
         _rule("div[data-testid='stButtonGroup'] button[aria-checked='true'] p", f"color:{tab_text} !important"),
         _rule("div[data-testid='stVerticalBlockBorderWrapper']:has(>div>div[data-testid='stVerticalBlock'])",
-              f"border-radius:14px !important;border-color:{p['line']} !important;background:{p['card']}"),
+              f"border-radius:{RADIUS['lg']}px !important;border-color:{p['line']}99 !important;background:{p['card']};"
+              f"box-shadow:{shadow}"),
         _rule("div[data-testid='stLayoutWrapper']>div[data-testid='stVerticalBlock']",
-              f"border-radius:14px !important;border-color:{p['line']} !important"),
-        _rule("div[data-testid='stAlert']", "padding:2px 4px !important;border-radius:10px !important"),
+              f"border-radius:{RADIUS['lg']}px !important;border-color:{p['line']}99 !important"),
+        _rule("div[data-testid='stAlert']", f"padding:2px 4px !important;border-radius:{RADIUS['md']}px !important"),
+        _rule(".stButton>button,.stDownloadButton>button", f"border-radius:{RADIUS['sm']}px !important;"
+                                                           "transition:background .15s,border-color .15s"),
+        _rule("[data-testid='stExpander'] details", f"border-radius:{RADIUS['md']}px !important;"
+                                                    f"border-color:{p['line']}99 !important"),
+        # Sidebar (0.37.33): slimmer, with a tinted pill for the page you're on and small section names.
+        _rule("[data-testid='stSidebar']", f"min-width:232px !important;max-width:260px !important;"
+                                           f"border-right:1px solid {p['line']}66"),
+        _rule("[data-testid='stSidebarNavLink']", f"border-radius:{RADIUS['sm']}px;padding:6px 10px !important;"
+                                                  "margin:1px 0;transition:background .15s"),
+        _rule("[data-testid='stSidebarNavLink'][aria-current='page']", f"background:{p['accent']}26 !important"),
+        _rule("[data-testid='stSidebarNavLink'][aria-current='page'] span", f"color:{p['accent']} !important;"
+                                                                            "font-weight:650"),
+        _rule("[data-testid='stNavSectionHeader']", f"font-size:11px !important;font-weight:650 !important;"
+                                                    f"letter-spacing:.08em;text-transform:uppercase;"
+                                                    f"color:{p['muted']} !important;margin-top:10px"),
         _rule("div[data-testid='stAlert'] p", "font-size:14px !important"),
         _rule("div[data-testid='stMetricValue']", "font-size:1.6rem !important;font-weight:650 !important"),
         _rule("div[data-testid='stMetricLabel'] p", f"color:{p['muted']} !important;font-size:13px !important"),
@@ -210,11 +236,20 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
                            f"color:{p['text']};margin:4px 0 14px"),
         _rule(".wl-sub", f"font-family:{FONT};font-size:15px;color:{p['muted']};margin:-6px 0 18px"),
         _rule(".wl-grid", "display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px"),
-        _rule(".wl-tile", f"font-family:{FONT};background:{p['card']};border:1px solid {p['line']};"
-                          "border-radius:12px;padding:10px 14px;min-width:0"),
-        _rule(".wl-label", f"font-size:12px;color:{p['muted']}"),
-        _rule(".wl-value", f"font-size:22px;font-weight:650;color:{p['text']};margin-top:2px;"
-                           "white-space:nowrap;overflow:hidden;text-overflow:ellipsis"),
+        _rule(".wl-tile", f"font-family:{FONT};background:{p['card']};border:1px solid {p['line']}99;"
+                          f"border-radius:{RADIUS['md']}px;padding:14px 16px;min-width:0;box-shadow:{shadow};"
+                          "transition:box-shadow .2s,transform .2s"),
+        _rule(".wl-tile:hover", f"box-shadow:{shadow_hover};transform:translateY(-1px)"),
+        _rule(".wl-label", f"font-size:12px;font-weight:500;letter-spacing:.02em;color:{p['muted']}"),
+        _rule(".wl-value", f"font-size:26px;font-weight:700;letter-spacing:-.4px;color:{p['text']};margin-top:4px;"
+                           "font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"),
+        # The briefing headline on Home: a soft accent wash so it reads as the page's lead.
+        _rule(".wl-card", f"font-family:{FONT};background:linear-gradient(135deg,{p['accent']}22,{p['card']} 70%);"
+                          f"border:1px solid {p['line']}99;border-radius:{RADIUS['lg']}px;padding:18px 20px;"
+                          f"margin-bottom:12px;box-shadow:{shadow};color:{p['text']};line-height:1.35"),
+        # Loading placeholders: grey shapes that shimmer while a slow part of the page loads.
+        _rule(".wl-skel", f"border-radius:{RADIUS['md']}px;background:linear-gradient(90deg,{p['line']}66 0%,"
+                          f"{p['line']}cc 50%,{p['line']}66 100%);background-size:200% 100%;margin-bottom:10px"),
         _rule(".wl-status", f"font-size:12px;color:{p['muted']};margin-top:6px"),
         _rule(".wl-note", f"font-size:14px;color:{p['muted']}"),
         _rule(".wx-sec", "display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin:6px 0 6px"),
@@ -222,14 +257,15 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
                              "font-size:18px !important;font-weight:650 !important"),
         _rule(".wx-sec span", f"font-size:13px;color:{p['muted']}"),
         _rule("[data-testid='stDataFrame'],[data-testid='stTable']",
-              f"border:1px solid {p['line']};border-radius:12px;overflow:hidden"),
-        _rule(".wl-table-wrap", f"overflow-x:auto;border:1px solid {p['line']};border-radius:12px;margin-bottom:12px"),
+              f"border:1px solid {p['line']}99;border-radius:{RADIUS['md']}px;overflow:hidden"),
+        _rule(".wl-table-wrap", f"overflow-x:auto;border:1px solid {p['line']}99;border-radius:{RADIUS['md']}px;"
+                                f"margin-bottom:12px;box-shadow:{shadow}"),
         _rule(".wl-table", f"width:100%;border-collapse:collapse;font-size:15px;color:{p['text']}"),
         _rule(".wl-table th", f"text-align:left;font-size:13px;font-weight:600;color:{p['muted']};"
                               f"background:{p['sub']};padding:9px 12px;white-space:nowrap"),
         _rule(".wl-table td", f"padding:9px 12px;border-top:1px solid {p['line']};vertical-align:middle"),
         _rule(".wl-table .wl-num", "text-align:right;font-variant-numeric:tabular-nums"),
-        _rule("[data-testid='stImage'] img", "width:100%;height:auto;border-radius:12px"),
+        _rule("[data-testid='stImage'] img", f"width:100%;height:auto;border-radius:{RADIUS['md']}px"),
         # Small ? beside a term: its one-line meaning shows on hover, and on a phone when the ? is tapped.
         _rule(".wl-tip", f"position:relative;display:inline-flex;align-items:center;justify-content:center;width:22px;"
                          f"height:22px;box-sizing:border-box;margin-left:8px;border-radius:50%;border:2px solid {p['accent']};"
@@ -261,6 +297,11 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
               "min-width:0;margin:0;z-index:2"),
         "@keyframes wl-sweep{from{stroke-dasharray:0.001,var(--c)}to{stroke-dasharray:var(--v),var(--c)}}",
         "@media (prefers-reduced-motion:no-preference){.wl-sweep{animation:wl-sweep .9s ease-out}}",
+        # A gentle fade as a page opens: on the title, its line and the briefing, which are drawn once per page.
+        "@keyframes wl-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}",
+        "@keyframes wl-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}",
+        "@media (prefers-reduced-motion:no-preference){.wl-title,.wl-sub,.wl-card{animation:wl-fade .35s ease-out both}"
+        ".wl-skel{animation:wl-shimmer 1.4s linear infinite}}",
     ]
     if large:
         rules += ["html{font-size:118%}", ".wl-title{font-size:32px !important}", ".wl-label{font-size:15px !important}",
@@ -269,6 +310,11 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
     extra = ".wl-grid{gap:6px;margin-bottom:6px}" if compact else ""
     # One line, no indentation: Streamlit shows indented lines as code.
     return "<style>" + "".join(rules) + MOBILE_CSS + extra + "</style>"
+
+
+def skeleton_html(heights: tuple = (72, 96)) -> str:
+    """Grey shimmering shapes to stand in for a part of the page that is still loading."""
+    return "".join(f'<div class="wl-skel" style="height:{h}px" aria-hidden="true"></div>' for h in heights)
 
 
 def title_html(text: str) -> str:
