@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.37",
+        "date": "October 29, 2026",
+        "items": [
+            "The ? help marks are gone from every Weather Lab page, including the Air quality index, lightning and heat index tiles. The Android app keeps its ? marks.",
+            "Live shows the station's status once, under the title, with the time of the last reading. The line at the bottom now shows only when the reader last tried and when it started.",
+        ],
+    },
+    {
         "version": "0.37.36",
         "date": "October 29, 2026",
         "items": [

@@ -328,14 +328,9 @@ def page_head(title: str, subtitle: str = "") -> str:
 
 
 def term_tip(key: str) -> str:
-    """The small ? for a term, as HTML to put in a tile label. Empty when the term has no explanation."""
-    term = glossary.find(key)
-    if term is None:
-        return ""
-    name = _html.escape(term["name"])
-    text = _html.escape(term["short"])
-    return (f'<span class="wl-tip" tabindex="0" role="button" aria-label="What is {name}?">?'
-            f'<span class="wl-tip-text" role="tooltip"><strong>{name}</strong><br>{text}</span></span>')
+    """The small ? for a term. Turned off on Windows (0.37.37), so this is always empty.
+    The glossary stays in weatherlab/glossary.py for any page that wants it later."""
+    return ""
 
 
 def tile_html(label: str, value: str) -> str:

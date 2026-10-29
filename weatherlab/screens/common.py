@@ -91,7 +91,7 @@ def freshness_line() -> None:
     color, label = {"ok": ("#1e8a4c", "Station online"), "slow": ("#b45309", "Readings delayed"),
                     "silent": ("#b42318", "Station not reporting"),
                     "none": ("#5b6675", "Waiting for the first reading")}[state]
-    detail = f" · {html.escape(text)}" if state != "none" else ""
+    detail = f" · {html.escape(text)} · last reading {_clock(latest[0])}" if state != "none" else ""
     st.markdown(f'<div style="font-size:14px;color:#5b6675;margin:-8px 0 8px">'
                 f'<span style="color:{color}">●</span> {label}{detail}</div>', unsafe_allow_html=True)
 

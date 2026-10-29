@@ -476,10 +476,7 @@ def live_readings() -> None:
             _tile_rows([(key, card)])
             st.caption("Dew point: " + dew.text(row[1]["dewpointf"]) + ". Tap the card for its history.")
     live_history.show_pending()
-    dot = _status_dot(row[0]) if row else ""
-    pills = []
-    if status.last_ok:
-        pills.append(_pill(f"{dot}Last reading {_clock(status.last_ok)}"))
+    pills = []  # the last reading time is shown under the title, by freshness_line()
     if status.last_attempt:
         pills.append(_pill(f"Last attempt {_clock(status.last_attempt)}"))
     if status.started:
