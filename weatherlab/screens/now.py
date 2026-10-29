@@ -607,17 +607,42 @@ LIVE_ROOMY_CSS = ("<style>"
                   "</style>")
 
 
-def _customize(s: Settings) -> None:
-    """The Customize button on Home: which readings show, and whether the briefing leads."""
+def _save_cards(cards: list) -> None:
+    """Save the Home reading cards and keep the Customize picker in step with them."""
     from dataclasses import replace
+    from weatherlab.settings import save_settings
+    save_settings(replace(load_settings(), live_cards=list(cards)))
+    st.session_state["home_cards"] = list(cards)
+
+
+def _move_card(key: str, step: int) -> None:
+    """Button callback: move a card up or down."""
+    from weatherlab import card_order
+    _save_cards(card_order.move(load_settings().live_cards, key, step))
+
+
+def _customize(s: Settings) -> None:
+    """The Customize button on Home: whether the briefing leads, which readings show, and their order."""
+    from dataclasses import replace
+    from weatherlab import card_order
+    from weatherlab.settings import save_settings
     with st.popover("Customize"):
         show = st.checkbox("Show the briefing at the top", value=s.home_briefing, key="home_show_briefing")
-        cards = st.multiselect("Readings on Home", options=list(CARD_LABELS), default=s.live_cards,
-                               format_func=lambda k: CARD_LABELS[k][0], key="home_cards",
-                               help="The order you pick them in is the order they show.")
-    if show != s.home_briefing or list(cards) != list(s.live_cards):
-        from weatherlab.settings import save_settings
-        save_settings(replace(s, home_briefing=show, live_cards=list(cards)))
+        picked = st.multiselect("Readings on Home", options=list(CARD_LABELS), default=s.live_cards,
+                                format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
+        if s.live_cards:
+            st.caption("Order. Cards keep this order inside Air and inside Wind and rain.")
+            last = len(s.live_cards) - 1
+            for i, key in enumerate(s.live_cards):
+                name_col, up_col, down_col = st.columns([6, 1, 1])
+                name_col.markdown(CARD_LABELS[key][0] if key in CARD_LABELS else key)
+                up_col.button("↑", key=f"home_up_{key}", on_click=_move_card, args=(key, -1), disabled=i == 0,
+                              help=f"Move {CARD_LABELS.get(key, (key,))[0]} up")
+                down_col.button("↓", key=f"home_down_{key}", on_click=_move_card, args=(key, 1), disabled=i == last,
+                                help=f"Move {CARD_LABELS.get(key, (key,))[0]} down")
+    cards = card_order.merge(s.live_cards, picked)
+    if show != s.home_briefing or cards != list(s.live_cards):
+        save_settings(replace(s, home_briefing=show, live_cards=cards))
         st.rerun()
 
 

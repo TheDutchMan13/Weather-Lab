@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.35",
+        "date": "October 29, 2026",
+        "items": [
+            "All history is on one page. Rewind (the same date in earlier years) and Coverage (which days have a summary) join Daily, Records, Rankings, Compare, Month and Year as views at the top of History. They are no longer separate entries in the sidebar.",
+            "Customize on Home can reorder your reading cards. Under Readings on Home, each card has an up and a down arrow. The order applies inside Air and inside Wind and rain.",
+        ],
+    },
+    {
         "version": "0.37.34",
         "date": "October 29, 2026",
         "items": [

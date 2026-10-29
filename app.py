@@ -15,7 +15,7 @@ from weatherlab.screens.data import _import_page, backup_page, export_page, repo
 from weatherlab.screens.explore import ask_page, rain_calendar_page, rain_events_page, replay_page, unusual_page
 from weatherlab.screens.hazards import air_page, fire_page, lightning_page, radar_page, tropics_page
 from weatherlab.screens.compare import compare_stations_page
-from weatherlab.screens.history import coverage_page, history_page, rewind_page
+from weatherlab.screens.history import history_page
 from weatherlab.screens.now import alerts_log_page, home_page, sensors_page
 from weatherlab.screens.outlook import astronomy_page, forecast_page, heat_page, sun_page, wind_map_page, wind_page
 from weatherlab.screens.help import help_page
@@ -53,7 +53,6 @@ def access_gate() -> bool:
 
 PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
     "Home": "🏠", "Compare stations": "🆚", "History": "🗓️", "Sensors": "🌡️", "Alert history": "🚨",
-        "Coverage": "🗂️", "Rewind": "⏪",
     "Rain calendar": "📆", "Rain events": "💧", "Ask": "💬",
     "Unusual days": "🧐", "Replay": "▶️",
     "Forecast": "🔮", "Heat": "🥵", "Wind": "🌬️", "Wind map": "💨",
@@ -73,7 +72,7 @@ SIDEBAR_CSS = """<style>
 
 
 PAGE_FUNCS = {"Home": home_page, "Compare stations": compare_stations_page, "History": history_page, "Sensors": sensors_page, "Status": status_page, "Health check": health_check_page, "Help": help_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, 
-              "Coverage": coverage_page, "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page, "Rewind": rewind_page,
+              "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page,
               "Rain calendar": rain_calendar_page,
               "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,
               "Wind": wind_page, "Wind map": wind_map_page, "Sun": sun_page, "Astronomy": astronomy_page, "Air": air_page,

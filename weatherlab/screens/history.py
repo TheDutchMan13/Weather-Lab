@@ -461,7 +461,7 @@ def coverage_page() -> None:
     tz = _tz(s)
     db = storage.connect()
     yesterday = datetime.now(tz).date() - timedelta(days=1)
-    st.markdown(theme.page_head("Coverage", "How many days have an exact summary, an estimate or nothing at all."), unsafe_allow_html=True)
+    _head("Coverage", "How many days have an exact summary, an estimate or nothing at all.")
     days = dict(history.all_daily(db))
     if not days:
         empty_card("Coverage appears once Weather Lab has a finished day to record.")
@@ -753,7 +753,7 @@ def rewind_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
     today = datetime.now(_tz(s)).date()
-    st.markdown(theme.page_head("Rewind", "What the same day looked like in earlier years."), unsafe_allow_html=True)
+    _head("Rewind", "What the same day looked like in earlier years.")
     days = _all_days(stations.current())
     picked = st.date_input("Day and month to look up", value=today, max_value=today, key="rewind_day")
     rows = yearly.on_this_day(days, picked.month, picked.day)
@@ -873,7 +873,7 @@ def my_year_page() -> None:
         charts.show(fig)
 
 
-HISTORY_VIEWS = ["Daily", "Records", "Rankings", "Compare", "Month", "Year"]
+HISTORY_VIEWS = ["Daily", "Records", "Rankings", "Compare", "Month", "Year", "Rewind", "Coverage"]
 
 
 def _compare_view() -> None:
@@ -881,11 +881,11 @@ def _compare_view() -> None:
 
 
 def history_page() -> None:
-    """Daily, Records, Rankings, Compare, Month and Year in one page: pick a view, the rest is that page."""
+    """Every history view in one page: pick Daily, Records, Rankings, Compare, Month, Year, Rewind or Coverage."""
     global _EMBEDDED
     views = {"Daily": daily_page, "Records": records_page, "Rankings": rankings_page, "Compare": _compare_view,
-             "Month": climate_page, "Year": my_year_page}
-    st.markdown(theme.page_head("History", "Days, records, rankings, comparisons, months and years from your readings."),
+             "Month": climate_page, "Year": my_year_page, "Rewind": rewind_page, "Coverage": coverage_page}
+    st.markdown(theme.page_head("History", "Days, records, rankings, comparisons, months, years, past dates and data coverage."),
                 unsafe_allow_html=True)
     choice = st.radio("View", HISTORY_VIEWS, horizontal=True, key="history_view", label_visibility="collapsed")
     _EMBEDDED = True
