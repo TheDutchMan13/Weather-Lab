@@ -10,7 +10,7 @@ GROUPS = {
     "History": ["History", "Rain calendar", "Rain events", "Unusual days", "Replay", "Ask"],
     "Weather": ["Air", "Wind", "Wind map", "Sun", "Heat", "Astronomy"],
     "Storms": ["Lightning", "Fire", "Tropics", "Radar"],
-    "Station": ["Station health", "Stations", "Setup", "Settings", "Reports", "Import", "Export", "Backup",
+    "Station": ["Station health", "Stations", "Setup", "Settings", "Home layout", "Reports", "Import", "Export", "Backup",
                 "Help", "What's New"],
 }
 

@@ -15,7 +15,7 @@ from weatherlab.screens.explore import ask_page, rain_calendar_page, rain_events
 from weatherlab.screens.hazards import air_page, fire_page, lightning_page, radar_page, tropics_page
 from weatherlab.screens.compare import compare_stations_page
 from weatherlab.screens.history import history_page
-from weatherlab.screens.now import alerts_log_page, home_page, sensors_page
+from weatherlab.screens.now import alerts_log_page, home_layout_page, home_page, sensors_page
 from weatherlab.screens.outlook import astronomy_page, forecast_page, heat_page, sun_page, wind_map_page, wind_page
 from weatherlab.screens.help import help_page
 from weatherlab.screens.system import health_check_page, settings_page, setup_page, stations_page, status_page, whats_new_page
@@ -58,7 +58,7 @@ PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
     "Sun": "☀️", "Astronomy": "🔭",
     "Air": "😷", "Fire": "🚒", "Lightning": "⚡", "Tropics": "🌀", "Radar": "📡",
     "Import": "📥", "Export": "📤", "Backup": "💾", "Reports": "📄",
-    "Station health": "🩺",
+    "Station health": "🩺", "Home layout": "🧩",
     "What's New": "🆕", "Help": "❔", "Setup": "🧰", "Settings": "⚙️", "Stations": "📍",
 }
 
@@ -80,7 +80,7 @@ def station_health_page() -> None:
     STATION_VIEWS[view]()
 
 
-PAGE_FUNCS = {"Home": home_page, "Compare stations": compare_stations_page, "History": history_page, "Station health": station_health_page, "Help": help_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, 
+PAGE_FUNCS = {"Home": home_page, "Compare stations": compare_stations_page, "History": history_page, "Station health": station_health_page, "Home layout": home_layout_page, "Help": help_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, 
               "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page,
               "Rain calendar": rain_calendar_page,
               "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,
@@ -184,7 +184,9 @@ def main() -> None:
     sections = _sections()
     _station_picker()
     nav = st.navigation(sections, position="sidebar", expanded=True)  # five areas, all pages in view
-    _jump_box({page.title: page for group in sections.values() for page in group})
+    pages = {page.title: page for group in sections.values() for page in group}
+    st.session_state["wl_pages"] = pages  # lets a page link to another, such as Customize on Home
+    _jump_box(pages)
     _sidebar_status()
     nav.run()
     st.caption(f"{APP_NAME} version {APP_VERSION}")

@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import time
 from datetime import datetime
-from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons, timefmt
+from weatherlab import alert_map, card_order, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons, timefmt
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
@@ -385,10 +385,12 @@ def _trend_card(s: Settings, key: str, label: str, unit: str, data: dict, day: l
                  f'<div class="wl-label" style="margin-top:4px">{html.escape(sub)}</div></div>')
 
 
-def _tile_rows(items: list) -> None:
-    """Readings in rows of up to three. A reading with a history opens it when clicked; others stay still."""
-    for start in range(0, len(items), 3):
-        row = items[start:start + 3]
+def _tile_rows(items: list, wide=()) -> None:
+    """Readings in rows of up to three; a wide card (Home layout, 0.37.42) has a row to itself. A reading with a
+    history opens it when clicked; others stay still."""
+    by_pos = list(enumerate(items))
+    for row_keys in card_order.rows([i for i, _ in by_pos], {i for i, (k, _) in by_pos if k in wide}):
+        row = [items[i] for i in row_keys]
         for col, (key, html_out) in zip(st.columns(len(row)), row):
             with col:
                 if key in live_history.MEASURES:
@@ -457,7 +459,7 @@ def live_readings() -> None:
                 decimals = 2 if key == "dailyrainin" else 0
                 card = _trend_card(s, key, label, unit, data, day, TREND_COLOURS.get(key, "#7c86c9"), decimals)
                 html_out = card[1] if card else _tile(label, text)
-                (wind if any(w in label.lower() for w in ("wind", "gust", "rain")) else air).append((key, html_out))
+                (wind if card_order.group_of(label) == "Wind and rain" else air).append((key, html_out))
         for comfort_tile in _comfort_tiles(data):
             (wind if "Wind" in comfort_tile or "Rain" in comfort_tile else air).append((None, comfort_tile))
         compact = st.toggle("Compact sections", key="live_compact", value=False)
@@ -474,10 +476,10 @@ def live_readings() -> None:
                         _clickable_dial(key, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "gauge-")
             if air:
                 st.markdown(theme.section_html("Air"), unsafe_allow_html=True)
-                _tile_rows(air)
+                _tile_rows(air, s.wide_cards)
             if wind:
                 st.markdown(theme.section_html("Wind and rain"), unsafe_allow_html=True)
-                _tile_rows(wind)
+                _tile_rows(wind, s.wide_cards)
 
     if row is not None and row[1].get("dewpointf") is not None:
         end = time.time()
@@ -596,29 +598,75 @@ def _move_card(key: str, step: int) -> None:
     _save_cards(card_order.move(load_settings().live_cards, key, step))
 
 
-def _customize(s: Settings) -> None:
-    """The Customize button on Home: whether the briefing leads, which readings show, and their order."""
+def _set_wide(key: str) -> None:
+    """Size switch callback: save whether this card is wide."""
     from dataclasses import replace
-    from weatherlab import card_order
     from weatherlab.settings import save_settings
-    with st.popover("Customize"):
-        show = st.checkbox("Show the briefing at the top", value=s.home_briefing, key="home_show_briefing")
-        picked = st.multiselect("Readings on Home", options=list(CARD_LABELS), default=s.live_cards,
-                                format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
-        if s.live_cards:
-            st.caption("Order. Cards keep this order inside Air and inside Wind and rain.")
-            last = len(s.live_cards) - 1
-            for i, key in enumerate(s.live_cards):
-                name_col, up_col, down_col = st.columns([6, 1, 1])
-                name_col.markdown(CARD_LABELS[key][0] if key in CARD_LABELS else key)
-                up_col.button("↑", key=f"home_up_{key}", on_click=_move_card, args=(key, -1), disabled=i == 0,
-                              help=f"Move {CARD_LABELS.get(key, (key,))[0]} up")
-                down_col.button("↓", key=f"home_down_{key}", on_click=_move_card, args=(key, 1), disabled=i == last,
-                                help=f"Move {CARD_LABELS.get(key, (key,))[0]} down")
+    s = load_settings()
+    wide = st.session_state.get(f"layout_size_{key}") == "Wide"
+    cards = [k for k in s.wide_cards if k != key] + ([key] if wide else [])
+    save_settings(replace(s, wide_cards=cards))
+
+
+def _preview(s: Settings) -> None:
+    """A sketch of Home's card sections with the chosen order and sizes."""
+    groups = {"Air": [], "Wind and rain": []}
+    for key in s.live_cards:
+        if key in CARD_LABELS:
+            groups[card_order.group_of(CARD_LABELS[key][0])].append(key)
+    for title, keys in groups.items():
+        if not keys:
+            continue
+        st.markdown(theme.section_html(title), unsafe_allow_html=True)
+        for row in card_order.rows(keys, set(s.wide_cards)):
+            boxes = "".join(f'<div class="wl-tile" style="flex:1;min-width:0;padding:10px 12px">'
+                            f'<div class="wl-label" style="word-break:normal;overflow-wrap:normal">'
+                            f'{html.escape(CARD_LABELS[k][0])}</div></div>' for k in row)
+            st.markdown(f'<div style="display:flex;gap:10px;margin-bottom:10px">{boxes}</div>', unsafe_allow_html=True)
+
+
+def home_layout_page() -> None:
+    """Home layout (0.37.42): whether the briefing shows, which readings show, their order and their size."""
+    from dataclasses import replace
+    from weatherlab.settings import save_settings
+    s = load_settings()
+    st.markdown(theme.page_head("Home layout", "Choose the cards on Home, their order and their size."),
+                unsafe_allow_html=True)
+    show = st.checkbox("Show today's briefing under the reading right now", value=s.home_briefing,
+                       key="home_show_briefing")
+    picked = st.multiselect("Readings on Home", options=list(CARD_LABELS), default=s.live_cards,
+                            format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
     cards = card_order.merge(s.live_cards, picked)
     if show != s.home_briefing or cards != list(s.live_cards):
         save_settings(replace(s, home_briefing=show, live_cards=cards))
         st.rerun()
+    left, right = st.columns([3, 2], gap="large")
+    with left:
+        st.markdown(theme.section_html("Order and size"), unsafe_allow_html=True)
+        st.caption("Cards keep this order inside Air and inside Wind and rain. A wide card has a row to itself.")
+        last = len(s.live_cards) - 1
+        for i, key in enumerate(s.live_cards):
+            name = CARD_LABELS[key][0] if key in CARD_LABELS else key
+            name_col, up_col, down_col, size_col = st.columns([4, 1, 1, 3], vertical_alignment="center")
+            name_col.markdown(name)
+            up_col.button("↑", key=f"home_up_{key}", on_click=_move_card, args=(key, -1), disabled=i == 0,
+                          help=f"Move {name} up")
+            down_col.button("↓", key=f"home_down_{key}", on_click=_move_card, args=(key, 1), disabled=i == last,
+                            help=f"Move {name} down")
+            size_col.segmented_control(f"Size of {name}", ["Small", "Wide"],
+                                       default="Wide" if key in s.wide_cards else "Small",
+                                       key=f"layout_size_{key}", on_change=_set_wide, args=(key,),
+                                       label_visibility="collapsed")
+    with right:
+        st.markdown(theme.section_html("Preview"), unsafe_allow_html=True)
+        _preview(load_settings())
+
+
+def _customize_link() -> None:
+    """The Customize button on Home opens the Home layout page."""
+    page = st.session_state.get("wl_pages", {}).get("Home layout")
+    if page is not None:
+        st.page_link(page, label="Customize", icon=":material/tune:")
 
 
 def _briefing_card(s: Settings) -> None:
@@ -657,7 +705,7 @@ def home_page() -> None:
         _welcome(s)
         return
     with right:
-        _customize(s)
+        _customize_link()
     live_now()
     if s.home_briefing:
         _briefing_card(s)
