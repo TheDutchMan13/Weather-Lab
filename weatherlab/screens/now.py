@@ -446,40 +446,35 @@ def live_readings() -> None:
         p = theme.DARK if dark else theme.LIGHT
         now = time.time()
         day = [(ts, r) for ts, r in _recent_thinned(int(now // 600), stations.current()) if ts >= now - 86400]
-        trends = [_trend_card(s, key, label, unit, data, day, color) for key, label, unit, color in [
-            ("humidity", "Humidity", "%", charts.MEASURE["humidity"]),
-            ("windspeedmph", f"Wind {units.speed_unit(metric)}", "", charts.MEASURE["wind"]),
-            ("uv", "UV index", "", p["accent"])]]
-        trends = [c for c in trends if c]  # (key, html) pairs for the readings that exist
+        uv_card = _trend_card(s, "uv", "UV index", "", data, day, p["accent"])  # (key, html), or None without a UV reading
         air, wind = [], []
         for key in s.live_cards:
-            if key in data and key != "humidity":  # humidity has its own card in the Last 24 hours row (0.37.43)
+            if key in data and key not in card_order.IN_24H_ROW:  # these have their own card in the Last 24 hours row
                 label, unit = CARD_LABELS[key]
                 text = units.format_value(key, data[key], metric) if units.converts(key) else f"{data[key]:g} {unit}".strip()
                 decimals = 2 if key == "dailyrainin" else 0
                 card = _trend_card(s, key, label, unit, data, day, TREND_COLOURS.get(key, "#7c86c9"), decimals)
                 html_out = card[1] if card else _tile(label, text)
                 (wind if card_order.group_of(label) == "Wind and rain" else air).append((key, html_out))
+        if uv_card:
+            air.append(uv_card)
         for comfort_tile in _comfort_tiles(data):
             (wind if "Wind" in comfort_tile or "Rain" in comfort_tile else air).append((None, comfort_tile))
-        compact = st.toggle("Compact sections", key="live_compact", value=False)
-        with st.expander("Details", expanded=not compact):
+        # The cards come first; the big gauges are a group of their own that a phone keeps closed (Home layout).
+        if air:
+            st.markdown(theme.section_html("Air"), unsafe_allow_html=True)
+            _tile_rows(air, s.wide_cards)
+        if wind:
+            st.markdown(theme.section_html("Wind and rain"), unsafe_allow_html=True)
+            _tile_rows(wind, s.wide_cards)
+        agent = st.context.headers.get("User-Agent", "")
+        with st.expander("Gauges", expanded=card_order.gauges_open(s.gauges, agent)):
             _clickable_dial("tempf", lambda: _temp_ring(s, data))
             left, right = st.columns(2)
             with left:
                 _clickable_dial("feelslikef", lambda: _feels_dial(s, data))
             with right:
                 _clickable_dial("baromrelin", lambda: _pressure_dial(s, data))
-            if trends:
-                for col, (key, html_out) in zip(st.columns(len(trends)), trends):
-                    with col:
-                        _clickable_dial(key, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "gauge-")
-            if air:
-                st.markdown(theme.section_html("Air"), unsafe_allow_html=True)
-                _tile_rows(air, s.wide_cards)
-            if wind:
-                st.markdown(theme.section_html("Wind and rain"), unsafe_allow_html=True)
-                _tile_rows(wind, s.wide_cards)
 
     if row is not None and row[1].get("dewpointf") is not None:
         end = time.time()
@@ -612,7 +607,7 @@ def _preview(s: Settings) -> None:
     """A sketch of Home's card sections with the chosen order and sizes."""
     groups = {"Air": [], "Wind and rain": []}
     for key in s.live_cards:
-        if key in CARD_LABELS:
+        if key in CARD_LABELS and key not in card_order.IN_24H_ROW:
             groups[card_order.group_of(CARD_LABELS[key][0])].append(key)
     for title, keys in groups.items():
         if not keys:
@@ -634,13 +629,19 @@ def home_layout_page() -> None:
                 unsafe_allow_html=True)
     show = st.checkbox("Show today's briefing under the reading right now", value=s.home_briefing,
                        key="home_show_briefing")
-    # Humidity is in the Last 24 hours row, so it isn't offered here (0.37.43); a saved choice is dropped on save.
-    choices = [k for k in CARD_LABELS if k != "humidity"]
+    # Temperature, humidity and wind are in the Last 24 hours row, so they aren't offered here (0.37.44); a saved
+    # choice is dropped on save.
+    choices = [k for k in CARD_LABELS if k not in card_order.IN_24H_ROW]
     picked = st.multiselect("Readings on Home", options=choices, default=[k for k in s.live_cards if k in choices],
                             format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
+    gauge_choices = {"auto": "Automatic: open on a computer, closed on a phone", "open": "Always open",
+                     "closed": "Always closed"}
+    gauges = st.selectbox("Gauges on Home (the temperature ring, Feels like and Pressure)", list(gauge_choices),
+                          index=list(gauge_choices).index(s.gauges) if s.gauges in gauge_choices else 0,
+                          format_func=gauge_choices.get, key="home_gauges")
     cards = card_order.merge(s.live_cards, picked)
-    if show != s.home_briefing or cards != list(s.live_cards):
-        save_settings(replace(s, home_briefing=show, live_cards=cards))
+    if show != s.home_briefing or cards != list(s.live_cards) or gauges != s.gauges:
+        save_settings(replace(s, home_briefing=show, live_cards=cards, gauges=gauges))
         st.rerun()
     left, right = st.columns([3, 2], gap="large")
     with left:
@@ -711,8 +712,8 @@ def home_page() -> None:
     live_now()
     if s.home_briefing:
         _briefing_card(s)
-    airport_card(s)
     live_readings()
+    airport_card(s)
 
 
 def alerts_log_page() -> None:

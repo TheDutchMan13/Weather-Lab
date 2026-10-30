@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.44",
+        "date": "October 30, 2026",
+        "items": [
+            "Each reading shows once on Home. Temperature, humidity and wind have their card in the Last 24 hours row, so they are no longer repeated below it or offered again in the Home layout. UV index is now a card under Air.",
+            "The temperature ring, Feels like and Pressure are a group called Gauges, below the cards. On a phone it starts closed, so the readings come first. On the Home layout page you can set it to always open or always closed.",
+            "The Compact sections switch is gone, replaced by the Gauges setting. The airport card moved to the bottom of Home.",
+        ],
+    },
+    {
         "version": "0.37.43",
         "date": "October 30, 2026",
         "items": [

@@ -47,3 +47,18 @@ def rows(keys: list, wide, per_row: int = 3) -> list[list]:
     if row:
         out.append(row)
     return out
+
+
+# These three readings have their own card in the Last 24 hours row (0.37.44), so they are not offered again as cards.
+IN_24H_ROW = ("tempf", "humidity", "windspeedmph")
+
+
+def gauges_open(setting: str, user_agent: str = "") -> bool:
+    """Whether the Gauges group on Home starts open: "open" or "closed" as chosen, or "auto", which opens it on a
+    computer and keeps it closed on a phone so the readings come first."""
+    if setting == "open":
+        return True
+    if setting == "closed":
+        return False
+    ua = (user_agent or "").lower()
+    return not any(word in ua for word in ("mobile", "iphone", "android"))
