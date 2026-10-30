@@ -5,12 +5,12 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 import time
-from datetime import datetime, timedelta
-from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, history_compare, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons, timefmt
+from datetime import datetime
+from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons, timefmt
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
-from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, freshness_line, start_poller
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller
 
 
 REFRESH_SECONDS = 30
@@ -185,7 +185,7 @@ def _hero(s: Settings, row: tuple, short: str, night: bool, alerts: list[dict]) 
         parts.append(f"peak gust {units.format_value('windgustmph', max(gusts), metric, 0)}")
 
     feels = data.get("feelslikef")
-    html_out, height = hero.hero_html({
+    html_out, _ = hero.hero_html({
         "temp_text": f"{units.convert('tempf', temp, metric):.0f}°",
         "kind": kind, "icon": wx_icons.now_icon(kind, 84),
         "feels": units.format_value("feelslikef", feels, metric, 0) if feels is not None else "",
@@ -200,7 +200,9 @@ def _hero(s: Settings, row: tuple, short: str, night: bool, alerts: list[dict]) 
         "tiles": tiles, "trend": trend, "trend_col": trend_col, "sun_note": sun,
         "today_line": " · ".join(parts),
     })
-    components.html(motion.add(html_out, s.animate), height=height)
+    # Drawn into the page (not a fixed-height frame), so it sizes to its content and leaves no gap on a wide
+    # screen. st.markdown keeps the inline sky icon, which st.html strips.
+    st.markdown(html_out, unsafe_allow_html=True)
 
 
 def _temp_ring(s: Settings, data: dict) -> None:
@@ -402,8 +404,9 @@ def _pill(text: str) -> str:
 
 
 @st.fragment(run_every=REFRESH_SECONDS)
-def live_readings() -> None:
-    """Cards and status line. Streamlit re-runs just this part every REFRESH_SECONDS."""
+def live_now() -> None:
+    """The top of Home (0.37.39): reader problems, active warnings and the right-now panel, which also says how
+    fresh the reading is and gives today's high, low, rain and gust. Re-runs every REFRESH_SECONDS."""
     s = load_settings()
     poller = start_poller()
     status = poller.status
@@ -417,15 +420,26 @@ def live_readings() -> None:
     row = storage.latest(storage.connect())
     if row is None:
         empty_card("Waiting for the first reading from the station.", "If this doesn't change within a minute, check the station IP on Setup and that the station is on the same network.")
-    else:
+        return
+    _, data = row
+    short, night = _now_sky(s, data)
+    alerts = _live_alerts(s.latitude, s.longitude, s.nws_contact) if s.latitude is not None and s.longitude is not None else []
+    _hero(s, row, short, night, alerts)
+    if alerts and s.latitude is not None and s.longitude is not None:
+        with st.expander("Alert map", expanded=True):
+            _alert_map(s, alerts)
+
+
+@st.fragment(run_every=REFRESH_SECONDS)
+def live_readings() -> None:
+    """Below the briefing: the last 24 hours, the dials and your cards. Re-runs every REFRESH_SECONDS."""
+    s = load_settings()
+    status = start_poller().status
+
+    row = storage.latest(storage.connect())
+    if row is not None:
         _, data = row
         dark = theme.is_dark()
-        short, night = _now_sky(s, data)
-        alerts = _live_alerts(s.latitude, s.longitude, s.nws_contact) if s.latitude is not None and s.longitude is not None else []
-        _hero(s, row, short, night, alerts)
-        if alerts and s.latitude is not None and s.longitude is not None:
-            with st.expander("Alert map", expanded=True):
-                _alert_map(s, alerts)
         _glance(s, data, row[0])
         metric = units.is_metric(s.units)
         p = theme.DARK if dark else theme.LIGHT
@@ -474,41 +488,13 @@ def live_readings() -> None:
             _tile_rows([(key, card)])
             st.caption("Dew point: " + dew.text(row[1]["dewpointf"]) + ". Tap the card for its history.")
     live_history.show_pending()
-    pills = []  # the last reading time is shown under the title, by freshness_line()
+    pills = []  # how fresh the reading is shows in the right-now panel at the top
     if status.last_attempt:
         pills.append(_pill(f"Last attempt {_clock(status.last_attempt)}"))
     if status.started:
         pills.append(_pill(f"Reader started {_clock(status.started)}"))
     if pills:
         st.markdown(f'<div class="wl-status">{"".join(pills)}</div>', unsafe_allow_html=True)
-
-
-def _today_vs_yesterday(s: Settings) -> None:
-    """Today so far against yesterday over the same hours."""
-    tz, metric = _tz(s), units.is_metric(s.units)
-    db = storage.connect()
-    now = datetime.now(tz)
-    start = datetime.combine(now.date(), datetime.min.time(), tzinfo=tz)
-    today = storage.readings_between(db, start.timestamp(), now.timestamp() + 1)
-    earlier = storage.readings_between(db, (start - timedelta(days=1)).timestamp(),
-                                       (now - timedelta(days=1)).timestamp() + 1)
-    if not today or not earlier:
-        return
-    compared = history_compare.by_this_time([r for _, r in today], [r for _, r in earlier])
-
-    def pair(key: str, label: str, decimals: int):
-        t, y = compared[key]
-        if t is None:
-            return None
-        text = f"{label} {units.format_value(key, t, metric, decimals)}"
-        if y is not None:
-            text += f" (yesterday by this time: {units.format_value(key, y, metric, decimals)})"
-        return text
-
-    parts = [p for p in (pair("tempf", "High so far", 0), pair("dailyrainin", "Rain today", 2),
-                         pair("windgustmph", "Gust so far", 0)) if p]
-    if parts:
-        st.caption(" · ".join(parts))
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -643,17 +629,18 @@ def _briefing_card(s: Settings) -> None:
     waiting.markdown(theme.skeleton_html((64, 90)), unsafe_allow_html=True)  # the forecast can take a moment
     data = api_pages.briefing_page(storage.connect(), s, time.time())
     waiting.empty()
-    tiles = []
+    facts = []
     for t in data["tiles"]:
         if t["value"] is None:
             continue
         value = f'{t["value"]}{t["unit"]}' if t["unit"] in ("%", "°F", "°C") else (f'{t["value"]} {t["unit"]}'.strip())
-        tiles.append(_tile(t["label"], value, t.get("note") or ""))
+        note = t.get("note") or ""
+        facts.append(f'{t["label"]} {value}' + (f", {note[:1].lower()}{note[1:]}" if note else ""))
+    line = (f'<div class="wl-label" style="margin-top:8px;line-height:1.6">{html.escape(" · ".join(facts))}</div>'
+            if facts else "")
     st.markdown('<div class="wl-card"><div class="wl-label" style="text-transform:uppercase;letter-spacing:.08em">'
                 f"Today's briefing</div><div style=\"font-size:1.4rem;font-weight:700;margin-top:6px\">"
-                f'{html.escape(data["headline"])}</div></div>', unsafe_allow_html=True)
-    if tiles:
-        st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+                f'{html.escape(data["headline"])}</div>{line}</div>', unsafe_allow_html=True)
     if data["notes"]:
         with st.expander("Worth knowing"):
             for line in data["notes"]:
@@ -661,21 +648,20 @@ def _briefing_card(s: Settings) -> None:
 
 
 def home_page() -> None:
-    """Home: the briefing first, then right now, the last 24 hours and the cards you chose."""
+    """Home (0.37.39): right now first, then today's briefing, the last 24 hours and the cards you chose."""
     s = load_settings()
     st.markdown(LIVE_ROOMY_CSS, unsafe_allow_html=True)
     left, right = st.columns([5, 1])
     with left:
-        st.markdown(theme.page_head("Home", "Today's briefing, right now at your station, and the last 24 hours."), unsafe_allow_html=True)
+        st.markdown(theme.page_head("Home", "Right now at your station, today's briefing, and the last 24 hours."), unsafe_allow_html=True)
     if not s.station_ip:
         _welcome(s)
         return
     with right:
         _customize(s)
+    live_now()
     if s.home_briefing:
         _briefing_card(s)
-    freshness_line()
-    _today_vs_yesterday(s)
     airport_card(s)
     live_readings()
 

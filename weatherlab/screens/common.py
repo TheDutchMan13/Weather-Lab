@@ -2,9 +2,8 @@
 
 import html
 import streamlit as st
-import time
 from datetime import datetime
-from weatherlab import health, history, nws, stations, storage, theme, wx_icons
+from weatherlab import history, nws, stations, storage, theme, wx_icons
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings
 from zoneinfo import ZoneInfo
@@ -79,21 +78,6 @@ def clear_key_button(name: str, label: str, saved: bool) -> bool:
         st.session_state[flag] = True
         st.rerun()
     return False
-
-
-def freshness_line() -> None:
-    """One line under the Live title: whether the station is reporting, and how long ago its last reading came in."""
-    try:
-        latest = storage.latest(storage.connect())
-        state, text = health.age_status(latest[0] if latest else None, time.time())
-    except Exception:
-        return
-    color, label = {"ok": ("#1e8a4c", "Station online"), "slow": ("#b45309", "Readings delayed"),
-                    "silent": ("#b42318", "Station not reporting"),
-                    "none": ("#5b6675", "Waiting for the first reading")}[state]
-    detail = f" · {html.escape(text)} · last reading {_clock(latest[0])}" if state != "none" else ""
-    st.markdown(f'<div style="font-size:14px;color:#5b6675;margin:-8px 0 8px">'
-                f'<span style="color:{color}">●</span> {label}{detail}</div>', unsafe_allow_html=True)
 
 
 def _tile(label: str, value: str, note: str = "") -> str:
