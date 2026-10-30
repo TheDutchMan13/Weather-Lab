@@ -61,7 +61,7 @@ def daily_page() -> None:
     _head("Daily", "One day from your readings, or several days together. Today shows what has been recorded so far.")
     period = st.radio("Range", list(daily_ranges.DAILY_RANGES), index=0, horizontal=True, key="daily_range")
     if not daily_ranges.is_day_view(period):
-        _period_view(s, db, tz, today, daily_ranges.DAILY_RANGES[period])
+        _period_view(s, db, tz, today, _period_days())
         return
     day = st.date_input("Day", value=today - timedelta(days=1), max_value=today)
 
@@ -466,9 +466,7 @@ def coverage_page() -> None:
     if not days:
         empty_card("Coverage appears once Weather Lab has a finished day to record.")
         return
-    options = {"30 days": 30, "90 days": 90, "1 year": 365, "All": None}
-    choice = st.radio("Show", list(options), index=2, horizontal=True, key="coverage_span")
-    span = options[choice]
+    span = _period_days()
     first = min(days)
     start = first if span is None else max(first, yesterday - timedelta(days=span - 1))
     rows = coverage.coverage(days, start, yesterday)
@@ -676,12 +674,16 @@ def records_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
     db = storage.connect()
-    _head("Records and analysis", "All-time records for your station, with the day each one happened.")
+    _head("Records and analysis", f"Records for your station over {_period_words()}, with the day each one happened.")
     days = history.all_daily(db)
     if not days:
         empty_card("Records aren't ready yet", "Records appear once there are a few days of summaries to compare. They fill in as Weather Lab keeps collecting.")
         return
     today = datetime.now(_tz(s)).date()
+    days = daily_ranges.in_period(days, _period_days(), today)
+    if not days:
+        empty_card("No days in this period", "Pick a longer Period at the top of History.")
+        return
     sm = records_events.summary(days)
     gust = sm["gust"]
     hottest = sm["hottest"]
@@ -732,10 +734,14 @@ RANKINGS = {  # label: (summary key, "max" or "min", units key or None, unit tex
 def rankings_page() -> None:
     s = load_settings()
     metric = units.is_metric(s.units)
-    _head("Rankings", "The top 10 days for the measure you choose.")
+    _head("Rankings", f"The top 10 days over {_period_words()} for the measure you choose.")
     days = _all_days(stations.current())
     if not days:
         empty_card("Rankings appear once there are daily summaries.", "Each day's summary is written once that day's readings are in.")
+        return
+    days = daily_ranges.in_period(days, _period_days(), datetime.now(_tz(s)).date())
+    if not days:
+        empty_card("No days in this period", "Pick a longer Period at the top of History.")
         return
     choice = st.selectbox("Rank the days by", list(RANKINGS), key="rank_choice")
     key, kind, unit_key, unit_text, decimals = RANKINGS[choice]
@@ -881,6 +887,17 @@ def _compare_view() -> None:
     _compare_periods(storage.connect(), datetime.now(_tz(load_settings())).date())
 
 
+def _period_days() -> int | None:
+    """The days chosen in the Period control at the top of History; None is all time."""
+    return daily_ranges.period_days(st.session_state.get("history_period"))
+
+
+def _period_words() -> str:
+    """The Period choice in words for a page subtitle: "the last 30 days", or "all time"."""
+    choice = st.session_state.get("history_period") or daily_ranges.DEFAULT_PERIOD
+    return "all time" if daily_ranges.period_days(choice) is None else f"the last {choice}"
+
+
 def history_page() -> None:
     """Every history view in one page: pick Daily, Records, Rankings, Compare, Month, Year, Rewind or Coverage."""
     global _EMBEDDED
@@ -889,6 +906,10 @@ def history_page() -> None:
     st.markdown(theme.page_head("History", "Days, records, rankings, comparisons, months, years, past dates and data coverage."),
                 unsafe_allow_html=True)
     choice = st.radio("View", HISTORY_VIEWS, horizontal=True, key="history_view", label_visibility="collapsed")
+    # One Period for the views that look back over days (0.37.50). Compare, Month, Year and Rewind pick their own dates.
+    if daily_ranges.shows_period(choice, st.session_state.get("daily_range")):
+        st.segmented_control("Period", list(daily_ranges.HISTORY_PERIODS), default=daily_ranges.DEFAULT_PERIOD,
+                             key="history_period")
     _EMBEDDED = True
     try:
         views[choice]()

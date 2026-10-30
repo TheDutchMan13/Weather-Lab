@@ -4,7 +4,7 @@ The colors were copied from the dashboard's config.py (see SOURCES.md).
 """
 
 APP_NAME = "Weather Lab"
-APP_VERSION = "0.37.49"
+APP_VERSION = "0.37.50"
 
 # Live card choices: key -> (label, unit suffix). Keys match weatherlab/parse.py.
 CARD_LABELS = {
