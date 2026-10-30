@@ -59,6 +59,7 @@ class Settings:
     home_briefing: bool = True  # show the briefing at the top of Home
     wide_cards: list[str] = field(default_factory=list)  # Home cards drawn across the whole row (0.37.42)
     gauges: str = "auto"  # the Gauges group on Home: "auto" (open on a computer, closed on a phone), "open" or "closed"
+    checklist_hidden: bool = False  # hide the Getting started list on Home (0.37.49)
     briefing_notice: bool = False  # send today's briefing as a notification each morning
     briefing_hour: int = 7  # local hour the briefing is sent
     weekly_digest: bool = False  # a short summary of the last 7 days, sent on Mondays with the morning summary

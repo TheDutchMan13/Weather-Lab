@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.49",
+        "date": "October 30, 2026",
+        "items": [
+            "A Getting started list on Home shows what is still worth setting up once your station is reporting: your location, phone alerts, a first backup and update checks. Each has a link to the right page, and Turn on starts update checks with the official releases. Items disappear as they are done; Hide this list removes it, and Home layout can show it again.",
+        ],
+    },
+    {
         "version": "0.37.48",
         "date": "October 30, 2026",
         "items": [
