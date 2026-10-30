@@ -4,7 +4,7 @@ import html
 import streamlit as st
 import time
 from datetime import datetime
-from weatherlab import glossary, health, history, nws, stations, storage, theme, wx_icons
+from weatherlab import health, history, nws, stations, storage, theme, wx_icons
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings
 from zoneinfo import ZoneInfo
@@ -96,8 +96,8 @@ def freshness_line() -> None:
                 f'<span style="color:{color}">●</span> {label}{detail}</div>', unsafe_allow_html=True)
 
 
-def _tile(label: str, value: str, note: str = "", help_key: str = "") -> str:
-    body = theme.tile_html(html.escape(label) + (theme.term_tip(help_key) if help_key else ""), html.escape(value))
+def _tile(label: str, value: str, note: str = "") -> str:
+    body = theme.tile_html(html.escape(label), html.escape(value))
     if note:
         body = body.replace("</div></div>", f'</div><div class="wl-label">{html.escape(note)}</div></div>')
     return body
@@ -153,7 +153,3 @@ def _degrees(x, unit: str = "°F", fmt: str = ".0f") -> str:
     return "--" if x is None else f"{format(x, fmt)}{unit}"
 
 
-def term_help(key: str) -> None:
-    """Question-mark help beside a term. Turned off (0.37.17): the ? icons were removed from every page.
-    The glossary stays in weatherlab/glossary.py for any page that wants it later."""
-    return None

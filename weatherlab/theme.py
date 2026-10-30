@@ -266,23 +266,6 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
         _rule(".wl-table td", f"padding:9px 12px;border-top:1px solid {p['line']};vertical-align:middle"),
         _rule(".wl-table .wl-num", "text-align:right;font-variant-numeric:tabular-nums"),
         _rule("[data-testid='stImage'] img", f"width:100%;height:auto;border-radius:{RADIUS['md']}px"),
-        # Small ? beside a term: its one-line meaning shows on hover, and on a phone when the ? is tapped.
-        _rule(".wl-tip", f"position:relative;display:inline-flex;align-items:center;justify-content:center;width:22px;"
-                         f"height:22px;box-sizing:border-box;margin-left:8px;border-radius:50%;border:2px solid {p['accent']};"
-                         f"color:{p['accent']};font-size:13px;font-weight:700;line-height:1;vertical-align:middle;"
-                         "cursor:help;outline:none;transition:background .15s,color .15s"),
-        _rule(".wl-tip:hover,.wl-tip:focus-visible", f"background:{p['accent']};color:{p['page']}"),
-        # The ? that opens a full explanation (a popover) wears the same blue ring.
-        _rule("[data-testid='stPopover'] button", f"width:28px;height:28px;min-height:0;padding:0;border-radius:50%;"
-                                                   f"border:2px solid {p['accent']};background:transparent;"
-                                                   f"color:{p['accent']};font-size:14px;font-weight:700"),
-        _rule("[data-testid='stPopover'] button:hover", f"background:{p['accent']};color:{p['page']}"),
-        _rule("[data-testid='stPopover'] button svg", "display:none"),
-        _rule(".wl-tip-text", f"display:none;position:absolute;left:-6px;top:28px;z-index:5;width:240px;max-width:70vw;"
-                              f"padding:8px 10px;border-radius:8px;background:{pg['surface']};border:1px solid {p['line']};"
-                              f"color:{p['text']};font-size:12.5px;font-weight:400;line-height:1.45;text-align:left;"
-                              "white-space:normal;box-shadow:0 6px 18px rgba(0,0,0,.25)"),
-        _rule(".wl-tip:hover .wl-tip-text,.wl-tip:focus .wl-tip-text", "display:block"),
         # A dial that opens its history when clicked: the real button is drawn invisibly over the whole dial.
         _rule("[class*='st-key-wcard-']", "position:relative;border-radius:14px;transition:background .15s"),
         _rule("[class*='st-key-wcard-']:hover", f"background:{p['line']}33"),
@@ -292,9 +275,6 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
               "[class*='st-key-wcard-'] [data-testid='stButton']", "display:contents !important"),
         _rule("[class*='st-key-wcard-'] [data-testid='stButton'] button",
               "position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;min-height:0;z-index:1"),
-        _rule("[class*='st-key-wcard-'] .stElementContainer:has([data-testid='stPopover'])",
-              "position:absolute !important;inset:2px 2px auto auto;width:auto !important;height:auto !important;"
-              "min-width:0;margin:0;z-index:2"),
         "@keyframes wl-sweep{from{stroke-dasharray:0.001,var(--c)}to{stroke-dasharray:var(--v),var(--c)}}",
         "@media (prefers-reduced-motion:no-preference){.wl-sweep{animation:wl-sweep .9s ease-out}}",
         # A gentle fade as a page opens: on the title, its line and the briefing, which are drawn once per page.
@@ -327,12 +307,6 @@ def page_head(title: str, subtitle: str = "") -> str:
     return f'<div class="wl-title">{title}</div>{sub}'
 
 
-def term_tip(key: str) -> str:
-    """The small ? for a term. Turned off on Windows (0.37.37), so this is always empty.
-    The glossary stays in weatherlab/glossary.py for any page that wants it later."""
-    return ""
-
-
 def tile_html(label: str, value: str) -> str:
     return (f'<div class="wl-tile"><div class="wl-label">{label}</div>'
             f'<div class="wl-value">{value}</div></div>')
@@ -345,8 +319,7 @@ STRIP_NEUTRAL = "#9aa3b0"
 TONE_WORD = {"ok": "Good", "warn": "Watch", "bad": "Alert", "info": "Info"}
 
 
-def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = None, word: str | None = None,
-                    help_key: str = "") -> str:
+def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = None, word: str | None = None) -> str:
     """A summary tile with a coloured left edge: ok, warn, bad (red), info, or grey with no tone. The tone's word
     (Good, Watch, Alert, Info) follows the note; pass word="" when the value or note already names the level."""
     key = "fail" if tone == "bad" else tone
@@ -354,7 +327,7 @@ def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = N
     if word is None:
         word = TONE_WORD.get(tone, "") if tone else ""
     text = " · ".join(part for part in (note, word) if part)
-    label_html = _html.escape(label) + (term_tip(help_key) if help_key else "")
+    label_html = _html.escape(label)
     body = tile_html(label_html, _html.escape(value)).replace(
         'class="wl-tile"', f'class="wl-tile" style="border-left:4px solid {colour}"', 1)
     if text:

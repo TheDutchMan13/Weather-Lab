@@ -34,7 +34,7 @@ def air_page() -> None:
     risk = data.get("risk", "")
     color = RISK_COLORS.get(risk, "#6b7280")
     aqi_tile = (f'<div class="wl-tile" style="border-left:4px solid {color};border-radius:8px">'
-                f'<div class="wl-label">Air quality index{theme.term_tip("aqi")}</div>'
+                f'<div class="wl-label">Air quality index</div>'
                 f'<div class="wl-value">{html.escape(str(data.get("aqi", "--")))}</div>'
                 f'<div class="wl-label" style="color:{color}">{html.escape(str(data.get("category", "")))}</div>'
                 f'<div class="wl-label">{html.escape(str(data.get("station", "")))} · updated {_clock(ts)}</div></div>')
@@ -66,9 +66,9 @@ def lightning_page() -> None:
         when = timefmt.stamp(datetime.fromtimestamp(last_ts, tz))
         closest = min((d for _, d in today), default=None)
         st.markdown(theme.grid_html([
-            _tile("Last strike", units.format_value("miles", last_mi, metric, 1), when, help_key="lightning"),
+            _tile("Last strike", units.format_value("miles", last_mi, metric, 1), when),
             _tile("Strikes today", str(len(today)), "seen while the app runs"),
-            _tile("Closest today", units.format_value("miles", closest, metric, 1), help_key="lightning"),
+            _tile("Closest today", units.format_value("miles", closest, metric, 1)),
         ]), unsafe_allow_html=True)
 
     if today:

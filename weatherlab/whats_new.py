@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.38",
+        "date": "October 29, 2026",
+        "items": [
+            "The Customize button on Home looks like a normal button again. It had shrunk to a small round ring.",
+        ],
+    },
+    {
         "version": "0.37.37",
         "date": "October 29, 2026",
         "items": [
