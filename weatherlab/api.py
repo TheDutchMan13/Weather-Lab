@@ -61,6 +61,7 @@ from weatherlab import secrets as keystore
 from weatherlab import api_pages
 from weatherlab import history as history_db
 from weatherlab import dew, history_series, nws, record_board, records_events, stations, storage, sun_uv, units
+from weatherlab.card_order import IN_24H_ROW
 from weatherlab.config import APP_VERSION
 
 VERSION = 1
@@ -251,6 +252,16 @@ HISTORY_KEYS = ("tempf", "feelslikef", "dewpointf", "humidity", "windspeedmph", 
                 "solarradiation", "dailyrainin", "rainratein", "tempinf", "humidityin")
 _HISTORY_BUCKET = {1: 600, 7: 1800, 30: 7200}  # seconds per point, to keep the answer small for a phone
 _HISTORY_UNIT = {"humidity": "%", "humidityin": "%", "solarradiation": "W/m\u00b2", "uv": ""}
+
+
+def home_layout(s) -> dict:
+    """How Home is laid out on the PC (0.37.46), so the Android Live tab can follow it: whether the briefing shows,
+    the reading cards in their order, which of them are wide, and the Gauges setting. Keys are reading keys such as
+    windgustmph. Readings with their own card in the Last 24 hours row (temperature, humidity, wind) are not in
+    cards; the phone keeps its other tiles after the listed ones, in its own order."""
+    cards = [k for k in s.live_cards if k not in IN_24H_ROW]
+    return {"briefing": bool(s.home_briefing), "cards": cards, "wide": [k for k in s.wide_cards if k in cards],
+            "gauges": s.gauges}
 
 
 def measure_history(db, s, now: float, key: str, days: int) -> dict:
@@ -558,7 +569,8 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
                      "/api/v1/station": lambda: api_pages.station(db, s, now),
                      "/api/v1/whatsnew": lambda: api_pages.whats_new_list(db, s, now),
                      "/api/v1/forecast": lambda: api_pages.forecast(db, s, now),
-                     "/api/v1/briefing": lambda: api_pages.briefing_page(db, s, now)})
+                     "/api/v1/briefing": lambda: api_pages.briefing_page(db, s, now),
+                     "/api/v1/home": lambda: home_layout(s)})
     if clean in ("/api/v1/wind/1", "/api/v1/wind/7", "/api/v1/wind/30", "/api/v1/wind/all"):
         tail = clean.rsplit("/", 1)[1]
         builders[clean] = lambda: api_pages.wind_rose_data(db, s, now, None if tail == "all" else int(tail))
