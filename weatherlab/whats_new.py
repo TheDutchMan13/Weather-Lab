@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.50",
+        "date": "October 30, 2026",
+        "items": [
+            "History has one Period control at the top: 7 days, 30 days, 90 days, 1 year or All. It sets how far back Records, Rankings, Coverage and Daily's several-days view look, so they always agree. Daily still has its one-day view with a date box. Compare, Month, Year and Rewind keep their own date and year pickers.",
+        ],
+    },
+    {
         "version": "0.37.49",
         "date": "October 30, 2026",
         "items": [
