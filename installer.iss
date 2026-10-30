@@ -3,7 +3,9 @@
 ; and are not removed by the uninstaller.
 
 #define AppName "Weather Lab"
-#define AppVersion "0.37.36"
+#ifndef AppVersion
+#define AppVersion "0.37.38"
+#endif
 
 [Setup]
 AppId={{6F2D8A1E-4B7C-4E0A-9C3D-2A7B5E1F8D42}}
