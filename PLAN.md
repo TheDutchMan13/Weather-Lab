@@ -20,15 +20,15 @@ A public, generic weather dashboard for the Ecowitt GW2000, built on Streamlit, 
 
 ## Phases
 
-### Phase 1: Foundation (in progress)
+### Phase 1: Foundation (done, one check open)
 - [x] Parser, unit conversion, and plausibility checks copied from the collector, with tests
 - [x] Local SQLite storage in %APPDATA%
 - [x] Background poller every 30 seconds
 - [x] Setup page: station IP, timezone, and choice of Live readings
 - [x] Live page with metric cards
-- [ ] Check the Live page against a running station (needs the user)
-- [ ] Start-on-login option
-- [ ] Exe window with pywebview
+- [x] Check the Live page against a running station (checked by the user)
+- [ ] Start-on-login option (built; still needs a sign-in test)
+- [x] Exe window with pywebview
 
 ### Phase 2: History (done)
 - Daily and history charts
@@ -39,14 +39,14 @@ A public, generic weather dashboard for the Ecowitt GW2000, built on Streamlit, 
 - Sensor health and gap detection
 - NWS alerts and forecast (latitude and longitude only, no key)
 
-### Phase 4: Extras (written; needs a run on the PC)
+### Phase 4: Extras (done)
 - [x] AirNow air quality (user's own key, stored in Credential Manager)
 - [x] Fire weather index with NWS forecast (US only)
 - [x] Lightning page with km switch
 - [x] Comfort index tiles on Live
 - [x] PDF reports: daily on the Daily page, and monthly and yearly on the Reports page
 
-### Phase 5: Sharing (in progress)
+### Phase 5: Sharing (done)
 - [x] Optional CWOP upload (off by default, user's callsign, APRS-IS position weather report)
 - [x] Optional Weather Underground upload (off by default, station ID and key; key in Credential Manager)
 - [x] Optional PWSweather and Weathercloud uploads (off by default; keys in Credential Manager)
@@ -61,3 +61,4 @@ A public, generic weather dashboard for the Ecowitt GW2000, built on Streamlit, 
 - Phase 2 and 3: checked by the user.
 - Phase 4: done and checked on the PC (exe opens).
 - Phase 5: CWOP, installer (built and tested), and README are done. Code signing skipped for now.
+- Since Phase 5 the app has grown past this plan: one History page, compare stations, a backup page, a morning briefing and a read-only API for the Android app. What's New in the app lists every change.

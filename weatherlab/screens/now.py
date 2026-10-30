@@ -10,7 +10,7 @@ from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, ga
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
-from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, freshness_line, start_poller, term_help
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, freshness_line, start_poller
 
 
 REFRESH_SECONDS = 30
@@ -273,14 +273,12 @@ def _pressure_change(now_inhg: float) -> float | None:
     return now_inhg - sum(old) / len(old) if old else None
 
 
-def _clickable_dial(key: str, help_key: str | None, draw, where: str = "") -> None:
-    """A dial or tile that opens that reading's history when clicked. The ? help, when there is one, stays in the corner."""
+def _clickable_dial(key: str, draw, where: str = "") -> None:
+    """A dial or tile that opens that reading's history when clicked."""
     with st.container(key=f"wcard-{where}{key}"):
         draw()
         if st.button("History", key=f"hist-{where}{key}"):
             live_history.request(key)
-        if help_key:
-            term_help(help_key)
 
 
 def _feels_dial(s: Settings, data: dict) -> None:
@@ -360,7 +358,7 @@ def _glance(s: Settings, data: dict, updated: float) -> None:
         st.markdown(theme.section_html("Last 24 hours", updated=updated), unsafe_allow_html=True)
         for col, key, html_out in zip(st.columns(len(keys)), keys, tile_html):
             with col:
-                _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "tile-")
+                _clickable_dial(key, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "tile-")
 
 
 # Colour of each card's trend line on the Home page (0.37.18): temperature orange, humidity and wind blue-violet and blue.
@@ -393,7 +391,7 @@ def _tile_rows(items: list) -> None:
         for col, (key, html_out) in zip(st.columns(len(row)), row):
             with col:
                 if key in live_history.MEASURES:
-                    _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "card-")
+                    _clickable_dial(key, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "card-")
                 else:
                     st.markdown(html_out, unsafe_allow_html=True)
 
@@ -451,16 +449,16 @@ def live_readings() -> None:
             (wind if "Wind" in comfort_tile or "Rain" in comfort_tile else air).append((None, comfort_tile))
         compact = st.toggle("Compact sections", key="live_compact", value=False)
         with st.expander("Details", expanded=not compact):
-            _clickable_dial("tempf", None, lambda: _temp_ring(s, data))
+            _clickable_dial("tempf", lambda: _temp_ring(s, data))
             left, right = st.columns(2)
             with left:
-                _clickable_dial("feelslikef", "feels_like", lambda: _feels_dial(s, data))
+                _clickable_dial("feelslikef", lambda: _feels_dial(s, data))
             with right:
-                _clickable_dial("baromrelin", "pressure", lambda: _pressure_dial(s, data))
+                _clickable_dial("baromrelin", lambda: _pressure_dial(s, data))
             if trends:
                 for col, (key, html_out) in zip(st.columns(len(trends)), trends):
                     with col:
-                        _clickable_dial(key, None, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "gauge-")
+                        _clickable_dial(key, lambda h=html_out: st.markdown(h, unsafe_allow_html=True), "gauge-")
             if air:
                 st.markdown(theme.section_html("Air"), unsafe_allow_html=True)
                 _tile_rows(air)
@@ -483,11 +481,6 @@ def live_readings() -> None:
         pills.append(_pill(f"Reader started {_clock(status.started)}"))
     if pills:
         st.markdown(f'<div class="wl-status">{"".join(pills)}</div>', unsafe_allow_html=True)
-
-
-def _status_dot(ts: float) -> str:
-    state, _ = health.age_status(ts, time.time())
-    return theme.status_dot(state)
 
 
 def _today_vs_yesterday(s: Settings) -> None:

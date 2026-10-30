@@ -13,7 +13,7 @@ class LiveDewCard(unittest.TestCase):
 
     def test_dew_card_is_in_live_readings_with_trend(self):
         start = SRC.index("def live_readings() -> None:")
-        end = SRC.index("def _status_dot", start)
+        end = SRC.index("def _today_vs_yesterday", start)
         body = SRC[start:end]
         self.assertIn('_trend_card(s, "dewpointf"', body)
         self.assertLess(body.index('_trend_card(s, "dewpointf"'), body.index("live_history.show_pending()"))
