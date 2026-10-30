@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.48",
+        "date": "October 30, 2026",
+        "items": [
+            "When a newer Weather Lab is out, Home says so in a thin line at the top, with an Update link to Settings. It needs update checks on (Settings, Updates).",
+        ],
+    },
+    {
         "version": "0.37.47",
         "date": "October 30, 2026",
         "items": [

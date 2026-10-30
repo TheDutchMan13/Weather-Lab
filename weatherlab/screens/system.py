@@ -220,8 +220,11 @@ def _updates_section(s: Settings) -> None:
 def settings_page() -> None:
     s = load_settings()
     st.markdown(theme.page_head("Settings", "Appearance, alerts, phone alerts, updates and startup."), unsafe_allow_html=True)
+    names = ["Appearance", "Alerts", "Phone alerts", "Updates", "Startup"]
+    # A link can open a tab, such as Update on Home (?tab=updates, 0.37.48).
+    wanted = str(st.query_params.get("tab", "")).lower()
     look_tab, alerts_tab, phone_tab, updates_tab, start_tab = st.tabs(
-        ["Appearance", "Alerts", "Phone alerts", "Updates", "Startup"])
+        names, default=next((n for n in names if n.lower() == wanted), None))
     with look_tab:
         _appearance_section(s)
     with alerts_tab:
