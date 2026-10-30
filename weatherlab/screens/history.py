@@ -403,7 +403,7 @@ def _period_view(s, db, tz, today: date, n) -> None:
             # The CSV below still has them all.
             table_rows = [{k: v for k, v in r.items() if k not in ("Average", "Gust max", "Sun hours", "Humidity")}
                           for r in table_rows]
-        theme.table(table_rows)
+        theme.table(table_rows, sort_key="daily_rows")
         st.download_button("Download CSV", history.daily_csv(rows).encode(), "weather_daily.csv", "text/csv")
 
     _compare_periods(db, today)
@@ -600,7 +600,8 @@ def _event_list(title: str, found: list, key: str, metric: bool, decimals: int) 
     if not found:
         st.caption("None recorded in this period.")
         return
-    theme.table([{"Day": f"{d:%Y-%m-%d}", "Value": units.format_value(key, v, metric, decimals)} for d, v in found[:15]])
+    theme.table([{"Day": f"{d:%Y-%m-%d}", "Value": units.format_value(key, v, metric, decimals)} for d, v in found[:15]],
+                sort_key=f"events_{title}")
     if len(found) > 15:
         st.caption(f"Showing the top 15 of {len(found)}.")
 
@@ -746,7 +747,7 @@ def rankings_page() -> None:
     for i, (day, value) in enumerate(top, 1):
         text = _fmt(unit_key, value, metric, decimals) if unit_key else f"{value:.{decimals}f} {unit_text}".strip()
         rows.append({"#": str(i), "Day": day.strftime("%a %b %d, %Y"), choice: text})
-    theme.table(rows)
+    theme.table(rows, sort_key="ranking")
 
 
 def rewind_page() -> None:

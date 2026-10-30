@@ -14,7 +14,6 @@ import time
 
 import streamlit as st
 
-from weatherlab import glossary
 
 FONT = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"  # tiles and headings (utils/live_cards.py)
 
@@ -379,11 +378,24 @@ def state_html(state: str, label: str) -> str:
             f'{_html.escape(label)}</span>')
 
 
-def table(rows: list[dict], html_cols: tuple[str, ...] = ()) -> None:
+SORT_MIN_ROWS = 6  # a table shorter than this isn't worth a sort control
+
+
+def table(rows: list[dict], html_cols: tuple[str, ...] = (), sort_key: str | None = None) -> None:
     """The one table style every page uses. Text is escaped; a column in html_cols already holds markup, such as
-    state_html. A column whose cells are all numbers or times is right-aligned."""
+    state_html. A column whose cells are all numbers or times is right-aligned. With a sort_key (unique on the
+    page) and enough rows, a Sort by control orders the rows by the value in each readable column (0.37.45)."""
     if not rows:
         return
+    if sort_key and len(rows) >= SORT_MIN_ROWS:
+        from weatherlab import table_sort
+        choices = [c for c in table_sort.sortable_columns(rows) if c not in html_cols]
+        if choices:
+            left, right = st.columns([3, 2], vertical_alignment="bottom")
+            by = left.selectbox("Sort by", ["Original order", *choices], key=f"sort_by_{sort_key}")
+            high = right.toggle("Highest first", value=True, key=f"sort_high_{sort_key}")
+            if by != "Original order":
+                rows = table_sort.sort_rows(rows, by, high)
     cols = list(rows[0].keys())
     numeric = {c for c in cols if c not in html_cols and all(_NUMERIC.fullmatch(str(r[c])) for r in rows)}
     head = "".join(f'<th class="{"wl-num" if c in numeric else ""}">{_html.escape(str(c))}</th>' for c in cols)
