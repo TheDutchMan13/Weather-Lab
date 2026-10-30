@@ -60,7 +60,8 @@ def main() -> int:
         return 1
     version = app_version()
     (ROOT / "installer").mkdir(exist_ok=True)
-    subprocess.run([str(iscc), str(ROOT / "installer.iss")], check=True, cwd=ROOT)
+    # The version comes from config.py, so the installer name always matches the app version.
+    subprocess.run([str(iscc), f"/DAppVersion={version}", str(ROOT / "installer.iss")], check=True, cwd=ROOT)
     installer = ROOT / "installer" / f"WeatherLabSetup-{version}.exe"
     manifest = write_manifest(installer, version)
     print(f"Built installer\\{installer.name}")
