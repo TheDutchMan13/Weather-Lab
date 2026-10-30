@@ -4,15 +4,14 @@ Kept apart from app.py so the layout can be tested without the page's dependenci
 
 DEFAULT_PAGE = "Home"
 
+# Five areas (0.37.40). Sensors, Status and Health check are views of one Station health page.
 GROUPS = {
-    "Now": ["Home", "Compare stations", "Alert history"],
-    "History": ["History"],
-    "Air, sun and heat": ["Air", "Wind", "Wind map", "Sun", "Heat", "Astronomy"],
-    "Forecast and storms": ["Forecast", "Lightning", "Fire", "Tropics", "Radar"],
-    "Season": ["Rain calendar", "Rain events"],
-    "Tools": ["Ask", "Unusual days", "Replay", "Reports", "Import", "Export", "Backup"],
-    "Health": ["Sensors", "Status", "Health check"],
-    "Settings": ["Settings", "Setup", "Stations", "Help", "What's New"],
+    "Now": ["Home", "Forecast", "Alert history", "Compare stations"],
+    "History": ["History", "Rain calendar", "Rain events", "Unusual days", "Replay", "Ask"],
+    "Weather": ["Air", "Wind", "Wind map", "Sun", "Heat", "Astronomy"],
+    "Storms": ["Lightning", "Fire", "Tropics", "Radar"],
+    "Station": ["Station health", "Stations", "Setup", "Settings", "Reports", "Import", "Export", "Backup",
+                "Help", "What's New"],
 }
 
 
