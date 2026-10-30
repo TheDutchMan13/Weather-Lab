@@ -453,7 +453,7 @@ def live_readings() -> None:
         trends = [c for c in trends if c]  # (key, html) pairs for the readings that exist
         air, wind = [], []
         for key in s.live_cards:
-            if key in data:
+            if key in data and key != "humidity":  # humidity has its own card in the Last 24 hours row (0.37.43)
                 label, unit = CARD_LABELS[key]
                 text = units.format_value(key, data[key], metric) if units.converts(key) else f"{data[key]:g} {unit}".strip()
                 decimals = 2 if key == "dailyrainin" else 0
@@ -634,7 +634,9 @@ def home_layout_page() -> None:
                 unsafe_allow_html=True)
     show = st.checkbox("Show today's briefing under the reading right now", value=s.home_briefing,
                        key="home_show_briefing")
-    picked = st.multiselect("Readings on Home", options=list(CARD_LABELS), default=s.live_cards,
+    # Humidity is in the Last 24 hours row, so it isn't offered here (0.37.43); a saved choice is dropped on save.
+    choices = [k for k in CARD_LABELS if k != "humidity"]
+    picked = st.multiselect("Readings on Home", options=choices, default=[k for k in s.live_cards if k in choices],
                             format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
     cards = card_order.merge(s.live_cards, picked)
     if show != s.home_briefing or cards != list(s.live_cards):
