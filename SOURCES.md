@@ -93,7 +93,7 @@ None.
 - Streamlit's top-right menu is shown, as on the dashboard.
 
 ## Matched in the latest pass
-- weatherlab/autofit.py: wxdash/live_glue.py `_FIT_JS` and `install_autofit`, copied exactly. Embedded panels fit their content.
+- weatherlab/autofit.py: removed in 0.37.41. Panels use st.iframe, which sizes to its content.
 - weatherlab/theme.py `section_html`, `freshness_html` and the `.wx-sec` rules: wxdash/live_glue.py `section`, `freshness_chip` and `inject_style`. Used for the 24-hour cards and the climate chart headings.
 - weatherlab/theme.py `is_phone`: wxdash/common.py `is_phone` (User-Agent check).
 - weatherlab/charts.py `show` and phone sizes: wxdash/common.py `get_chart_layout` (phone margins, legend and height) and utils/chart_cfg.py `style_fig` (260 px cap, time hover labels).

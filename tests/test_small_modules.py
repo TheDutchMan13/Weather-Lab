@@ -1,6 +1,5 @@
-"""autostart, autofit and wx_icons: small modules that had no tests."""
+"""autostart and wx_icons: small modules that had no tests."""
 import sys
-import types
 import unittest
 from unittest import mock
 
@@ -34,34 +33,6 @@ class AutostartTests(unittest.TestCase):
         with mock.patch.object(autostart, "supported", return_value=True), \
                 mock.patch.dict(sys.modules, {"winreg": reg}):
             autostart.set_enabled(False)
-
-
-class AutofitTests(unittest.TestCase):
-    def setUp(self):
-        self.calls = []
-        self.fake = types.SimpleNamespace(html=lambda body, *a, **k: self.calls.append(body))
-        st = types.ModuleType("streamlit")
-        comps = types.ModuleType("streamlit.components")
-        v1 = types.ModuleType("streamlit.components.v1")
-        v1.html = self.fake.html
-        st.components = comps
-        comps.v1 = v1
-        patcher = mock.patch.dict(sys.modules, {"streamlit": st, "streamlit.components": comps,
-                                                "streamlit.components.v1": v1})
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        sys.modules.pop("weatherlab.autofit", None)
-        self.addCleanup(sys.modules.pop, "weatherlab.autofit", None)
-        from weatherlab import autofit
-        self.autofit, self.v1 = autofit, v1
-
-    def test_adds_script_once_even_when_installed_twice(self):
-        self.autofit.install()
-        self.autofit.install()
-        self.v1.html("<p>hi</p>")
-        self.assertEqual(len(self.calls), 1)
-        self.assertEqual(self.calls[0].count("<script>"), 1)
-        self.assertTrue(self.calls[0].startswith("<p>hi</p>"))
 
 
 class IconTests(unittest.TestCase):

@@ -3,7 +3,6 @@
 import html
 import plotly.graph_objects as go
 import streamlit as st
-import streamlit.components.v1 as components
 import time
 from datetime import datetime
 from weatherlab import alert_map, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons, timefmt
@@ -216,7 +215,7 @@ def _temp_ring(s: Settings, data: dict) -> None:
         temp, high=max(temps) if temps else None, low=min(temps) if temps else None,
         feels=data.get("feelslikef"), dew=data.get("dewpointf"), hum=data.get("humidity"),
         dark=theme.is_dark(), metric=units.is_metric(s.units))
-    components.html(motion.add(html_out, s.animate), height=height)
+    st.iframe(motion.add(html_out, s.animate), height="content")
 
 
 SPARK_KEYS = ("tempf", "humidity", "windspeedmph", "baromrelin")
@@ -289,7 +288,7 @@ def _feels_dial(s: Settings, data: dict) -> None:
         return
     html_out, height = dials.feels_dial_html(feels, actual_f=data.get("tempf"), humidity=data.get("humidity"),
                                              dark=theme.is_dark(), metric=units.is_metric(s.units))
-    components.html(motion.add(html_out, s.animate), height=height)
+    st.iframe(motion.add(html_out, s.animate), height="content")
 
 
 def _pressure_dial(s: Settings, data: dict) -> None:
@@ -302,7 +301,7 @@ def _pressure_dial(s: Settings, data: dict) -> None:
         return
     html_out, height = dials.pressure_dial_html(now_inhg, change, dark=theme.is_dark(),
                                                 metric=units.is_metric(s.units))
-    components.html(motion.add(html_out, s.animate), height=height)
+    st.iframe(motion.add(html_out, s.animate), height="content")
 
 
 @st.cache_data(ttl=600, show_spinner=False)

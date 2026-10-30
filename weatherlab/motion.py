@@ -1,7 +1,7 @@
 """Gauge animation: the sweep and fill that plays when a gauge appears. GAUGE_ANIM is copied exactly from the
 dashboard's wxdash/live.py, and add() mirrors its animated() wrapper. The script animates any needle (a polygon with a
 rotate transform), ring (a circle with a stroke-dasharray) and temperature segment (a path with stroke-width 22) it
-finds, so it only runs inside components.html panels, where scripts execute. See SOURCES.md."""
+finds, so it only runs inside st.iframe panels (0.37.41), where scripts execute. See SOURCES.md."""
 
 GAUGE_ANIM = r"""
 <script>
