@@ -62,6 +62,18 @@ def latest(url: str, current: str, timeout: float = 8.0) -> dict | None:
     return info_from_text(text, url, current)
 
 
+# The official releases on GitHub. GitHub sends /releases/latest/download/<file> to that file in the newest release,
+# so latest.json and the installer it names are always the newest ones (0.37.48).
+OFFICIAL_URL = "https://github.com/TheDutchMan13/Weather-Lab/releases/latest/download/latest.json"
+
+
+def banner_text(available: str, current: str) -> str | None:
+    """The line for Home when the daily check found a newer version, or None when there is nothing newer."""
+    if not available or not newer(available, current):
+        return None
+    return f"Weather Lab {available} is available. You have {current}."
+
+
 def check(url: str, current: str, timeout: float = 8.0) -> str | None:
     """The newer version number when one is published, otherwise None. Raises OSError when the address can't be read."""
     info = latest(url, current, timeout)

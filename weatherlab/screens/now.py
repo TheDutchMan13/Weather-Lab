@@ -423,6 +423,7 @@ def live_now() -> None:
     s = load_settings()
     poller = start_poller()
     status = poller.status
+    _update_banner()  # inside the refreshing part, so it appears soon after the daily check finds a version
 
     row = storage.latest(storage.connect())
     if row is None:
@@ -671,6 +672,22 @@ def home_layout_page() -> None:
     with right:
         st.markdown(theme.section_html("Preview"), unsafe_allow_html=True)
         _preview(load_settings())
+
+
+def _update_banner() -> None:
+    """A thin line at the top of Home when the daily update check found a newer version (0.37.48), with a link to
+    Settings, where the update downloads and installs. Nothing shows when update checks are off or up to date."""
+    from weatherlab import updates
+    from weatherlab.config import APP_VERSION
+    text = updates.banner_text(start_poller().status.update_available, APP_VERSION)
+    if text is None:
+        return
+    page = st.session_state.get("wl_pages", {}).get("Settings")
+    with st.container(border=True):
+        left, right = st.columns([3, 1], vertical_alignment="center")
+        left.markdown(f":material/system_update: {text}")
+        if page is not None:
+            right.page_link(page, label="Update", icon=":material/arrow_forward:", query_params={"tab": "updates"})
 
 
 def _customize_link() -> None:
