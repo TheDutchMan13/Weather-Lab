@@ -15,8 +15,15 @@ def _dict_keys(source: str, name: str) -> set:
 
 class NavGroupTests(unittest.TestCase):
     def test_section_order(self):
-        self.assertEqual(list(nav_groups.GROUPS), ["Now", "History", "Air, sun and heat", "Forecast and storms",
-                                                   "Season", "Tools", "Health", "Settings"])
+        self.assertEqual(list(nav_groups.GROUPS), ["Now", "History", "Weather", "Storms", "Station"])
+
+    def test_station_health_replaces_the_three_station_pages(self):
+        pages = nav_groups.all_pages()
+        self.assertIn("Station health", pages)
+        for old in ("Sensors", "Status", "Health check"):
+            self.assertNotIn(old, pages)
+        source = (Path(__file__).resolve().parent.parent / "app.py").read_text(encoding="utf-8")
+        self.assertEqual(_dict_keys(source, "STATION_VIEWS"), {"Status", "Sensors", "Health check"})
 
     def test_no_page_twice_and_default_is_first(self):
         pages = nav_groups.all_pages()

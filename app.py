@@ -52,14 +52,14 @@ def access_gate() -> bool:
 
 
 PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
-    "Home": "🏠", "Compare stations": "🆚", "History": "🗓️", "Sensors": "🌡️", "Alert history": "🚨",
+    "Home": "🏠", "Compare stations": "🆚", "History": "🗓️", "Alert history": "🚨",
     "Rain calendar": "📆", "Rain events": "💧", "Ask": "💬",
     "Unusual days": "🧐", "Replay": "▶️",
     "Forecast": "🔮", "Heat": "🥵", "Wind": "🌬️", "Wind map": "💨",
     "Sun": "☀️", "Astronomy": "🔭",
     "Air": "😷", "Fire": "🚒", "Lightning": "⚡", "Tropics": "🌀", "Radar": "📡",
     "Import": "📥", "Export": "📤", "Backup": "💾", "Reports": "📄",
-    "Status": "✅", "Health check": "🩺",
+    "Station health": "🩺",
     "What's New": "🆕", "Help": "❔", "Setup": "🧰", "Settings": "⚙️", "Stations": "📍",
 }
 
@@ -71,7 +71,17 @@ SIDEBAR_CSS = """<style>
 </style>"""
 
 
-PAGE_FUNCS = {"Home": home_page, "Compare stations": compare_stations_page, "History": history_page, "Sensors": sensors_page, "Status": status_page, "Health check": health_check_page, "Help": help_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, 
+# Station health (0.37.40): the three station pages as views of one page. Only the view you pick runs, so the
+# health check's network tests don't run every time the page opens.
+STATION_VIEWS = {"Status": status_page, "Sensors": sensors_page, "Health check": health_check_page}
+
+
+def station_health_page() -> None:
+    view = st.segmented_control("Station health", list(STATION_VIEWS), default="Status", key="station_view") or "Status"
+    STATION_VIEWS[view]()
+
+
+PAGE_FUNCS = {"Home": home_page, "Compare stations": compare_stations_page, "History": history_page, "Station health": station_health_page, "Help": help_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, 
               "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page,
               "Rain calendar": rain_calendar_page,
               "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,
@@ -175,7 +185,7 @@ def main() -> None:
         return
     sections = _sections()
     _station_picker()
-    nav = st.navigation(sections, position="sidebar")
+    nav = st.navigation(sections, position="sidebar", expanded=True)  # five areas, all pages in view
     _jump_box({page.title: page for group in sections.values() for page in group})
     _sidebar_status()
     nav.run()

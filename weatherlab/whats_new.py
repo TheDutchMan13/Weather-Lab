@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.40",
+        "date": "October 30, 2026",
+        "items": [
+            "The sidebar has five areas instead of eight: Now, History, Weather, Storms and Station. Every page is still there, and all of them show without a View more link. Forecast moved to Now, and Rain calendar, Rain events, Unusual days, Replay and Ask moved to History.",
+            "Sensors, Status and Health check are now one Station health page. Pick Status, Sensors or Health check at the top; only the one you pick runs.",
+        ],
+    },
+    {
         "version": "0.37.39",
         "date": "October 30, 2026",
         "items": [

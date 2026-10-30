@@ -17,7 +17,7 @@ class HomeHistoryTests(unittest.TestCase):
         pages = [p for names in nav_groups.GROUPS.values() for p in names]
         for old in ("Live", "Briefing", "Daily", "Records", "Rankings", "My year", "Climate charts"):
             self.assertNotIn(old, pages)
-        self.assertEqual(nav_groups.GROUPS["History"], ["History"])
+        self.assertEqual(nav_groups.GROUPS["History"][0], "History")  # first in its area (0.37.40)
         for old in ("Coverage", "Rewind"):
             self.assertNotIn(old, pages)
 
