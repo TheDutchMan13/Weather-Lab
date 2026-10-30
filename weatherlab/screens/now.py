@@ -643,14 +643,17 @@ def home_layout_page() -> None:
     choices = [k for k in CARD_LABELS if k not in card_order.IN_24H_ROW]
     picked = st.multiselect("Readings on Home", options=choices, default=[k for k in s.live_cards if k in choices],
                             format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
+    show_list = st.checkbox("Show the Getting started list on Home", value=not s.checklist_hidden,
+                            key="home_show_checklist")
     gauge_choices = {"auto": "Automatic: open on a computer, closed on a phone", "open": "Always open",
                      "closed": "Always closed"}
     gauges = st.selectbox("Gauges on Home (the temperature ring, Feels like and Pressure)", list(gauge_choices),
                           index=list(gauge_choices).index(s.gauges) if s.gauges in gauge_choices else 0,
                           format_func=gauge_choices.get, key="home_gauges")
     cards = card_order.merge(s.live_cards, picked)
-    if show != s.home_briefing or cards != list(s.live_cards) or gauges != s.gauges:
-        save_settings(replace(s, home_briefing=show, live_cards=cards, gauges=gauges))
+    if (show != s.home_briefing or cards != list(s.live_cards) or gauges != s.gauges
+            or show_list == s.checklist_hidden):
+        save_settings(replace(s, home_briefing=show, live_cards=cards, gauges=gauges, checklist_hidden=not show_list))
         st.rerun()
     left, right = st.columns([3, 2], gap="large")
     with left:
@@ -672,6 +675,41 @@ def home_layout_page() -> None:
     with right:
         st.markdown(theme.section_html("Preview"), unsafe_allow_html=True)
         _preview(load_settings())
+
+
+def _checklist(s: Settings) -> None:
+    """Getting started on Home (0.37.49): what is still worth setting up, each with a link, until it is all done or
+    the list is hidden (it can be shown again from Home layout)."""
+    from dataclasses import replace
+    from weatherlab import backup, checklist, push, secrets, updates
+    from weatherlab.settings import save_settings
+    if s.checklist_hidden or not s.station_ip:
+        return
+    try:
+        has_topic = bool(secrets.get_key(push.topic_key()))
+    except Exception:
+        has_topic = False
+    has_backup = bool(backup.backups(backup.folder_for(storage.db_path())))
+    todo = checklist.pending(checklist.items(s, has_topic, has_backup))
+    if not todo:
+        return
+    pages = st.session_state.get("wl_pages", {})
+    with st.container(border=True):
+        st.markdown(f"**Getting started** · {len(todo)} left")
+        for item in todo:
+            left, right = st.columns([3, 1], vertical_alignment="center")
+            left.markdown(f"**{html.escape(item.title)}**  \n<span style='opacity:.7'>{html.escape(item.detail)}</span>",
+                          unsafe_allow_html=True)
+            if item.key == "updates":
+                if right.button("Turn on", key="checklist_updates_on"):
+                    save_settings(replace(load_settings(), update_url=updates.OFFICIAL_URL))
+                    st.rerun()
+            elif item.page in pages:
+                right.page_link(pages[item.page], label="Open", icon=":material/arrow_forward:",
+                                query_params={"tab": item.tab} if item.tab else None)
+        if st.button("Hide this list", key="checklist_hide", type="tertiary"):
+            save_settings(replace(load_settings(), checklist_hidden=True))
+            st.rerun()
 
 
 def _update_banner() -> None:
@@ -735,6 +773,7 @@ def home_page() -> None:
     with right:
         _customize_link()
     live_now()
+    _checklist(s)
     if s.home_briefing:
         _briefing_card(s)
     live_readings()
