@@ -53,7 +53,8 @@ def unusual_page() -> None:
     if not found:
         empty_card("Nothing stands out in the last year.")
         return
-    theme.table([{"Day": day.strftime("%a %b %d, %Y"), "Why it stands out": "; ".join(reasons)} for day, reasons in found])
+    theme.table([{"Day": day.strftime("%a %b %d, %Y"), "Why it stands out": "; ".join(reasons)} for day, reasons in found],
+                sort_key="unusual_days")
 
 
 def rain_events_page() -> None:
@@ -88,7 +89,7 @@ def rain_events_page() -> None:
         body.append({"Started": timefmt.stamp(datetime.fromtimestamp(e["start"], tz), "%a %b %d"),
                      "Length": length, "Rain": units.format_value("dailyrainin", e["inches"], metric, 2),
                      "Peak rate": peak_text})
-    theme.table(body)
+    theme.table(body, sort_key="rain_events")
 
 
 # ---------------------------------------------------------------- Rain calendar

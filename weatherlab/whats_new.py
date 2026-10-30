@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.45",
+        "date": "October 30, 2026",
+        "items": [
+            "The longer tables can be sorted. A Sort by box above Rankings, the daily table on History, Rain events, Unusual days and the records lists orders the rows by any column of numbers, times, lengths or dates, highest or lowest first. Rows with no value (--) always stay at the bottom.",
+        ],
+    },
+    {
         "version": "0.37.44",
         "date": "October 30, 2026",
         "items": [
