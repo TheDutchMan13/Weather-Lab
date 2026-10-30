@@ -11,7 +11,7 @@ from pathlib import Path
 
 from weatherlab import stations
 
-DEFAULT_CARDS = ["tempf", "windspeedmph", "windgustmph", "dailyrainin", "tempinf"]  # humidity is in the Last 24 hours row (0.37.43)
+DEFAULT_CARDS = ["windgustmph", "dailyrainin", "tempinf"]  # temperature, humidity and wind are in the Last 24 hours row (0.37.44)
 
 
 @dataclass
@@ -58,6 +58,7 @@ class Settings:
     api_port: int = 8600  # the port the API listens on
     home_briefing: bool = True  # show the briefing at the top of Home
     wide_cards: list[str] = field(default_factory=list)  # Home cards drawn across the whole row (0.37.42)
+    gauges: str = "auto"  # the Gauges group on Home: "auto" (open on a computer, closed on a phone), "open" or "closed"
     briefing_notice: bool = False  # send today's briefing as a notification each morning
     briefing_hour: int = 7  # local hour the briefing is sent
     weekly_digest: bool = False  # a short summary of the last 7 days, sent on Mondays with the morning summary

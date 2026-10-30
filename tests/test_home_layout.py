@@ -34,11 +34,12 @@ class Wiring(unittest.TestCase):
         self.assertIn("_customize_link()", body)
         self.assertNotIn("st.popover", NOW)
 
-    def test_humidity_is_only_in_the_last_24_hours_row(self):
+    def test_readings_in_the_24_hour_row_are_not_cards(self):
         from weatherlab.settings import DEFAULT_CARDS
-        self.assertNotIn("humidity", DEFAULT_CARDS)
-        self.assertIn('if key in data and key != "humidity":', NOW)
-        self.assertIn('choices = [k for k in CARD_LABELS if k != "humidity"]', NOW)
+        for key in card_order.IN_24H_ROW:
+            self.assertNotIn(key, DEFAULT_CARDS)
+        self.assertIn("key not in card_order.IN_24H_ROW", NOW)
+        self.assertIn("if k not in card_order.IN_24H_ROW", NOW)
 
     def test_setting_exists_with_an_empty_default(self):
         from weatherlab.settings import Settings
