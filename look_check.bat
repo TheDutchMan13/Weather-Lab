@@ -22,7 +22,7 @@ start "Dashboard" /D "%DASHBOARD%" cmd /k python -m streamlit run dashboard_v2.0
 echo Waiting 20 seconds for both apps to start...
 timeout /t 20 /nobreak >nul
 
-python tools\compare_looks.py --pages Live Setup --dashboard-pages Live Live
+python tools\compare_looks.py --pages Live Settings --dashboard-pages Live Live
 if errorlevel 1 goto failed
 
 echo.

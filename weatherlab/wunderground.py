@@ -49,7 +49,7 @@ def send_reading(station_id: str, key: str, reading: dict, now: datetime | None 
     station_id = (station_id or "").strip()
     key = (key or "").strip()
     if not station_id or not key:
-        raise uploads.UploadError("Enter your Weather Underground station ID and key on the Setup page.")
+        raise uploads.UploadError("Enter your Weather Underground station ID and key in Settings, under Station.")
     body = uploads.get(URL, values(station_id, key, reading, now or datetime.now(timezone.utc)), "Weather Underground")
     if body.lower() != "success":
         raise uploads.UploadError(f"Weather Underground didn't accept the upload: {body[:80]}")

@@ -17,7 +17,7 @@ def send_reading(station_id: str, key: str, reading: dict, now: datetime | None 
     station_id = (station_id or "").strip()
     key = (key or "").strip()
     if not station_id or not key:
-        raise uploads.UploadError("Enter your PWSweather station ID and key on the Setup page.")
+        raise uploads.UploadError("Enter your PWSweather station ID and key in Settings, under Station.")
     params = wunderground.values(station_id, key, reading, now or datetime.now())
     body = uploads.get(URL, params, "PWSweather")
     # PWSweather answers with an empty body when the upload is accepted; some replies say "success" instead.

@@ -55,7 +55,7 @@ def send_reading(device_id: str, key: str, reading: dict, now: datetime | None =
     device_id = (device_id or "").strip()
     key = (key or "").strip()
     if not device_id or not key:
-        raise uploads.UploadError("Enter your Weathercloud device ID and key on the Setup page.")
+        raise uploads.UploadError("Enter your Weathercloud device ID and key in Settings, under Station.")
     params = values(device_id, key, reading, now or datetime.now(timezone.utc))
     body = uploads.get(URL, params, "Weathercloud")
     if body != "200":

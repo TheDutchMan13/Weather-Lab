@@ -315,7 +315,7 @@ def _readings_export(db, tz: ZoneInfo, today: date) -> None:
     """Download readings for a date range, in the same format the CSV Import page reads."""
     st.markdown(theme.section_html("Readings as CSV"), unsafe_allow_html=True)
     st.write("Download readings as a CSV file. It uses the same format as the CSV Import page, so you can "
-             "import it on another computer. Times are in the timezone on the Setup page.")
+             "import it on another computer. Times are in the timezone in Settings, under Station.")
     start = st.date_input("From", value=today - timedelta(days=30), max_value=today)
     end = st.date_input("To", value=today, max_value=today)
     if end < start:
@@ -337,7 +337,7 @@ def export_page() -> None:
     today = datetime.now(tz).date()
     st.markdown(theme.page_head("Export", "Download your readings and daily summaries as CSV files."), unsafe_allow_html=True)
     st.write("Download your readings and daily summaries as CSV files. Values are in US units. "
-             "Times use the timezone on the Setup page.")
+             "Times use the timezone in Settings, under Station.")
     with st.expander("Download all history"):
         _all_history_section(s, today)
     with st.expander("Download by month", expanded=True):
@@ -446,7 +446,7 @@ def noaa_page() -> None:
         st.caption(f"Stored: {count:,} days, from {first} to {last}.")
     if st.button("Find the nearest station"):
         if s.latitude is None or s.longitude is None:
-            st.warning("Set your latitude and longitude on the Setup page first.")
+            st.warning("Set your latitude and longitude in Settings, under Station first.")
         else:
             try:
                 found = noaa.find_station(s.latitude, s.longitude, token)

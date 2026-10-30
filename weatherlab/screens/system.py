@@ -217,14 +217,49 @@ def _updates_section(s: Settings) -> None:
                        "If it doesn't reopen, start it from the Start menu.")
 
 
+STATION_TABS = ["Station", "Air", "Uploads", "Access"]
+APP_TABS = ["Appearance", "Alerts", "Phone alerts", "Updates", "Startup"]
+AREAS = ["Station", "App"]
+
+
+def area_for_tab(wanted: str) -> tuple[str | None, str | None]:
+    """Which half of Settings, and which tab, a ?tab= link opens.
+
+    Setup and Settings were one page from 0.37.52, so a link such as
+    ?tab=updates or ?tab=station still lands on the right tab.
+    """
+    wanted = (wanted or "").strip().lower()
+    for area, names in (("Station", STATION_TABS), ("App", APP_TABS)):
+        for n in names:
+            if n.lower() == wanted:
+                return area, n
+    return None, None
+
+
 def settings_page() -> None:
     s = load_settings()
-    st.markdown(theme.page_head("Settings", "Appearance, alerts, phone alerts, updates and startup."), unsafe_allow_html=True)
-    names = ["Appearance", "Alerts", "Phone alerts", "Updates", "Startup"]
-    # A link can open a tab, such as Update on Home (?tab=updates, 0.37.48).
-    wanted = str(st.query_params.get("tab", "")).lower()
+    st.markdown(theme.page_head("Settings", "The station and its services, and how Weather Lab looks and alerts you."),
+                unsafe_allow_html=True)
+    area, tab = area_for_tab(str(st.query_params.get("tab", "")))
+    if area:
+        st.session_state["settings_area"] = area
+        del st.query_params["tab"]
+    if st.session_state.get("settings_area") not in AREAS:
+        st.session_state["settings_area"] = "Station"
+    picked = st.segmented_control(
+        "Settings for", AREAS, key="settings_area", label_visibility="collapsed",
+        format_func=lambda a: {"Station": ":material/sensors: Station and services",
+                               "App": ":material/tune: App and alerts"}[a])
+    st.divider()
+    if picked == "App":
+        _app_settings(s, tab)
+    else:
+        _station_settings(s, tab)
+
+
+def _app_settings(s: Settings, default_tab: str | None = None) -> None:
     look_tab, alerts_tab, phone_tab, updates_tab, start_tab = st.tabs(
-        names, default=next((n for n in names if n.lower() == wanted), None))
+        APP_TABS, default=default_tab if default_tab in APP_TABS else None)
     with look_tab:
         _appearance_section(s)
     with alerts_tab:
@@ -259,11 +294,11 @@ def _upload_note(error: str, last: float | None, action: str) -> None:
         st.caption(f"Last {action} {_clock(last)}")
 
 
-def setup_page() -> None:
-    st.markdown(theme.page_head("Setup", "Where the station is, and the optional services that use it."), unsafe_allow_html=True)
-    s = load_settings()
+def _station_settings(s: Settings, default_tab: str | None = None) -> None:
+    """Where the station is, and the optional services that use it (the old Setup page)."""
     _station_tools(s)
-    (station_tab, air_tab, uploads_tab, network_tab) = st.tabs(["Station", "Air", "Uploads", "Access"])
+    (station_tab, air_tab, uploads_tab, network_tab) = st.tabs(
+        STATION_TABS, default=default_tab if default_tab in STATION_TABS else None)
 
     with station_tab:
         st.markdown(theme.section_html("Where the station is"), unsafe_allow_html=True)
@@ -546,7 +581,7 @@ def _alert_extras_section(s: Settings) -> None:
     uv_level = float(st.number_input("UV level for the notice", min_value=1.0, max_value=15.0,
                                      value=float(s.uv_alert_level), step=1.0, key="ex_uv_level"))
     aqi_on = st.checkbox("Air quality notice", value=s.aqi_alerts, key="ex_aqi",
-                         help="Uses the AirNow key saved on the Setup page.")
+                         help="Uses the AirNow key saved in Settings, under Station.")
     aqi_level = float(st.number_input("Air quality notice at AQI", min_value=50.0, max_value=500.0,
                                       value=float(s.aqi_alert_level), step=1.0, key="ex_aqi_level"))
     fire_on = st.checkbox("Fire danger notice", value=s.fire_alerts, key="ex_fire")
@@ -682,7 +717,7 @@ def status_page() -> None:
     ]), unsafe_allow_html=True)
 
     if not ip:
-        empty_card("Set the station IP on the Setup page to see sensor battery and signal.")
+        empty_card("Set the station IP in Settings, under Station to see sensor battery and signal.")
     elif raw is None:
         st.caption("Battery and signal aren't available right now. The station may be off or offline.")
     elif sensors:
@@ -776,8 +811,8 @@ def stations_page() -> None:
     """Add, rename or remove weather stations. Each one keeps its own readings, settings, alerts and backups."""
     st.markdown(theme.page_head("Stations", "Add, rename or remove stations. Each keeps its own data and alerts."), unsafe_allow_html=True)
     st.caption("Each station keeps its own readings, settings, phone topic and backups. Pick a station in the sidebar "
-               "to see it. A new station starts with default settings, so set its Ecowitt address and location under "
-               "Setup and Settings after you add it.")
+               "to see it. A new station starts with default settings, so set its Ecowitt address and location in "
+               "Settings, under Station, after you add it.")
     rows = stations.all_stations()
     theme.table([{"Station": r["name"], "Folder": str(stations.folder(r["id"])),
                   "Showing now": "Yes" if r["id"] == stations.current() else ""} for r in rows])

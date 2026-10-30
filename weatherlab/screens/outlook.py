@@ -82,7 +82,7 @@ def forecast_page() -> None:
     tz = _tz(s)
     st.markdown(theme.page_head("Forecast", "The National Weather Service forecast, and how close past forecasts were."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        empty_card("Set your latitude and longitude on the Setup page.")
+        empty_card("Set your latitude and longitude in Settings, under Station.")
         return
     contact = s.nws_contact
 
@@ -270,7 +270,7 @@ def astronomy_page() -> None:
     tz = _tz(s)
     st.markdown(theme.page_head("Astronomy", "Sunrise, sunset, moon phases and daylight for your location."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        empty_card("Set your location on the Setup page to see sunrise, sunset and the moon.")
+        empty_card("Set your location in Settings, under Station to see sunrise, sunset and the moon.")
         return
 
     now = datetime.now(timezone.utc)
@@ -363,7 +363,7 @@ def wind_map_page() -> None:
     metric = units.is_metric(s.units)
     st.markdown(theme.page_head("Wind map", "Wind across the area around the station, now and later, as arrows coloured by speed."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        empty_card("Set your location first", "The wind map is centred on your latitude and longitude, on the Setup page.")
+        empty_card("Set your location first", "The wind map is centred on your latitude and longitude, in Settings, under Station.")
         return
     choice = st.segmented_control("Time", list(windmap.TIMES), default="Now", key="windmap_time",
                                   label_visibility="collapsed") or "Now"

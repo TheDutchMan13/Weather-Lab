@@ -20,7 +20,7 @@ def items(s, has_topic: bool, has_backup: bool) -> list[Item]:
     one backup copy exists."""
     return [
         Item("location", s.latitude is not None and s.longitude is not None, "Set your location",
-             "Forecasts, weather warnings, sun times and the briefing need it.", "Setup"),
+             "Forecasts, weather warnings, sun times and the briefing need it.", "Settings", "station"),
         Item("alerts", has_topic, "Get alerts on your phone",
              "Rain, lightning, a station that stops reporting, and app problems.", "Settings", "phone alerts"),
         Item("backup", has_backup, "Back up your readings",

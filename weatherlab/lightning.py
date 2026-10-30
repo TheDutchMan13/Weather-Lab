@@ -1,7 +1,7 @@
 """Lightning from the GW2000's live data.
 
 Based on the dashboard's collectors/gw2000_collector.py parse_lightning (see SOURCES.md).
-The station labels distances "mi", but some firmware reports kilometres. The Setup page
+The station labels distances "mi", but some firmware reports kilometres. The Settings page
 has a switch for that, because the dashboard's station needed it.
 """
 

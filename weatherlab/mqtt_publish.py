@@ -114,7 +114,7 @@ def send(host: str, port: int, user: str, password: str, messages: list[tuple[st
     """Connect, publish each message (retained), and disconnect. Raises MqttError when it can't be done."""
     host = (host or "").strip()
     if not host:
-        raise MqttError("Enter the MQTT broker address on the Setup page.")
+        raise MqttError("Enter the MQTT broker address in Settings, under Station.")
     try:
         with socket.create_connection((host, int(port)), timeout=TIMEOUT_S) as sock:
             sock.sendall(connect_packet(client_id, user, password))

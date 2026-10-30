@@ -16,10 +16,10 @@ def air_page() -> None:
     tz = _tz(s)
     st.markdown(theme.page_head("Air quality", "Air quality for your area from AirNow, with the pollutant levels."), unsafe_allow_html=True)
     if not secrets.get_key("airnow"):
-        empty_card("Add a free AirNow API key on the Setup page to see air quality.")
+        empty_card("Add a free AirNow API key in Settings, under Station to see air quality.")
         return
     if s.latitude is None or s.longitude is None:
-        empty_card("Set your latitude and longitude on the Setup page.")
+        empty_card("Set your latitude and longitude in Settings, under Station.")
         return
 
     poller = start_poller()
@@ -76,7 +76,7 @@ def lightning_page() -> None:
         theme.table([{"time": timefmt.time_text(datetime.fromtimestamp(ts, tz)),
                    f"Distance ({units.unit('miles', metric)})": round(units.convert("miles", d, metric), 1)}
                   for ts, d in reversed(today[-20:])])
-    st.caption("Counts only strikes the app saw while it was running. Distances follow the switch on the Setup page.")
+    st.caption("Counts only strikes the app saw while it was running. Distances follow the switch in Settings, under Station.")
 
     st.markdown(theme.section_html("History"), unsafe_allow_html=True)
     span_choice = st.radio("Range", ["30 days", "1 year"], index=0, horizontal=True, key="lightning_range")
@@ -159,7 +159,7 @@ def tropics_page() -> None:
     metric = units.is_metric(s.units)
     st.markdown(theme.page_head("Tropics", "Tropical storms from the National Hurricane Center, and how far each is from you."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        empty_card("Set your latitude and longitude on the Setup page to see how far each storm is from you.")
+        empty_card("Set your latitude and longitude in Settings, under Station to see how far each storm is from you.")
         return
     cache = tropics.refresh((s.latitude, s.longitude), storage.db_path().parent / "tropics.json")
     if not cache.get("checked"):
@@ -201,7 +201,7 @@ def radar_page() -> None:
     s = load_settings()
     st.markdown(theme.page_head("Radar", "The radar and satellite picture around your station."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
-        empty_card("Set your latitude and longitude on the Setup page to show the radar for your area.")
+        empty_card("Set your latitude and longitude in Settings, under Station to show the radar for your area.")
         return
     station = ""
     try:

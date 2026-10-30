@@ -39,7 +39,7 @@ def fetch(lat: float, lon: float, api_key: str) -> dict | None:
     except (OSError, ValueError) as exc:
         raise AirNowError(f"Couldn't reach AirNow ({type(exc).__name__}).") from exc
     if not isinstance(records, list):
-        raise AirNowError("AirNow refused the request. Check the API key on Setup.")
+        raise AirNowError("AirNow refused the request. Check the API key in Settings, under Station.")
     if not records:
         return None
 
