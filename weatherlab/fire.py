@@ -3,7 +3,7 @@
 The equations are the dashboard's import_fire_weather.py, unchanged (see SOURCES.md). Changes for
 Weather Lab:
 - No hardcoded location, time zone, or NWS grid point. The forecast comes from the user's own
-  /points lookup (nws.py), and the time zone comes from Setup.
+  /points lookup (nws.py), and the time zone comes from Settings.
 - The moisture codes are saved in the database (the fire table) instead of fwi_state.json.
 - Days since rain comes from the stored daily summaries.
 

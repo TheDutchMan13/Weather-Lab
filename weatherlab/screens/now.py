@@ -430,7 +430,7 @@ def live_now() -> None:
 
     row = storage.latest(storage.connect())
     if row is None:
-        empty_card("Waiting for the first reading from the station.", "If this doesn't change within a minute, check the station IP on Setup and that the station is on the same network.")
+        empty_card("Waiting for the first reading from the station.", "If this doesn't change within a minute, check the station IP in Settings and that the station is on the same network.")
         _notices(s, poller, status)
         return
     _, data = row
@@ -578,7 +578,7 @@ def _welcome(s: Settings) -> None:
     """First run: the three steps to a working app, with a tick for each one already done."""
     has_readings = bool(storage.connect().execute("SELECT 1 FROM readings LIMIT 1").fetchone())
     steps = [
-        (bool(s.station_ip), "Point Weather Lab at your station", "Setup, Station tab: enter the station's IP address."),
+        (bool(s.station_ip), "Point Weather Lab at your station", "Settings, Station tab: enter the station's IP address."),
         (has_readings, "Wait for the first reading", "It arrives within a minute of the address being saved."),
         (False, "Choose your phone alerts (optional)",
          "Settings: rain, lightning, stuck sensors and app problems."),
@@ -835,7 +835,7 @@ def briefing_page() -> None:
     else:
         empty_card("The briefing fills in once readings arrive.")
     if not data["forecast"]:
-        st.caption("No forecast available, so the expected high is today's highest reading so far. Set the station's location on the Setup page for the National Weather Service forecast.")
+        st.caption("No forecast available, so the expected high is today's highest reading so far. Set the station's location in Settings, under Station for the National Weather Service forecast.")
     if data["notes"]:
         st.subheader("Worth knowing")
         for line in data["notes"]:
@@ -914,7 +914,7 @@ def sensors_page() -> None:
     batteries = _sensor_batteries(ip) if ip else []
     st.markdown(theme.section_html("Batteries and radio signal"), unsafe_allow_html=True)
     if not ip:
-        empty_card("Set the station IP on the Setup page to see sensor battery and signal.")
+        empty_card("Set the station IP in Settings, under Station to see sensor battery and signal.")
     elif batteries is None:
         st.caption("Battery and signal aren't available right now. The station may be off or offline.")
     elif not batteries:

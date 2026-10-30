@@ -5,7 +5,7 @@ How it works:
   --serve in the background (which runs the Streamlit server), waits for it, then
   opens a pywebview window on it. Closing the window stops the server.
 - Run with --serve PORT [HOST]: runs the Streamlit server for app.py on HOST:PORT (127.0.0.1 unless
-  the Setup page turned on home-network access, which uses 0.0.0.0).
+  Settings (Station, Access) turned on home-network access, which uses 0.0.0.0).
 
 Works both as `python launcher.py` and as the packaged WeatherLab.exe.
 The server log is written to %APPDATA%\\WeatherLab\\server.log.

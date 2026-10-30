@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.52",
+        "date": "October 30, 2026",
+        "items": [
+            "Setup and Settings are one page now. Settings has a Station and App switch at the top: Station has the station address, location, air quality, uploads and access tabs that were on Setup, and App has appearance, alerts, phone alerts, updates and startup. Old links still open the right tab.",
+        ],
+    },
+    {
         "version": "0.37.51",
         "date": "October 30, 2026",
         "items": [

@@ -256,7 +256,7 @@ def _temp(value, unit, metric):
 def forecast(db, s, now: float) -> dict:
     """The National Weather Service forecast for the station's location, kept for 15 minutes."""
     if s.latitude is None or s.longitude is None:
-        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Settings, under Station."}
     metric = units.is_metric(s.units)
     key = (s.latitude, s.longitude, metric)
     held = _forecast_cache.get(key)
@@ -555,7 +555,7 @@ def _cached(key, now, seconds, make):
 def airport(db, s, now: float) -> dict:
     """Your station next to the nearest airport (or weather station) reporting to the National Weather Service."""
     if s.latitude is None or s.longitude is None:
-        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Settings, under Station."}
     metric = units.is_metric(s.units)
     try:
         def lookup():
@@ -589,7 +589,7 @@ def airport(db, s, now: float) -> dict:
 
 def tropics_list(db, s, now: float) -> dict:
     if s.latitude is None or s.longitude is None:
-        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Settings, under Station."}
     metric = units.is_metric(s.units)
     cache = tropics.refresh((s.latitude, s.longitude), storage.db_path().parent / "tropics.json")
     return {"available": True, "ok": bool(cache.get("ok", True)), "checked": cache.get("checked", ""),
@@ -604,7 +604,7 @@ RADAR_RIDGE = "https://radar.weather.gov/ridge/standard/"
 
 def radar(db, s, now: float) -> dict:
     if s.latitude is None or s.longitude is None:
-        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Settings, under Station."}
     try:
         station = _cached(("radar", s.latitude, s.longitude), now, 86400,
                           lambda: nws.points(s.latitude, s.longitude, s.nws_contact).get("radar", ""))
@@ -620,9 +620,9 @@ def radar(db, s, now: float) -> dict:
 def air(db, s, now: float) -> dict:
     key = keystore.get_key("airnow")
     if not key:
-        return {"available": False, "reason": "Add a free AirNow key in Weather Lab's Setup page to show air quality."}
+        return {"available": False, "reason": "Add a free AirNow key in Weather Lab's Settings, under Station to show air quality."}
     if s.latitude is None or s.longitude is None:
-        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Setup page."}
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Settings, under Station."}
     try:
         data = _cached(("air", s.latitude, s.longitude), now, 600, lambda: airquality.fetch(s.latitude, s.longitude, key))
     except Exception as exc:

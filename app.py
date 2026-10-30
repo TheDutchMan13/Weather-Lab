@@ -18,7 +18,7 @@ from weatherlab.screens.history import history_page
 from weatherlab.screens.now import alerts_log_page, home_layout_page, home_page, sensors_page
 from weatherlab.screens.outlook import astronomy_page, forecast_page, heat_page, sun_page, wind_map_page, wind_page
 from weatherlab.screens.help import help_page
-from weatherlab.screens.system import health_check_page, settings_page, setup_page, stations_page, status_page, whats_new_page
+from weatherlab.screens.system import health_check_page, settings_page, stations_page, status_page, whats_new_page
 
 
 def access_gate() -> bool:
@@ -32,9 +32,9 @@ def access_gate() -> bool:
         st.session_state["signed_in"] = True
         return True
     if not auth.password_set():
-        st.error("Other devices can't open Weather Lab until a password is set. Set one on the Setup page on this PC.")
+        st.error("Other devices can't open Weather Lab until a password is set. Set one in Settings, Station, Access tab, on this PC.")
         return False
-    st.markdown(theme.page_head("Sign in", "Enter the password you set on the Setup page."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Sign in", "Enter the password you set in Settings, on the Access tab."), unsafe_allow_html=True)
     password = st.text_input("Password", type="password")
     if st.button("Sign in"):
         wait = auth.locked_for()
@@ -59,7 +59,7 @@ PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
     "Air": "😷", "Fire": "🚒", "Lightning": "⚡", "Tropics": "🌀", "Radar": "📡",
     "Import": "📥", "Export": "📤", "Backup": "💾", "Reports": "📄",
     "Station health": "🩺", "Home layout": "🧩",
-    "What's New": "🆕", "Help": "❔", "Setup": "🧰", "Settings": "⚙️", "Stations": "📍",
+    "What's New": "🆕", "Help": "❔", "Settings": "⚙️", "Stations": "📍",
 }
 
 
@@ -86,7 +86,7 @@ PAGE_FUNCS = {"Home": home_page, "Compare stations": compare_stations_page, "His
               "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,
               "Wind": wind_page, "Wind map": wind_map_page, "Sun": sun_page, "Astronomy": astronomy_page, "Air": air_page,
               "Fire": fire_page, "Lightning": lightning_page, "Tropics": tropics_page, "Radar": radar_page,
-              "Import": _import_page, "Export": export_page, "Backup": backup_page, "Setup": setup_page, "Stations": stations_page}
+              "Import": _import_page, "Export": export_page, "Backup": backup_page, "Stations": stations_page}
 
 
 def _sections() -> dict:

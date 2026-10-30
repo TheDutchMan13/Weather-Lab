@@ -227,7 +227,7 @@ def evaluate(rules, reading: dict, now: float, state: dict, metric: bool = False
 
 
 def notify(title: str, text: str) -> bool:
-    """Shows a Windows notification. Returns False if it can't be shown; the message is still listed in Setup."""
+    """Shows a Windows notification. Returns False if it can't be shown; the message is still listed in Settings."""
     try:
         from plyer import notification
         notification.notify(title=title, message=text, app_name="Weather Lab", timeout=10)

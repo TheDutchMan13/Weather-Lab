@@ -1,7 +1,7 @@
 """National Weather Service alerts and forecasts. No API key is needed.
 
 The NWS asks every app to identify itself in the User-Agent header, so the user's
-optional contact email from Setup is included.
+optional contact email from Settings is included.
 
 Alert colors come from the dashboard's utils/alert_cards.py SEV table (see SOURCES.md).
 The forecast URLs come from the NWS /points endpoint for the user's own location,

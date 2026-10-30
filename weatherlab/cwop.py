@@ -70,9 +70,9 @@ def send_reading(callsign: str, reading: dict, lat, lon, now: datetime | None = 
     """Log in to APRS-IS and send one weather report. Returns the packet that was sent."""
     call = (callsign or "").strip()
     if not call:
-        raise CwopError("Enter a CWOP callsign on the Setup page.")
+        raise CwopError("Enter a CWOP callsign in Settings, under Station.")
     if lat is None or lon is None:
-        raise CwopError("Set your latitude and longitude on the Setup page.")
+        raise CwopError("Set your latitude and longitude in Settings, under Station.")
     packet = weather_packet(call, reading, lat, lon, now or datetime.now(timezone.utc))
     try:
         with socket.create_connection((HOST, PORT), timeout=TIMEOUT_S) as sock:
@@ -82,7 +82,7 @@ def send_reading(callsign: str, reading: dict, lat, lon, now: datetime | None = 
             link.flush()
             reply = link.readline().decode("ascii", "replace").lower()
             if "unverified" in reply or "verified" not in reply:
-                raise CwopError("CWOP didn't accept this callsign. Check it on the Setup page.")
+                raise CwopError("CWOP didn't accept this callsign. Check it in Settings, under Station.")
             link.write((packet + "\r\n").encode("ascii"))
             link.flush()
     except OSError as exc:

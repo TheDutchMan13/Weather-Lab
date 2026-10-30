@@ -140,7 +140,7 @@ def palette(dark: bool, scheme: str = "Default") -> dict:
 
 
 def is_dark(mode: str | None = None) -> bool:
-    """mode is "light", "dark", or "auto". With no mode, the saved Setup choice is used.
+    """mode is "light", "dark", or "auto". With no mode, the saved Settings choice is used.
     Auto follows Streamlit's theme, the same way the dashboard does."""
     if mode is None:
         from weatherlab.settings import load_settings

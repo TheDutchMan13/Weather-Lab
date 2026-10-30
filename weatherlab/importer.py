@@ -207,7 +207,7 @@ def read_csv(raw: bytes, tz: ZoneInfo):
 
 
 def export_csv(rows: list[tuple[int, dict]], tz: ZoneInfo) -> bytes:
-    """A CSV the CSV Import page reads back. Times are local, in the timezone from Setup."""
+    """A CSV the CSV Import page reads back. Times are local, in the timezone from Settings."""
     keys = [k for k in EXPORT_KEYS if any(k in r for _, r in rows)]
     buf = io.StringIO()
     writer = csv.writer(buf)

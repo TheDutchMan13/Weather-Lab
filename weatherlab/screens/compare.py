@@ -29,7 +29,7 @@ def compare_stations_page() -> None:
     rows = stations.all_stations()
     if len(rows) < 2:
         empty_card("Add a second station to compare",
-                   "Open Stations in the Settings section, add a station, then set its Ecowitt address under Setup.")
+                   "Open Stations in the Settings section, add a station, then set its Ecowitt address in Settings, under Station.")
         return
     ids = [r["id"] for r in rows]
     current = stations.current()
