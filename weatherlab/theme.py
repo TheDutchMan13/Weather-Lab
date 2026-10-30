@@ -46,10 +46,12 @@ SCHEMES = {
     "Default": {},
     # New for this app, not from the dashboard: black or white text on plain backgrounds with strong lines.
     "High contrast": {
-        "light": {"background": "#ffffff", "surface": "#f2f2f2", "border": "#000000", "text": "#000000",
-                  "text_muted": "#1f1f1f", "accent": "#0033cc", "info": "#0033cc"},
-        "dark": {"background": "#000000", "surface": "#141414", "border": "#ffffff", "text": "#ffffff",
-                 "text_muted": "#e6e6e6", "accent": "#ffd400", "info": "#66b3ff"},
+        "light": {"background": "#ffffff", "surface": "#f0f0f0", "border": "#000000",
+                  "text": "#000000", "text_muted": "#2b2b2b", "accent": "#0030c8",
+                  "success": "#006b2e", "warning": "#8a5a00", "error": "#b00020", "info": "#0030c8"},
+        "dark": {"background": "#000000", "surface": "#0d0d0d", "border": "#ffffff",
+                 "text": "#ffffff", "text_muted": "#dcdcdc", "accent": "#6cb8ff",
+                 "success": "#5dff8a", "warning": "#ffd84d", "error": "#ff7b7b", "info": "#6cb8ff"},
     },
     "Ocean": {
         "light": {"background": "#f5fbfd", "surface": "#e5f3f8", "border": "#bcdde8",
@@ -74,14 +76,6 @@ SCHEMES = {
                   "accent": "#7048d6", "info": "#8f6fe0"},
         "dark": {"background": "#110e1b", "surface": "#1a1530", "border": "#312850",
                  "accent": "#a78bfa", "info": "#c4b5fd"},
-    },
-    "High contrast": {
-        "light": {"background": "#ffffff", "surface": "#f0f0f0", "border": "#000000",
-                  "text": "#000000", "text_muted": "#2b2b2b", "accent": "#0030c8",
-                  "success": "#006b2e", "warning": "#8a5a00", "error": "#b00020", "info": "#0030c8"},
-        "dark": {"background": "#000000", "surface": "#0d0d0d", "border": "#ffffff",
-                 "text": "#ffffff", "text_muted": "#dcdcdc", "accent": "#6cb8ff",
-                 "success": "#5dff8a", "warning": "#ffd84d", "error": "#ff7b7b", "info": "#6cb8ff"},
     },
 }
 

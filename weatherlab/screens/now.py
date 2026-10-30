@@ -56,19 +56,31 @@ def _live_alerts(lat: float, lon: float, contact: str) -> list[dict]:
         return []
 
 
-def _warnings(s: Settings) -> None:
-    """Recent rule alerts and active NWS warnings, shown at the top of Live."""
+def _notices(s: Settings, poller, status) -> None:
+    """Notices under the right-now panel (0.37.47): reader problems, recent alerts and active NWS warnings in one
+    strip that says how many there are, so they no longer push the reading down. It opens by itself when the
+    reader has stopped or a warning is Severe or Extreme."""
     now = time.time()
-    for ts, text in [(t, m) for t, m in start_poller().status.recent_alerts if now - t < 6 * 3600][:3]:
-        st.warning(f"{_clock(ts)}  {text}")
-    if s.latitude is None or s.longitude is None:
+    items = []
+    if not poller.is_alive():
+        items.append(("error", "The background reader has stopped. Restart the app."))
+    elif status.last_error:
+        items.append(("warning", status.last_error))
+    items += [("warning", f"{_clock(t)}  {m}") for t, m in status.recent_alerts if now - t < 6 * 3600][:3]
+    active = (_live_alerts(s.latitude, s.longitude, s.nws_contact)
+              if s.latitude is not None and s.longitude is not None else [])
+    count = len(items) + len(active)
+    if not count:
         return
-    active = _live_alerts(s.latitude, s.longitude, s.nws_contact)
-    if active:
-        st.markdown('<div class="wl-status">Active warnings</div>', unsafe_allow_html=True)
-        st.markdown("".join(_alert_box(a) for a in active[:3]), unsafe_allow_html=True)
-        if len(active) > 3:
-            st.caption(f"{len(active) - 3} more on the Forecast page.")
+    urgent = not poller.is_alive() or any(a["severity"] in ("Extreme", "Severe") for a in active)
+    with st.expander(card_order.notice_label(count), expanded=urgent, icon=":material/notifications:"):
+        for kind, text in items:
+            (st.error if kind == "error" else st.warning)(text)
+        if active:
+            st.markdown('<div class="wl-status">Active warnings</div>', unsafe_allow_html=True)
+            st.markdown("".join(_alert_box(a) for a in active[:3]), unsafe_allow_html=True)
+            if len(active) > 3:
+                st.caption(f"{len(active) - 3} more on the Forecast page.")
 
 
 def _naive(dt, tz):
@@ -406,26 +418,22 @@ def _pill(text: str) -> str:
 
 @st.fragment(run_every=REFRESH_SECONDS)
 def live_now() -> None:
-    """The top of Home (0.37.39): reader problems, active warnings and the right-now panel, which also says how
-    fresh the reading is and gives today's high, low, rain and gust. Re-runs every REFRESH_SECONDS."""
+    """The top of Home (0.37.39): the right-now panel, which also says how fresh the reading is and gives today's
+    high, low, rain and gust, then the notices strip (0.37.47). Re-runs every REFRESH_SECONDS."""
     s = load_settings()
     poller = start_poller()
     status = poller.status
 
-    if not poller.is_alive():
-        st.error("The background reader has stopped. Restart the app.")
-    elif status.last_error:
-        st.warning(status.last_error)
-    _warnings(s)
-
     row = storage.latest(storage.connect())
     if row is None:
         empty_card("Waiting for the first reading from the station.", "If this doesn't change within a minute, check the station IP on Setup and that the station is on the same network.")
+        _notices(s, poller, status)
         return
     _, data = row
     short, night = _now_sky(s, data)
     alerts = _live_alerts(s.latitude, s.longitude, s.nws_contact) if s.latitude is not None and s.longitude is not None else []
     _hero(s, row, short, night, alerts)
+    _notices(s, poller, status)
     if alerts and s.latitude is not None and s.longitude is not None:
         with st.expander("Alert map", expanded=True):
             _alert_map(s, alerts)

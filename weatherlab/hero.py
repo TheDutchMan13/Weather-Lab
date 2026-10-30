@@ -105,8 +105,10 @@ def hero_html(d: dict) -> tuple[str, int]:
     kind = d.get("kind", "clear_day")
     g = GRADS.get(kind, GRADS["clear_day"])
     dot = {"ok": "#3ddc84", "slow": "#f6d55c", "silent": "#e5633c"}.get(d.get("live_state"), "#9aa3b0")
-    feels = f"Feels like {_e(d['feels'])} · " if d.get("feels") else ""
-    label_line = " · ".join(_e(x) for x in (d.get("label"), d.get("place")) if x)
+    # One line, "Feels like 71 °F · Sunny · Goodyear", with no separator left over when a part is missing (0.37.47).
+    feels = ""
+    label_line = " · ".join(x for x in (f"Feels like {_e(d['feels'])}" if d.get("feels") else "",
+                                         _e(d.get("label") or ""), _e(d.get("place") or "")) if x)
     tiles = "".join(
         '<div style="background:rgba(0,0,0,.22);border-radius:12px;padding:9px 13px;min-width:0">'
         f'<div style="font-size:12px;color:#c3cbd8">{_e(label)}</div>'

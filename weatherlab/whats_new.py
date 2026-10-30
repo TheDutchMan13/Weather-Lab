@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.47",
+        "date": "October 30, 2026",
+        "items": [
+            "Notices on Home sit in one strip under the reading right now, instead of yellow boxes above it. The strip says how many there are (for example 2 notices) and opens when you tap it. It opens by itself when the background reader has stopped or a weather warning is Severe or Extreme.",
+            "The line under the temperature no longer ends with a stray dot when there is no sky description.",
+        ],
+    },
+    {
         "version": "0.37.46",
         "date": "October 30, 2026",
         "items": [
