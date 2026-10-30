@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.43",
+        "date": "October 30, 2026",
+        "items": [
+            "Humidity is shown once on Home, in the Last 24 hours row, instead of twice. It is no longer offered as a card in the Home layout.",
+        ],
+    },
+    {
         "version": "0.37.42",
         "date": "October 30, 2026",
         "items": [

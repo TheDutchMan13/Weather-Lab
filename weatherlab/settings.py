@@ -11,7 +11,7 @@ from pathlib import Path
 
 from weatherlab import stations
 
-DEFAULT_CARDS = ["tempf", "humidity", "windspeedmph", "windgustmph", "dailyrainin", "tempinf"]
+DEFAULT_CARDS = ["tempf", "windspeedmph", "windgustmph", "dailyrainin", "tempinf"]  # humidity is in the Last 24 hours row (0.37.43)
 
 
 @dataclass
