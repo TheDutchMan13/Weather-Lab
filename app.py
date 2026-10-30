@@ -3,9 +3,8 @@
 import html
 import os
 import streamlit as st
-import streamlit.components.v1 as components
 import time
-from weatherlab import auth, autofit, health, stations, storage, theme
+from weatherlab import auth, health, stations, storage, theme
 from weatherlab.config import APP_NAME, APP_VERSION
 from weatherlab.nav_groups import DEFAULT_PAGE, GROUPS
 from weatherlab.settings import load_settings
@@ -147,7 +146,7 @@ HEAD_SCRIPT = """<script>
 
 def _install_app_head() -> None:
     """Adds the app icon and home-screen settings, so Weather Lab can be added to a phone's home screen."""
-    components.html(HEAD_SCRIPT, height=0)
+    st.iframe(HEAD_SCRIPT, height=1)  # runs the script; same-origin, so it can reach the page's <head>
 
 
 def _select_station() -> None:
@@ -175,7 +174,6 @@ def main() -> None:
     cfg = load_settings()
     st.markdown(theme.css(theme.is_dark(), cfg.color_scheme, cfg.compact, cfg.large_text), unsafe_allow_html=True)
     st.markdown(SIDEBAR_CSS, unsafe_allow_html=True)
-    autofit.install()
     _install_app_head()
     start_poller()
     api.ensure(cfg.api_enabled and cfg.allow_network, cfg.api_port)

@@ -2,7 +2,7 @@
 today's range, the last-hour trend, the sunrise or sunset time and the main readings.
 
 Ported from the dashboard's utils/live_cards.py (hero_html). Callers pass text that is already in the display units,
-so this module converts nothing. Each builder returns (html, height) for st.components.v1.html.
+so this module converts nothing. Each builder returns (html, height); Home draws the panel straight into the page (0.37.39).
 """
 
 import html as _h
