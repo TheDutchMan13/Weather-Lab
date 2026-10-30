@@ -62,3 +62,8 @@ def gauges_open(setting: str, user_agent: str = "") -> bool:
         return False
     ua = (user_agent or "").lower()
     return not any(word in ua for word in ("mobile", "iphone", "android"))
+
+
+def notice_label(count: int) -> str:
+    """The title of the notices strip on Home: "1 notice", "3 notices"."""
+    return f"{count} notice" + ("" if count == 1 else "s")
