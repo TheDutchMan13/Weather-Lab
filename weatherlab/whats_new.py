@@ -5,6 +5,13 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.46",
+        "date": "October 30, 2026",
+        "items": [
+            "The Android app can follow your Home layout. Its Live tab reads whether you show the briefing, the order of your cards and which are wide, from a new read-only address in the app's connection. It needs the Android app 0.7.23 or newer; older versions keep their own layout.",
+        ],
+    },
+    {
         "version": "0.37.45",
         "date": "October 30, 2026",
         "items": [
