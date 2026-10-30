@@ -123,11 +123,14 @@ def hero_html(d: dict) -> tuple[str, int]:
         extra += f'<div style="font-size:13px;margin-top:4px;color:#f6e7b8">{_e(d["sun_note"])}</div>'
     if d.get("today_line"):
         extra += f'<div style="font-size:12.5px;margin-top:6px;color:#c3cbd8">{_e(d["today_line"])}</div>'
-    out = (f'<style>body{{margin:0;font-family:{FONT}}}'
-           '.hero{display:grid;grid-template-columns:1fr;gap:22px;align-items:center}'
-           '.hero-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}'
-           '@media (min-width:720px){.hero{grid-template-columns:320px 1fr}}</style>'
-           f'<div class="hero" style="border-radius:18px;padding:20px 24px;color:#fff;background:{sky_bg(kind, g)}">'
+    # Drawn straight into the page (0.37.39), so the styles are scoped to the panel and the two-column layout
+    # follows the panel's own width (a container query), not the window's.
+    out = (f'<style>.wl-hero-wrap{{container-type:inline-size;font-family:{FONT};margin-bottom:14px}}'
+           '.wl-hero{display:grid;grid-template-columns:1fr;gap:22px;align-items:center}'
+           '.wl-hero-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}'
+           '@container (min-width:720px){.wl-hero{grid-template-columns:320px 1fr}}</style>'
+           '<div class="wl-hero-wrap">'
+           f'<div class="wl-hero" style="border-radius:18px;padding:20px 24px;color:#fff;background:{sky_bg(kind, g)}">'
            '<div>'
            '<div style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#e6f2ea;'
            'background:rgba(0,0,0,.25);padding:4px 10px;border-radius:99px;margin-bottom:8px">'
@@ -138,7 +141,7 @@ def hero_html(d: dict) -> tuple[str, int]:
            f'{d.get("icon", "")}</div>'
            f'<div style="color:#dce4ef;font-size:15px;margin-top:6px">{feels}{label_line}</div>'
            f'{_badge(d)}{_range_bar(d, g)}{extra}</div>'
-           f'<div class="hero-tiles">{tiles}</div></div>')
+           f'<div class="wl-hero-tiles">{tiles}</div></div></div>')
     rows = math.ceil(len(d.get("tiles", [])) / 2) or 1
     n_extra = sum(1 for k in ("trend", "sun_note", "today_line") if d.get(k))
     height = 300 + rows * 82 + 22 * n_extra  # tall enough for the stacked layout on phones

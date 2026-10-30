@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.39",
+        "date": "October 30, 2026",
+        "items": [
+            "Home opens with the reading right now at the top, so on a phone the temperature is the first thing you see. Today's briefing follows as one short card: the headline and a single line of numbers.",
+            "The separate status line and the grey line of today against yesterday are gone from Home. The right-now panel already shows how fresh the reading is and today's high, low, rain and gust.",
+        ],
+    },
+    {
         "version": "0.37.38",
         "date": "October 29, 2026",
         "items": [
