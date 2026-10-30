@@ -57,6 +57,7 @@ class Settings:
     api_enabled: bool = False  # the read-only API for the Android app; needs phones and devices to be allowed too
     api_port: int = 8600  # the port the API listens on
     home_briefing: bool = True  # show the briefing at the top of Home
+    wide_cards: list[str] = field(default_factory=list)  # Home cards drawn across the whole row (0.37.42)
     briefing_notice: bool = False  # send today's briefing as a notification each morning
     briefing_hour: int = 7  # local hour the briefing is sent
     weekly_digest: bool = False  # a short summary of the last 7 days, sent on Mondays with the morning summary

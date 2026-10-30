@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.42",
+        "date": "October 30, 2026",
+        "items": [
+            "A Home layout page, under Station, replaces the Customize pop-up. Choose the readings on Home, put them in order, and make any card Small or Wide. A wide card has a row to itself. A preview shows how Air and Wind and rain will look.",
+            "Customize on Home now opens the Home layout page.",
+        ],
+    },
+    {
         "version": "0.37.41",
         "date": "October 30, 2026",
         "items": [
