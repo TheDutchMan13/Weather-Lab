@@ -107,6 +107,10 @@ Project layout: `app.py` (sidebar and start-up), `weatherlab/screens/` (the page
 
 Weather Lab was built with help from Claude, an AI assistant made by Anthropic, working in Claude Code. The author chose the features, directed the work, and tested each release on their own station and PC. The code is reviewed through the tests and the release checks in this repository.
 
+## AI disclaimer
+
+Parts of this project were written with help from an AI assistant (Claude, made by Anthropic). The code and documentation may contain mistakes or behave in unexpected ways. Review and test it before relying on it, especially for anything important.
+
 ## License
 
 GNU GPL v3.0 or later. Copyright (C) 2026 Hans De Kryger. See `LICENSE`.
