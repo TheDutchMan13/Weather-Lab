@@ -81,6 +81,9 @@ def _notices(s: Settings, poller, status) -> None:
             st.markdown("".join(_alert_box(a) for a in active[:3]), unsafe_allow_html=True)
             if len(active) > 3:
                 st.caption(f"{len(active) - 3} more on the Forecast page.")
+        page = st.session_state.get("wl_pages", {}).get("Alert history")
+        if page is not None:  # older alerts live on Alert history (0.37.51)
+            st.page_link(page, label="All alerts", icon=":material/history:")
 
 
 def _naive(dt, tz):
@@ -197,7 +200,7 @@ def _hero(s: Settings, row: tuple, short: str, night: bool, alerts: list[dict]) 
 
     feels = data.get("feelslikef")
     html_out, _ = hero.hero_html({
-        "temp_text": f"{units.convert('tempf', temp, metric):.0f}°",
+        "temp_text": f"{units.convert('tempf', temp, metric):.0f}°", "plain": s.hero_style == "plain",
         "kind": kind, "icon": wx_icons.now_icon(kind, 84),
         "feels": units.format_value("feelslikef", feels, metric, 0) if feels is not None else "",
         "label": short, "place": "",
@@ -485,14 +488,7 @@ def live_readings() -> None:
             with right:
                 _clickable_dial("baromrelin", lambda: _pressure_dial(s, data))
 
-    if row is not None and row[1].get("dewpointf") is not None:
-        end = time.time()
-        day = storage.readings_between(storage.connect(), end - 86400, end + 1)
-        key, card = _trend_card(s, "dewpointf", "Dew point", "°F", row[1], day, "#4f9cf7") or (None, "")
-        if card:
-            _tile_rows([(key, card)])
-            st.caption("Dew point: " + dew.text(row[1]["dewpointf"]) + ". Tap the card for its history.")
-    live_history.show_pending()
+    live_history.show_pending([k for k in live_history.MEASURES if k != "dewpointf"])  # dew point: _dew_card
     pills = []  # how fresh the reading is shows in the right-now panel at the top
     if status.last_attempt:
         pills.append(_pill(f"Last attempt {_clock(status.last_attempt)}"))
@@ -500,6 +496,21 @@ def live_readings() -> None:
         pills.append(_pill(f"Reader started {_clock(status.started)}"))
     if pills:
         st.markdown(f'<div class="wl-status">{"".join(pills)}</div>', unsafe_allow_html=True)
+
+
+@st.fragment(run_every=REFRESH_SECONDS)
+def _dew_card() -> None:
+    """Dew point with its 24-hour line, in More readings at the bottom of Home (0.37.51). Tap it for its history."""
+    s = load_settings()
+    row = storage.latest(storage.connect())
+    if row is not None and row[1].get("dewpointf") is not None:
+        end = time.time()
+        day = storage.readings_between(storage.connect(), end - 86400, end + 1)
+        key, card = _trend_card(s, "dewpointf", "Dew point", "°F", row[1], day, "#4f9cf7") or (None, "")
+        if card:
+            _tile_rows([(key, card)])
+            st.caption("Dew point: " + dew.text(row[1]["dewpointf"]) + ". Tap the card for its history.")
+    live_history.show_pending(["dewpointf"])
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -645,6 +656,10 @@ def home_layout_page() -> None:
                             format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
     show_list = st.checkbox("Show the Getting started list on Home", value=not s.checklist_hidden,
                             key="home_show_checklist")
+    hero_choices = {"gradient": "Sky gradient", "plain": "Plain colour"}
+    hero_style = st.segmented_control("Right-now panel", list(hero_choices), format_func=hero_choices.get,
+                                      default=s.hero_style if s.hero_style in hero_choices else "gradient",
+                                      key="home_hero_style") or s.hero_style
     gauge_choices = {"auto": "Automatic: open on a computer, closed on a phone", "open": "Always open",
                      "closed": "Always closed"}
     gauges = st.selectbox("Gauges on Home (the temperature ring, Feels like and Pressure)", list(gauge_choices),
@@ -652,8 +667,9 @@ def home_layout_page() -> None:
                           format_func=gauge_choices.get, key="home_gauges")
     cards = card_order.merge(s.live_cards, picked)
     if (show != s.home_briefing or cards != list(s.live_cards) or gauges != s.gauges
-            or show_list == s.checklist_hidden):
-        save_settings(replace(s, home_briefing=show, live_cards=cards, gauges=gauges, checklist_hidden=not show_list))
+            or show_list == s.checklist_hidden or hero_style != s.hero_style):
+        save_settings(replace(s, home_briefing=show, live_cards=cards, gauges=gauges, checklist_hidden=not show_list,
+                              hero_style=hero_style))
         st.rerun()
     left, right = st.columns([3, 2], gap="large")
     with left:
@@ -777,7 +793,10 @@ def home_page() -> None:
     if s.home_briefing:
         _briefing_card(s)
     live_readings()
-    airport_card(s)
+    # The least-used readings sit together at the bottom, closed until opened (0.37.51).
+    with st.expander("More readings: dew point and the nearest airport", icon=":material/add_circle:"):
+        _dew_card()
+        airport_card(s)
 
 
 def alerts_log_page() -> None:

@@ -49,9 +49,12 @@ def _clear() -> None:
     st.session_state.pop("live_history", None)
 
 
-def show_pending() -> None:
-    """Keeps the window open while the Home page refreshes, until the user closes it."""
+def show_pending(keys=None) -> None:
+    """Keeps the window open while the Home page refreshes, until the user closes it. With keys, only those readings'
+    windows open here (0.37.51), so two refreshing parts of a page never open the same window twice."""
     key = st.session_state.get("live_history")
+    if keys is not None and key not in keys:
+        return
     if key in MEASURES:
         _open(key)
 

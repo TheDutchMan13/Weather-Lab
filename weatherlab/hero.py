@@ -127,12 +127,14 @@ def hero_html(d: dict) -> tuple[str, int]:
         extra += f'<div style="font-size:12.5px;margin-top:6px;color:#c3cbd8">{_e(d["today_line"])}</div>'
     # Drawn straight into the page (0.37.39), so the styles are scoped to the panel and the two-column layout
     # follows the panel's own width (a container query), not the window's.
+    # Hero style (0.37.51): the sky gradient, or one plain colour from the same sky with no gradient, stars or glow.
+    background = g[0] if d.get("plain") else sky_bg(kind, g)
     out = (f'<style>.wl-hero-wrap{{container-type:inline-size;font-family:{FONT};margin-bottom:14px}}'
            '.wl-hero{display:grid;grid-template-columns:1fr;gap:22px;align-items:center}'
            '.wl-hero-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}'
            '@container (min-width:720px){.wl-hero{grid-template-columns:320px 1fr}}</style>'
            '<div class="wl-hero-wrap">'
-           f'<div class="wl-hero" style="border-radius:18px;padding:20px 24px;color:#fff;background:{sky_bg(kind, g)}">'
+           f'<div class="wl-hero" style="border-radius:18px;padding:20px 24px;color:#fff;background:{background}">'
            '<div>'
            '<div style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#e6f2ea;'
            'background:rgba(0,0,0,.25);padding:4px 10px;border-radius:99px;margin-bottom:8px">'

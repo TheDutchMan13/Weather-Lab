@@ -11,12 +11,13 @@ class LiveDewCard(unittest.TestCase):
         end = SRC.index("def alerts_log_page", start)
         self.assertNotIn("_dew_line", SRC[start:end])
 
-    def test_dew_card_is_in_live_readings_with_trend(self):
-        start = SRC.index("def live_readings() -> None:")
-        end = SRC.index("def _nearby_station", start)
-        body = SRC[start:end]
+    def test_dew_card_is_in_more_readings_with_trend(self):
+        start = SRC.index("def _dew_card() -> None:")
+        body = SRC[start:SRC.index("\n\n\n", start)]
         self.assertIn('_trend_card(s, "dewpointf"', body)
-        self.assertLess(body.index('_trend_card(s, "dewpointf"'), body.index("live_history.show_pending()"))
+        self.assertIn('live_history.show_pending(["dewpointf"])', body)
+        home = SRC[SRC.index("def home_page() -> None:"):SRC.index("def alerts_log_page")]
+        self.assertLess(home.index("live_readings()"), home.index("_dew_card()"))
 
     def test_version_entry(self):
         from weatherlab import config, whats_new

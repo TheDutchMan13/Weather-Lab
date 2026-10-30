@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.51",
+        "date": "October 30, 2026",
+        "items": [
+            "The dew point card and the nearest airport's reading moved into More readings at the bottom of Home, closed until you open it.",
+            "The notices strip has an All alerts link to Alert history, for alerts older than the last few hours.",
+            "Home layout can show the right-now panel in one plain colour instead of the sky gradient.",
+        ],
+    },
+    {
         "version": "0.37.50",
         "date": "October 30, 2026",
         "items": [
