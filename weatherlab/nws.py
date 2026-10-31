@@ -101,6 +101,7 @@ def forecast_daily(url: str, contact: str) -> list[dict]:
         "detail": p.get("detailedForecast", ""),
         "pop": (p.get("probabilityOfPrecipitation") or {}).get("value"),
         "start": p.get("startTime", ""),
+        "end": p.get("endTime", ""),  # a night's low belongs to the morning it ends on (0.37.54)
     } for p in periods[:14]]
 
 

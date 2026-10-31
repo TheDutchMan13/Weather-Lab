@@ -835,6 +835,60 @@ def climate_page() -> None:
     _year_over_year(dark, metric)
 
 
+def _year_months(days: list, year: int, metric: bool) -> None:
+    """The wettest, driest, warmest and coolest months (0.37.54)."""
+    ext = yearly.month_extremes(days, year)
+    if not ext:
+        return
+    st.markdown(theme.section_html("Months that stood out"), unsafe_allow_html=True)
+    tiles = []
+    for key, label, measure, decimals in (("wettest", "Wettest month", "dailyrainin", 2),
+                                          ("driest", "Driest month", "dailyrainin", 2),
+                                          ("warmest", "Warmest month", "tempf", 1),
+                                          ("coolest", "Coolest month", "tempf", 1)):
+        if key in ext:
+            month, value = ext[key]
+            note = "rain" if measure == "dailyrainin" else "average temperature"
+            tiles.append(_tile(label, calendar.month_name[month], f"{_fmt(measure, value, metric, decimals)} {note}"))
+    st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    st.caption("Only months with at least 20 days of readings count.")
+
+
+def _year_vs_last(days: list, year: int, metric: bool) -> None:
+    """This year next to the one before (0.37.54)."""
+    cmp = yearly.compare_years(days, year, hot_f=100.4 if metric else 100.0)
+    if not cmp:
+        return
+    through = cmp["through"]
+    span = f", January 1 to {through.strftime('%B %d').replace(' 0', ' ')}" if through else ""
+    st.markdown(theme.section_html(f"Compared with {year - 1}{span}"), unsafe_allow_html=True)
+
+    def change(n, kind: str = "count") -> str:
+        """How this year differs, in words: "3 more than last year", "1.20 in less", "2.0 °F hotter"."""
+        if n is None:
+            return ""
+        if not n:
+            return "same as last year"
+        if kind == "rain":
+            return f"{_fmt('dailyrainin', abs(n), metric, 2)} {'more' if n > 0 else 'less'} than last year"
+        if kind == "temp":
+            return f"{abs(n) * (5 / 9 if metric else 1):.1f} {'°C' if metric else '°F'} {'hotter' if n > 0 else 'cooler'} than last year"
+        return f"{abs(int(n))} {'more' if n > 0 else 'fewer'} than last year"
+
+    rain, rd, hot, frz = cmp["rain"], cmp["rainy_days"], cmp["hot_days"], cmp["freezing"]
+    tiles = [_tile("Rain total", _fmt("dailyrainin", rain[0], metric, 2), change(rain[2], "rain")),
+             _tile("Rainy days", str(rd[0]), change(rd[2])),
+             _tile("Days at 38°C or hotter" if metric else "Days at 100°F or hotter", str(hot[0]), change(hot[2])),
+             _tile("Days at or below freezing", str(frz[0]), change(frz[2]))]
+    if cmp["hottest"][2] is not None:
+        tiles.append(_tile("Hottest day", _fmt("tempf", cmp["hottest"][0][1], metric), change(cmp["hottest"][2], "temp")))
+    st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    now_days, before_days = cmp["days"]
+    if before_days and now_days < 0.9 * before_days or before_days < 0.9 * now_days:
+        st.caption(f"{year} has {now_days} days of readings and {year - 1} has {before_days}, so totals aren't a "
+                   "like-for-like comparison.")
+
+
 def my_year_page() -> None:
     s = load_settings()
     metric, dark = units.is_metric(s.units), theme.is_dark()
@@ -861,6 +915,8 @@ def my_year_page() -> None:
     tiles.append(_tile("Days at 38°C or hotter" if metric else "Days at 100°F or hotter", str(summary["hot_days"])))
     tiles.append(_tile("Days at or below freezing", str(summary["freezing"])))
     st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    _year_months(days, year, metric)
+    _year_vs_last(days, year, metric)
     try:
         from weatherlab import api_pages, year_image
         card = api_pages.year_card(storage.connect(), s, time.time(), year)

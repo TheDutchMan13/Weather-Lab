@@ -5,6 +5,16 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.54",
+        "date": "October 30, 2026",
+        "items": [
+            "Forecast has a report card: how close the National Weather Service came to your station's highs and lows, for the forecast made the same morning, 1 day ahead, 2 days ahead and so on, with a grade from A to F. Look back 30 days, 90 days or a year. It fills in from today, as Weather Lab saves each day's forecast.",
+            "Backup has an Off-site copy section. Pick a OneDrive, Google Drive or Dropbox folder, a USB drive, or a shared folder on another PC, and every backup is copied there and checked. If the drive is unplugged or the network folder is offline, the copies catch up once it's back, and your phone gets an alert if the off-site copy falls 3 days behind. Copy now copies anything missing straight away.",
+            "History, Year shows the wettest, driest, warmest and coolest months, and compares the year with the one before: rain, rainy days, 100° days, freezing nights and the hottest day. While the year is still going, it compares with the same dates last year.",
+            "In January, once last year's report is made, your phone gets a notice that your weather year is ready, with the rain total and the hottest day.",
+        ],
+    },
+    {
         "version": "0.37.53",
         "date": "October 30, 2026",
         "items": [

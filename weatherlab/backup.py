@@ -83,13 +83,13 @@ def due(folder: Path, now_ts: float, interval: int = INTERVAL_SECONDS) -> bool:
     return now_ts - items[-1].stat().st_mtime >= interval
 
 
-def run_if_due(database: Path, keep: int, now: datetime, copy_to: str = "") -> Path | None:
-    """Make a backup if one is due, then prune. Returns the new file, or None when not due."""
+def run_if_due(database: Path, keep: int, now: datetime) -> Path | None:
+    """Make a backup if one is due, then prune. Returns the new file, or None when not due. The off-site copy is made
+    separately by catch_up (0.37.54), so a missing drive doesn't count as a failed backup."""
     folder = folder_for(database)
     if not due(folder, now.timestamp()):
         return None
     path = make_backup(database, folder, now)
-    copy_to_folder(path, copy_to, keep)
     prune(folder, keep)
     return path
 
@@ -109,18 +109,82 @@ def restore(source: Path, database: Path, folder: Path, now: datetime) -> Path:
     return safety
 
 
-def copy_to_folder(path: Path, target: str, keep: int) -> Path | None:
-    """Copy a backup to a second folder, such as a USB drive or a synced folder. Does nothing when no folder is set."""
+def copy_folder(target: str) -> Path | None:
+    """The off-site folder for the current station: the folder set on Backup, with a subfolder for each extra station.
+    None when no folder is set."""
     if not target.strip():
         return None
     folder = Path(target.strip())
     if stations.current() != stations.MAIN:
         folder = folder / stations.current()
+    return folder
+
+
+def copy_to_folder(path: Path, target: str, keep: int) -> Path | None:
+    """Copy a backup to a second folder, such as a USB drive, a synced cloud folder or a shared folder on another PC,
+    and check the copy opens (0.37.54). Does nothing when no folder is set. Raises OSError when it can't."""
+    folder = copy_folder(target)
+    if folder is None:
+        return None
     folder.mkdir(parents=True, exist_ok=True)
     copy = folder / path.name
     shutil.copy2(path, copy)
+    ok, why = verify(copy)
+    if not ok:
+        copy.unlink(missing_ok=True)
+        raise OSError(f"The copy in {folder} didn't check out: {why}")
     prune(folder, keep)
     return copy
+
+
+def missing_copies(local: list[Path], copies: list[Path], keep: int) -> list[Path]:
+    """The local backups newer than the newest off-site copy, oldest first, at most `keep` of them. Names sort by
+    time, so this compares names."""
+    newest = copies[-1].name if copies else ""
+    return [p for p in local if p.name > newest][-max(1, keep):]
+
+
+def catch_up(local_folder: Path, target: str, keep: int) -> list[Path]:
+    """Copy every backup the off-site folder is missing (0.37.54). A drive that was unplugged or a network folder that
+    was offline catches up the next time it is there. Returns the copies made; raises OSError when it can't."""
+    folder = copy_folder(target)
+    if folder is None:
+        return []
+    if not folder.exists():
+        folder.mkdir(parents=True, exist_ok=True)
+    made = [copy_to_folder(p, target, keep) for p in missing_copies(backups(local_folder), backups(folder), keep)]
+    return [c for c in made if c is not None]
+
+
+def stamp(path: Path) -> datetime | None:
+    """When a backup was made, from its name (weatherlab-20261030-031500.db)."""
+    try:
+        return datetime.strptime(path.name[len(PREFIX):-len(SUFFIX)], "%Y%m%d-%H%M%S")
+    except ValueError:
+        return None
+
+
+def copy_status(local_folder: Path, target: str, now: datetime) -> dict:
+    """How the off-site copy is doing, for the Backup page and the health check (0.37.54).
+
+    {"set": a folder is chosen, "reachable": it can be listed, "count": copies there, "newest": when the newest copy
+    was made, "behind_days": whole days the newest copy is older than the newest backup on this PC}."""
+    folder = copy_folder(target)
+    if folder is None:
+        return {"set": False, "reachable": False, "count": 0, "newest": None, "behind_days": 0}
+    try:
+        copies = backups(folder) if folder.exists() else []
+        reachable = folder.exists()
+    except OSError:
+        copies, reachable = [], False
+    local = backups(local_folder)
+    newest_copy = stamp(copies[-1]) if copies else None
+    newest_local = stamp(local[-1]) if local else None
+    behind = 0
+    if newest_local is not None:
+        behind = (newest_local - newest_copy).days if newest_copy else max(1, (now - newest_local).days + 1)
+    return {"set": True, "reachable": reachable, "count": len(copies), "newest": newest_copy,
+            "behind_days": max(0, behind)}
 
 
 def verify(path: Path) -> tuple[bool, str]:

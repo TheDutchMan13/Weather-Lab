@@ -148,6 +148,8 @@ def backup_page() -> None:
             rows = backup.describe(folder)
         newest = f"{timefmt.stamp(rows[0]['when'], '%b %d, %Y')} ({rows[0]['size']})" if rows else "none yet"
         st.caption(f"Backup folder: {folder}. Last backup: {newest}. Keeping the newest {s.backup_keep}.")
+    with st.container(border=True):  # in view, not in Settings, so you can see the copy is current (0.37.54)
+        _offsite_section(s, folder)
     st.markdown(theme.section_html("Backups on this PC"), unsafe_allow_html=True)
     if not rows:
         empty_card("No backups yet", "Press Back up now, or wait for the daily backup.")
@@ -185,6 +187,44 @@ def backup_page() -> None:
 
 
 # ---------------------------------------------------------------- Export
+def _offsite_section(s: Settings, folder) -> str:
+    """The off-site copy (0.37.54): a folder outside this PC's own disk that gets a checked copy of every backup.
+    Returns the folder as typed."""
+    st.markdown("**Off-site copy**")
+    st.caption("A backup on the same disk won't help if the PC fails. Pick a folder somewhere else and Weather Lab "
+               "copies every backup there and checks each copy opens. Good choices: your OneDrive, Google Drive or "
+               "Dropbox folder (it syncs to the cloud), a USB drive, or a shared folder on another PC such as "
+               "`\\\\OTHER-PC\\WeatherLab`, which also works over Tailscale.")
+    copy_to = st.text_input("Off-site folder (optional)", value=s.backup_copy_folder, key="backup_copy",
+                            placeholder=r"for example C:\Users\you\OneDrive\Weather Lab backups")
+    if copy_to.strip() != s.backup_copy_folder.strip():
+        save_settings(replace(s, backup_copy_folder=copy_to.strip()))
+    if not copy_to.strip():
+        return copy_to
+    status = backup.copy_status(folder, copy_to, datetime.now())
+    error = start_poller().status.copy_error
+    newest = status["newest"]
+    when = timefmt.stamp(newest, "%b %d, %Y") if newest else "none yet"
+    if error:
+        st.warning(f"{error} It tries again every hour.", icon=":material/cloud_off:")
+    elif not status["reachable"]:
+        st.warning("Weather Lab can't reach that folder right now. Plug in the drive or check the network; the "
+                   "copies catch up by themselves once it's back.", icon=":material/cloud_off:")
+    elif status["behind_days"]:
+        days = status["behind_days"]
+        st.info(f"The off-site copy is {days} day{'' if days == 1 else 's'} behind. It catches up within the hour.",
+                icon=":material/sync:")
+    else:
+        st.success(f"Up to date: {status['count']} checked copies. Newest: {when}.", icon=":material/cloud_done:")
+    if st.button("Copy now", key="offsite_now", help="Copy any backups the folder is missing, and check them."):
+        try:
+            made = backup.catch_up(folder, copy_to, s.backup_keep)
+            st.success(f"Copied {len(made)} backup{'' if len(made) == 1 else 's'}." if made else "Nothing was missing.")
+        except (OSError, sqlite3.Error) as exc:
+            st.warning(f"Couldn't copy: {exc}")
+    return copy_to
+
+
 def _backups_section(s: Settings) -> None:
     """Daily database backups: the on/off setting, how many copies are kept, and a button to back up now."""
     folder = backup.folder_for(storage.db_path())
@@ -194,10 +234,7 @@ def _backups_section(s: Settings) -> None:
                                key="backup_keep"))
     if enabled != s.backup_enabled or keep != s.backup_keep:
         save_settings(replace(s, backup_enabled=enabled, backup_keep=keep))
-    copy_to = st.text_input("Also copy each backup to this folder (optional)", value=s.backup_copy_folder,
-                            key="backup_copy", help="For example a USB drive or a synced cloud folder.")
-    if copy_to.strip() != s.backup_copy_folder.strip():
-        save_settings(replace(s, backup_copy_folder=copy_to.strip()))
+    copy_to = s.backup_copy_folder  # set in Off-site copy, near the top of this page (0.37.54)
     error = start_poller().status.backup_error
     if error:
         st.warning(error)

@@ -84,7 +84,8 @@ class StationTests(unittest.TestCase):
     def test_copies_for_a_station_go_into_its_own_subfolder(self) -> None:
         row = stations.add_station("Lake")
         source = Path(self._tmp.name) / "weatherlab-20261021-120000.db"
-        source.write_bytes(b"copy")
+        from tests.test_backup import make_db
+        make_db(source, 3)  # copies are checked from 0.37.54, so this has to be a real database
         target = Path(self._tmp.name) / "usb"
         with stations.using(row["id"]):
             backup.copy_to_folder(source, str(target), 5)
