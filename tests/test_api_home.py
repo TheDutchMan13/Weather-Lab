@@ -12,7 +12,7 @@ class HomeLayoutApi(ApiHelpers, unittest.TestCase):
         code, body = self.get("/api/v1/home", s)
         self.assertEqual(code, 200)
         self.assertEqual(body, {"briefing": False, "cards": ["tempinf", "dailyrainin", "windgustmph"],
-                                "wide": ["dailyrainin"], "gauges": "closed"})
+                                "wide": ["dailyrainin"], "gauges": "closed", "hero": "gradient"})
 
     def test_24_hour_readings_and_stale_wide_cards_are_left_out(self):
         s = replace(self.s, live_cards=["tempf", "humidity", "windgustmph"], wide_cards=["tempf", "uv", "windgustmph"])
