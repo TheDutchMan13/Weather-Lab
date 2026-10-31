@@ -14,6 +14,7 @@ ENTRIES = [
             "Settings has a Find a setting box. Pick a setting, such as quiet hours or the password, and its tab opens.",
             "Settings warns you when Station has unsaved changes, before you switch to App and alerts and lose them.",
             "Notices on Home say how long ago each alert went off, such as 12 min ago.",
+            "The Android app can follow the plain right-now panel you pick in Home layout.",
         ],
     },
     {

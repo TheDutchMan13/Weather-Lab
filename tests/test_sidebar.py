@@ -39,3 +39,11 @@ class GroupTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HomeApiTests(unittest.TestCase):
+    def test_home_layout_says_the_hero_style(self):
+        from weatherlab import api
+        from weatherlab.settings import Settings
+        self.assertEqual(api.home_layout(Settings())["hero"], "gradient")
+        self.assertEqual(api.home_layout(Settings(hero_style="plain"))["hero"], "plain")
