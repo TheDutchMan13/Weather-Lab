@@ -67,3 +67,14 @@ def gauges_open(setting: str, user_agent: str = "") -> bool:
 def notice_label(count: int) -> str:
     """The title of the notices strip on Home: "1 notice", "3 notices"."""
     return f"{count} notice" + ("" if count == 1 else "s")
+
+
+def ago(seconds: float) -> str:
+    """How long ago a notice started, for the notices strip (0.37.53): "just now", "12 min ago", "2 h 5 min ago"."""
+    minutes = max(0, int(seconds // 60))
+    if minutes < 1:
+        return "just now"
+    if minutes < 60:
+        return f"{minutes} min ago"
+    h, m = divmod(minutes, 60)
+    return f"{h} h ago" if m == 0 else f"{h} h {m} min ago"

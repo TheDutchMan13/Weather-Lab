@@ -61,6 +61,8 @@ class Settings:
     gauges: str = "auto"  # the Gauges group on Home: "auto" (open on a computer, closed on a phone), "open" or "closed"
     checklist_hidden: bool = False  # hide the Getting started list on Home (0.37.49)
     hero_style: str = "gradient"  # the right-now panel: "gradient" (the sky) or "plain" (one colour) (0.37.51)
+    pinned_pages: list[str] = field(default_factory=list)  # pages pinned to the top of the sidebar (0.37.53)
+    closed_groups: list[str] = field(default_factory=list)  # sidebar groups folded shut (0.37.53)
     briefing_notice: bool = False  # send today's briefing as a notification each morning
     briefing_hour: int = 7  # local hour the briefing is sent
     weekly_digest: bool = False  # a short summary of the last 7 days, sent on Mondays with the morning summary

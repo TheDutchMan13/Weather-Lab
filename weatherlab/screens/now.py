@@ -66,7 +66,8 @@ def _notices(s: Settings, poller, status) -> None:
         items.append(("error", "The background reader has stopped. Restart the app."))
     elif status.last_error:
         items.append(("warning", status.last_error))
-    items += [("warning", f"{_clock(t)}  {m}") for t, m in status.recent_alerts if now - t < 6 * 3600][:3]
+    items += [("warning", f"{m}  ·  {_clock(t)}, {card_order.ago(now - t)}")
+              for t, m in status.recent_alerts if now - t < 6 * 3600][:3]
     active = (_live_alerts(s.latitude, s.longitude, s.nws_contact)
               if s.latitude is not None and s.longitude is not None else [])
     count = len(items) + len(active)

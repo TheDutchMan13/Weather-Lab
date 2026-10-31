@@ -4,7 +4,7 @@ import streamlit as st
 import time
 from dataclasses import replace
 from datetime import datetime
-from weatherlab import alert_rules, api, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground, timefmt
+from weatherlab import alert_rules, api, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, settings_index, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground, timefmt
 from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
@@ -246,15 +246,36 @@ def settings_page() -> None:
         del st.query_params["tab"]
     if st.session_state.get("settings_area") not in AREAS:
         st.session_state["settings_area"] = "Station"
+    _find_setting()
     picked = st.segmented_control(
         "Settings for", AREAS, key="settings_area", label_visibility="collapsed",
         format_func=lambda a: {"Station": ":material/sensors: Station and services",
                                "App": ":material/tune: App and alerts"}[a])
+    unsaved = st.empty()
     st.divider()
     if picked == "App":
+        st.session_state["station_waiting"] = 0
         _app_settings(s, tab)
     else:
         _station_settings(s, tab)
+        waiting = st.session_state.get("station_waiting", 0)
+        if waiting:  # switching to App drops unsaved Station changes, so say so up here (0.37.53)
+            unsaved.warning(f"{waiting} unsaved change{'' if waiting == 1 else 's'}. Press Save at the bottom "
+                            "before you switch to App and alerts, or they are lost.", icon=":material/edit:")
+
+
+def _find_setting() -> None:
+    """A box at the top of Settings (0.37.53): type what you're looking for, pick it, and its tab opens."""
+    def go() -> None:
+        pick = st.session_state.get("find_setting")
+        st.session_state["find_setting"] = None
+        tab = settings_index.tab_of(pick)
+        if tab:
+            st.query_params["tab"] = tab.lower()
+    names = [name for name, _ in settings_index.ENTRIES]
+    st.selectbox("Find a setting", names, index=None, key="find_setting", on_change=go,
+                 placeholder="Find a setting, such as quiet hours or password", label_visibility="collapsed",
+                 format_func=lambda n: f"{n}  ·  {settings_index.tab_of(n)}")
 
 
 def _app_settings(s: Settings, default_tab: str | None = None) -> None:
@@ -444,6 +465,7 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
         s.mqtt_discovery != mqtt_discovery, s.allow_network != allow_network,
     ]
     waiting = sum(changes) + sum(1 for k in typed_keys if k.strip()) + sum(1 for r in removed_keys if r)
+    st.session_state["station_waiting"] = waiting  # shown under the Station / App switch (0.37.53)
     with st.container(key="setup_save"):
         if waiting:
             st.caption(f"{waiting} unsaved change{'' if waiting == 1 else 's'}")

@@ -5,6 +5,18 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.53",
+        "date": "October 30, 2026",
+        "items": [
+            "The sidebar has a Jump to page box at the top. Type part of a page's name to go straight there.",
+            "Pin the pages you use most: Pin at the bottom of the sidebar puts the open page in a Pinned list at the top, up to 8 pages. Unpin takes it off.",
+            "Now, History, Weather, Storms and Station fold shut when you click their name, and stay that way until you open them again. The group of the page you're on always stays open.",
+            "Settings has a Find a setting box. Pick a setting, such as quiet hours or the password, and its tab opens.",
+            "Settings warns you when Station has unsaved changes, before you switch to App and alerts and lose them.",
+            "Notices on Home say how long ago each alert went off, such as 12 min ago.",
+        ],
+    },
+    {
         "version": "0.37.52",
         "date": "October 30, 2026",
         "items": [
