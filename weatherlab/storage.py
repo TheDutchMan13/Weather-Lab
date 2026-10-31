@@ -31,6 +31,10 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     db.execute("CREATE TABLE IF NOT EXISTS lightning_events (ts INTEGER PRIMARY KEY, distance REAL)")
     db.execute("CREATE TABLE IF NOT EXISTS fire (ts INTEGER PRIMARY KEY, data TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS forecast_log (date TEXT PRIMARY KEY, data TEXT NOT NULL)")
+    # The forecast report card (0.37.54): the first forecast saved each day, for every day it covers, so a forecast
+    # made 3 days ahead can be graded separately from one made the same morning.
+    db.execute("CREATE TABLE IF NOT EXISTS forecast_ahead (made TEXT NOT NULL, date TEXT NOT NULL, high REAL, low REAL, "
+               "pop REAL, PRIMARY KEY (made, date))")
     db.execute("CREATE TABLE IF NOT EXISTS alert_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, text TEXT NOT NULL)")
     return db
 
@@ -142,6 +146,21 @@ def store_forecasts(db: sqlite3.Connection, values: dict) -> None:
     with db:
         for day, value in values.items():
             db.execute("INSERT OR REPLACE INTO forecast_log (date, data) VALUES (?, ?)", (day, json.dumps(value)))
+
+
+def store_forecast_ahead(db: sqlite3.Connection, made: str, values: dict) -> None:
+    """Keep the first forecast saved on `made` (a local date) for each day it covers. Later forecasts that day are
+    ignored, so each day is graded on the forecast as it stood early that day."""
+    with db:
+        for day, v in values.items():
+            db.execute("INSERT OR IGNORE INTO forecast_ahead (made, date, high, low, pop) VALUES (?, ?, ?, ?, ?)",
+                       (made, day, v.get("high"), v.get("low"), v.get("pop")))
+
+
+def forecast_ahead(db: sqlite3.Connection, since: str) -> list[tuple[str, str, float | None, float | None, float | None]]:
+    """(made, date, high, low, pop) for forecast days on or after `since`, oldest first."""
+    return db.execute("SELECT made, date, high, low, pop FROM forecast_ahead WHERE date >= ? ORDER BY date, made",
+                      (since,)).fetchall()
 
 
 def forecast_highs(db: sqlite3.Connection) -> dict:

@@ -4,7 +4,7 @@ import html
 import streamlit as st
 import time
 from datetime import datetime, timedelta, timezone
-from weatherlab import astro, charts, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
+from weatherlab import astro, charts, forecast_card, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
 from weatherlab.settings import Settings, load_settings
 from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller
 
@@ -17,6 +17,46 @@ def _alerts(lat: float, lon: float, contact: str) -> list[dict]:
 @st.cache_data(ttl=1800, show_spinner=False)
 def _daily(url: str, contact: str) -> list[dict]:
     return nws.forecast_daily(url, contact)
+
+
+def _report_card(db, s: Settings) -> None:
+    """The forecast report card (0.37.54): highs and lows, graded by how many days ahead the forecast was made."""
+    metric = units.is_metric(s.units)
+    scale, unit, margin_f = (5 / 9, "°C", 3.6) if metric else (1, "°F", 3.0)
+    margin = "2 °C" if metric else "3 °F"
+    st.markdown(theme.section_html("Forecast report card"), unsafe_allow_html=True)
+    span = st.segmented_control("Look back", ["30 days", "90 days", "1 year"], default="30 days",
+                                key="card_span", label_visibility="collapsed") or "30 days"
+    days_back = {"30 days": 30, "90 days": 90, "1 year": 365}[span]
+    today = datetime.now(_tz(s)).date()
+    since = (today - timedelta(days=days_back)).isoformat()
+    actuals = {d: (summary.get("tempf_max"), summary.get("tempf_min")) for d, summary in history.all_daily(db)}
+    found = forecast_card.pairs(storage.forecast_ahead(db, since), actuals, today)
+    rows = forecast_card.grade_rows(found, within_f=margin_f)
+    grade = forecast_card.letter(rows)
+    if not rows or grade is None:
+        st.caption("The report card fills in as Weather Lab saves the forecast each day. The first grades appear "
+                   "after the first full day; the 3 days ahead row needs three days.")
+        return
+    mark, pct, n = grade
+    best = min((r for r in rows if r["high"]), key=lambda r: r["lead"], default=None)
+    far = max((r for r in rows if r["high"]), key=lambda r: r["lead"], default=None)
+    tiles = [_tile("Grade", mark, f"{pct}% within {margin}, next-day forecast")]
+    if best and far and far["lead"] > best["lead"]:
+        tiles.append(_tile(f"Highs {forecast_card.lead_name(best['lead']).lower()}", f"{best['high']['miss'] * scale:.1f} {unit}", "average miss"))
+        tiles.append(_tile(f"Highs {forecast_card.lead_name(far['lead']).lower()}", f"{far['high']['miss'] * scale:.1f} {unit}", "average miss"))
+    st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+
+    def cell(x: dict | None) -> str:
+        if not x:
+            return "--"
+        sign = "+" if x["bias"] > 0 else ""
+        return f"{x['miss'] * scale:.1f} {unit} off · {x['within']}% within {margin} · {sign}{x['bias'] * scale:.1f} bias"
+    theme.table([{"Made": forecast_card.lead_name(r["lead"]), "Highs": cell(r["high"]), "Lows": cell(r["low"]),
+                  "Days": str(max((r["high"] or {}).get("days", 0), (r["low"] or {}).get("days", 0)))} for r in rows])
+    st.caption(f"Each day's forecast is the first one Weather Lab saved that day, compared with your station's high "
+               f"and low. Bias above zero means the forecast ran warm. The grade is the share of next-day highs and "
+               f"lows within {margin}: A is 80% or more, B 65%, C 50%, D 35%.")
 
 
 def _forecast_accuracy(db, s: Settings) -> None:
@@ -106,6 +146,7 @@ def forecast_page() -> None:
     views += forecast_view.days_html(periods, tz, metric, now.date())
     if views:
         st.markdown(forecast_view.STYLE + views, unsafe_allow_html=True)
+    _report_card(storage.connect(), s)
     _forecast_accuracy(storage.connect(), s)
     _rain_accuracy(storage.connect(), s)
 

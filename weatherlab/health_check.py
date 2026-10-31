@@ -94,8 +94,16 @@ def _storage(f: dict, now: float) -> list[Row]:
         else:
             add("Backups", "ok", f"Last backup {age_text(now - newest)}.")
     if f.get("copy_folder") is not None:
-        if f.get("copy_folder_ok"):
-            add("Second backup folder", "ok", "Writable.")
+        behind = f.get("copy_behind_days") or 0
+        if behind >= COPY_BEHIND_DAYS:
+            # Three days without an off-site copy is worth a phone alert (0.37.54).
+            add("Second backup folder", "fail",
+                f"The off-site copy is {behind} days behind. Check the drive is plugged in or the network folder is "
+                "reachable; it catches up by itself once it's back.")
+        elif f.get("copy_error"):
+            add("Second backup folder", "warn", f"{f['copy_error']} It tries again every hour.")
+        elif f.get("copy_folder_ok"):
+            add("Second backup folder", "ok", "Writable." if not behind else f"{behind} day behind; it catches up hourly.")
         else:
             add("Second backup folder", "warn", "Can't write to the second backup folder. Check the drive is connected.")
 
@@ -175,7 +183,8 @@ GROUPS = [("Station", ["Background collector", "Station readings", "Station conn
           ("This app", ["Phone and device access", "Updates", "Recent errors"])]
 
 
-ALERT_CHECKS = ("Disk space", "Backups")  # problems worth a phone alert, because nothing else will tell you
+COPY_BEHIND_DAYS = 3  # an off-site copy this many days behind sends a phone alert (0.37.54)
+ALERT_CHECKS = ("Disk space", "Backups", "Second backup folder")  # problems worth a phone alert, because nothing else will tell you
 
 
 def alert_messages(checks: list[dict], alerted: set) -> tuple[list[str], set]:

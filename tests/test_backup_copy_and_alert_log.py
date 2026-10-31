@@ -12,9 +12,10 @@ class BackupCopyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "weatherlab-20261001-030000.db"
-            source.write_bytes(b"data")
+            from tests.test_backup import make_db
+            make_db(source, 3)  # copies are checked from 0.37.54, so this has to be a real database
             copy = backup.copy_to_folder(source, str(root / "usb"), 5)
-            self.assertEqual(copy.read_bytes(), b"data")
+            self.assertEqual(copy.read_bytes(), source.read_bytes())
             self.assertIsNone(backup.copy_to_folder(source, "   ", 5))
 
 

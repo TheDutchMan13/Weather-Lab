@@ -783,6 +783,8 @@ def health_check_page() -> None:
         "backup_error": poller.status.backup_error,
         "copy_folder": copy or None,
         "copy_folder_ok": bool(copy) and Path(copy).is_dir() and os.access(copy, os.W_OK),
+        "copy_behind_days": backup.copy_status(backup.folder_for(db_file), copy, datetime.now())["behind_days"] if copy else 0,
+        "copy_error": poller.status.copy_error,
         "settings_writable": (not settings_dir.exists()) or os.access(settings_dir, os.W_OK),
         "notifications_ok": notifications_ok,
         "forecast_error": poller.status.forecast_error,

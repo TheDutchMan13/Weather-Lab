@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from weatherlab import alert_rules, airquality, backup, briefing, cwop, mqtt_publish, pwsweather, uploads, weathercloud, wunderground, daily, digest, errlog, fire, health_check, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
+from weatherlab import alert_rules, airquality, backup, briefing, cwop, mqtt_publish, pwsweather, uploads, weathercloud, wunderground, daily, digest, errlog, fire, health_check, forecast_card, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
 from weatherlab.config import APP_VERSION
 from weatherlab.settings import load_settings
 
@@ -64,6 +64,7 @@ class PollStatus:
     mqtt_error: str = ""
     mqtt_last: float | None = None
     backup_error: str = ""
+    copy_error: str = ""  # the off-site backup copy (0.37.54)
     sensor_error: str = ""
     forecast_error: str = ""
     nws_error: str = ""
@@ -290,9 +291,26 @@ class Poller(threading.Thread):
                     data = report.yearly_pdf(year, rows, metric) if rows else None
                 if data is not None:
                     (folder / name).write_bytes(data)
+            # In January, tell the phone last year's review is ready (0.37.54). A marker file means it's sent once;
+            # during quiet hours it waits for the next check instead of being lost.
+            last_year = today.year - 1
+            marker = folder / f".year_{last_year}_told"
+            if today.month == 1 and (folder / auto_reports.yearly_name(last_year)).exists() and not marker.exists():
+                if self._year_ready(db, s, last_year):
+                    marker.write_text("sent", encoding="utf-8")
             self.status.report_error = ""
         except (OSError, sqlite3.Error, ValueError) as exc:
             self.status.report_error = f"Automatic report failed: {exc}"
+
+    def _year_ready(self, db, s, year: int) -> bool:
+        """Tell the phone last year's review is ready, once, when its January report is made (0.37.54)."""
+        from weatherlab import yearly
+        metric = units.is_metric(s.units)
+        summary = yearly.year_summary(history.all_daily(db), year, hot_f=100.4 if metric else 100.0)
+        hot = summary["hottest"][1] if summary and summary.get("hottest") else None
+        text = yearly.year_announcement(summary, year, units.format_value("dailyrainin", summary["rain"], metric, 2)
+                                        if summary else "", units.format_value("tempf", hot, metric, 0) if hot is not None else None)
+        return bool(text) and self._announce(text)
 
     def _archive(self, db, s) -> None:
         """Move raw readings older than the chosen number of days into the archive table. Nothing is deleted."""
@@ -308,10 +326,20 @@ class Poller(threading.Thread):
         """Copy the database once a day and keep the newest few copies."""
         self._last_backup = time.time()
         try:
-            backup.run_if_due(storage.db_path(), s.backup_keep, datetime.now(), s.backup_copy_folder)
+            backup.run_if_due(storage.db_path(), s.backup_keep, datetime.now())
             self.status.backup_error = ""
         except (OSError, sqlite3.Error) as exc:
             self.status.backup_error = f"Database backup failed: {exc}"
+        # The off-site copy (0.37.54): every hourly check copies whatever the folder is missing, so a drive that was
+        # unplugged or a network folder that was offline catches up when it's back.
+        if s.backup_copy_folder.strip():
+            try:
+                backup.catch_up(backup.folder_for(storage.db_path()), s.backup_copy_folder, s.backup_keep)
+                self.status.copy_error = ""
+            except (OSError, sqlite3.Error) as exc:
+                self.status.copy_error = f"Couldn't copy to the off-site folder: {exc}"
+        else:
+            self.status.copy_error = ""
 
     def _sensors(self, s) -> None:
         """Warn about low sensor batteries and weak signal. Each warning is sent once a day."""
@@ -353,6 +381,9 @@ class Poller(threading.Thread):
             periods = nws.forecast_daily(pts["forecast"], s.nws_contact)
             storage.store_forecasts(db, forecast_check.combine(forecast_check.highs_from_periods(periods, _zone(s)),
                                                               forecast_check.pops_from_periods(periods, _zone(s))))
+            # The report card keeps the first forecast of each day, by how many days ahead it was made (0.37.54).
+            storage.store_forecast_ahead(db, datetime.now(_zone(s)).date().isoformat(),
+                                         forecast_card.snapshot(periods, _zone(s)))
             if s.frost_alerts:
                 self._frost(periods, s)
             self.status.forecast_error = ""
@@ -399,6 +430,13 @@ class Poller(threading.Thread):
             return
         facts = {"poller_alive": True, "disk_free_bytes": free, "backup_enabled": s.backup_enabled,
                  "backup_error": self.status.backup_error}
+        if s.backup_enabled and s.backup_copy_folder.strip():
+            try:
+                cs = backup.copy_status(backup.folder_for(storage.db_path()), s.backup_copy_folder, datetime.now())
+                facts.update(copy_folder=s.backup_copy_folder.strip(), copy_folder_ok=cs["reachable"],
+                             copy_behind_days=cs["behind_days"], copy_error=self.status.copy_error)
+            except OSError:
+                pass
         messages, self._health_failing = health_check.alert_messages(
             health_check.evaluate(facts, self._last_health), self._health_failing)
         for text in messages:
@@ -473,8 +511,7 @@ class Poller(threading.Thread):
         except Exception as exc:  # no forecast or a bad reply must not stop the collector
             errlog.log("morning briefing", exc)
             return
-        if text:
-            self._announce(text)
+        return bool(text) and self._announce(text)
 
     def _weekly(self, db, s) -> None:
         """On Mondays, after the morning summary hour, send a short summary of the last seven days. Once a week."""
