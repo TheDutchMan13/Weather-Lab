@@ -4,10 +4,11 @@ import html
 import os
 import streamlit as st
 import time
-from weatherlab import auth, health, stations, storage, theme
+from dataclasses import replace
+from weatherlab import auth, health, sidebar, stations, storage, theme
 from weatherlab.config import APP_NAME, APP_VERSION
 from weatherlab.nav_groups import DEFAULT_PAGE, GROUPS
-from weatherlab.settings import load_settings
+from weatherlab.settings import load_settings, save_settings
 from weatherlab import api
 from weatherlab.screens.common import start_poller
 from weatherlab.screens.data import _import_page, backup_page, export_page, reports_page
@@ -65,6 +66,16 @@ PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
 
 SIDEBAR_CSS = """<style>
 [data-testid="stSidebarNavLink"] { gap: .6rem; }
+[data-testid="stSidebar"] [data-testid="stPageLink"] a { gap: .6rem; padding: .15rem .5rem; }
+[data-testid="stSidebar"] [data-testid="stExpander"] details { border: none; }
+[data-testid="stSidebar"] [data-testid="stExpander"] summary { padding: .3rem .5rem; font-size: 12px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
+[data-testid="stSidebar"] [data-testid="stExpanderDetails"] { padding: 0 0 .4rem 0; border: none; }
+[data-testid="stSidebar"] [data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"] { gap: .1rem; }
+[data-testid="stSidebar"] [data-testid="stExpander"] hr { display: none; }
+[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] { gap: .25rem; }
+.wl-nav-head { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .75;
+  padding: .5rem .5rem .2rem; margin-bottom: .35rem; line-height: 1.4; }
 .st-key-setup_save { position: sticky; bottom: 0; z-index: 5; padding: .75rem 0; background: rgba(128, 128, 128, .12);
   backdrop-filter: blur(8px); border-top: 1px solid rgba(128, 128, 128, .3); }
 </style>"""
@@ -97,14 +108,58 @@ def _sections() -> dict:
 
 
 def _jump_box(all_pages: dict) -> None:
-    """Type part of a page name to go straight to it."""
+    """Type part of a page name to go straight to it. At the top of the sidebar from 0.37.53."""
     def go() -> None:
         choice = st.session_state.get("jump_to_page")
         st.session_state["jump_to_page"] = None
         if choice in all_pages:
             st.switch_page(all_pages[choice])
-    st.sidebar.selectbox("Jump to page", sorted(all_pages), index=None, placeholder="Type to search pages",
-                         key="jump_to_page", on_change=go)
+    st.sidebar.selectbox("Jump to page", sorted(all_pages), index=None, placeholder="Jump to page…",
+                         key="jump_to_page", on_change=go, label_visibility="collapsed")
+
+
+def _save_sidebar(**changes) -> None:
+    """Pins and folded groups live in the main station's settings, so they stay put when you switch station."""
+    with stations.using(stations.MAIN):
+        save_settings(replace(load_settings(), **changes))
+
+
+def _toggle_pin(page: str) -> None:
+    with stations.using(stations.MAIN):
+        pins = load_settings().pinned_pages
+    _save_sidebar(pinned_pages=sidebar.toggle_pin(pins, page))
+
+
+def _group_changed(group: str) -> None:
+    with stations.using(stations.MAIN):
+        closed = load_settings().closed_groups
+    _save_sidebar(closed_groups=sidebar.set_open(closed, group, bool(st.session_state.get(f"nav_group_{group}"))))
+
+
+def _sidebar_menu(sections: dict, pages: dict, current: str) -> None:
+    """The menu (0.37.53): Jump to page, then pinned pages, then the five groups, each of which folds shut.
+
+    Streamlit's own menu is hidden (position="hidden"), so this one can have the box at the top and folding groups."""
+    with stations.using(stations.MAIN):
+        cfg = load_settings()
+    _jump_box(pages)
+    pins = sidebar.clean_pins(cfg.pinned_pages)
+    sb = st.sidebar
+    if pins:
+        sb.markdown('<div class="wl-nav-head">Pinned</div>', unsafe_allow_html=True)
+        for name in pins:
+            sb.page_link(pages[name])
+    for group, group_pages in sections.items():
+        key = f"nav_group_{group}"
+        with sb.expander(group, expanded=sidebar.is_open(group, cfg.closed_groups, current), key=key,
+                         on_change=_group_changed, args=(group,)):
+            for page in group_pages:
+                st.page_link(page)
+    pinned = current in pins
+    sb.button(("Unpin " if pinned else "Pin ") + current, icon=":material/keep_off:" if pinned else ":material/keep:",
+              type="tertiary", key="pin_toggle", on_click=_toggle_pin, args=(current,),
+              disabled=not pinned and len(pins) >= sidebar.MAX_PINS,
+              help=None if pinned or len(pins) < sidebar.MAX_PINS else f"Up to {sidebar.MAX_PINS} pages can be pinned.")
 
 
 def _sidebar_status() -> None:
@@ -183,10 +238,10 @@ def main() -> None:
         return
     sections = _sections()
     _station_picker()
-    nav = st.navigation(sections, position="sidebar", expanded=True)  # five areas, all pages in view
+    nav = st.navigation(sections, position="hidden")  # the sidebar menu is drawn by _sidebar_menu (0.37.53)
     pages = {page.title: page for group in sections.values() for page in group}
     st.session_state["wl_pages"] = pages  # lets a page link to another, such as Customize on Home
-    _jump_box(pages)
+    _sidebar_menu(sections, pages, nav.title)
     _sidebar_status()
     nav.run()
     st.caption(f"{APP_NAME} version {APP_VERSION}")

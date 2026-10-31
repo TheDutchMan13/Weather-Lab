@@ -261,7 +261,7 @@ def home_layout(s) -> dict:
     cards; the phone keeps its other tiles after the listed ones, in its own order."""
     cards = [k for k in s.live_cards if k not in IN_24H_ROW]
     return {"briefing": bool(s.home_briefing), "cards": cards, "wide": [k for k in s.wide_cards if k in cards],
-            "gauges": s.gauges}
+            "gauges": s.gauges, "hero": s.hero_style}  # hero: "gradient" or "plain" (0.37.53)
 
 
 def measure_history(db, s, now: float, key: str, days: int) -> dict:
