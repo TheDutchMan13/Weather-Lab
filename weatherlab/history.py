@@ -57,7 +57,7 @@ def rain_totals(db, today: date, live_today_in: float | None) -> dict[str, float
     days = all_daily(db)
 
     def total(start: date) -> float:
-        return round(sum(d.get("rain_in", 0.0) for day, d in days if start <= day < today), 2)
+        return round(sum((d.get("rain_in") or 0.0) for day, d in days if start <= day < today), 2)
 
     now = live_today_in or 0.0
     return {

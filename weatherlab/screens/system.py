@@ -8,7 +8,7 @@ from weatherlab import alert_rules, api, auth, autostart, backup, discover, errl
 from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
-from weatherlab.screens.common import _clock, _tile, clear_key_button, confirm_button, empty_card, start_poller
+from weatherlab.screens.common import _clock, pc_only, _tile, clear_key_button, confirm_button, empty_card, start_poller
 
 
 # ---------------------------------------------------------------- Setup
@@ -17,10 +17,14 @@ def _api_section(s: Settings, allow_network: bool) -> None:
     st.markdown(theme.section_html("Android app"), unsafe_allow_html=True)
     st.caption("A read-only connection for the Weather Lab Android app. It needs phones and devices to be allowed "
                "above, and a token from this page.")
+    if not pc_only("The Android app connection"):
+        st.caption(api.status_text())
+        return
     on = st.checkbox("Let the Android app read Weather Lab", value=s.api_enabled, key="api_on")
     if on != s.api_enabled:
-        save_settings(replace(s, api_enabled=on))
-    api.ensure(on and allow_network, s.api_port)
+        with stations.using(stations.MAIN):  # s is the main station's settings (0.37.55)
+            save_settings(replace(load_settings(), api_enabled=on))
+    api.ensure(on and allow_network, s.api_port, s.tailscale_only)
     st.caption(api.status_text())
     if on and allow_network:
         st.caption(f"Address on your network: http://{network.lan_address()}:{s.api_port}/api/v1/status")
@@ -45,9 +49,12 @@ def _password_section() -> None:
     st.markdown(theme.section_html("Password for other devices"), unsafe_allow_html=True)
     st.caption("A password is set." if auth.password_set()
                else "No password yet. Other devices can't open Weather Lab until you set one.")
+    if not pc_only("The password"):
+        return
     new = st.text_input(f"New password (at least {auth.MIN_LENGTH} characters)", type="password", key="new-password")
     again = st.text_input("Type it again", type="password", key="new-password-again")
     if st.button("Save password"):
+        st.caption("Devices already signed in are signed out when the password changes.")
         if len(new) < auth.MIN_LENGTH:
             st.error(f"Use at least {auth.MIN_LENGTH} characters.")
         elif new != again:
@@ -183,9 +190,12 @@ def _updates_section(s: Settings) -> None:
     """Looks for a newer version at the address the user gives, and can download and run its installer."""
     st.markdown(theme.section_html("Updates"), unsafe_allow_html=True)
     st.caption(f"You have Weather Lab {APP_VERSION}.")
+    if not pc_only("Updates"):
+        return
     url = st.text_input("Update address (optional)", value=s.update_url, key="up_url",
                         help="Where Weather Lab looks for the newest version: the latest.json file that "
-                             "build_installer.py writes, kept beside the installer. Leave blank to skip updates.")
+                             "build_installer.py writes, kept beside the installer. It must start with https://. "
+                             "Leave blank to skip updates.")
     if url.strip() != s.update_url.strip():
         save_settings(replace(s, update_url=url.strip()))
     if st.button("Check for updates", disabled=not url.strip()):
@@ -414,6 +424,9 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
                                        "Off by default.")
             mqtt_host = st.text_input("Broker address", value=s.mqtt_host, placeholder="for example 192.168.1.20")
             mqtt_port = st.number_input("Broker port", min_value=1, max_value=65535, value=int(s.mqtt_port), step=1)
+            mqtt_tls = st.checkbox("Use a secure connection (TLS)", value=s.mqtt_tls,
+                                   help="Encrypts the connection, so the password isn't sent in plain text. The broker "
+                                        "must have TLS turned on, usually on port 8883.")
             mqtt_user = st.text_input("Broker username", value=s.mqtt_user)
             mqtt_pass_saved = bool(secrets.get_key(mqtt_publish.KEY_NAME))
             mqtt_pass = st.text_input("Broker password", type="password",
@@ -429,12 +442,22 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
 
     with network_tab:
         st.markdown(theme.section_html("Phones and devices"), unsafe_allow_html=True)
+        # Access belongs to the whole app, not one station, so it is read from and saved to the main station's
+        # settings (0.37.55); the sign-in gate and the Android API read them from there.
+        with stations.using(stations.MAIN):
+            main = load_settings()
+        here = pc_only("Network access")
         allow_network = st.checkbox(
-            "Let phones and devices on my network open Weather Lab", value=s.allow_network,
+            "Let phones and devices on my network open Weather Lab", value=main.allow_network, disabled=not here,
             help="Opens the app to other devices on your Wi-Fi or network. Restart Weather Lab after changing this.")
+        tailscale_only = st.checkbox(
+            "Only allow devices on Tailscale", value=main.tailscale_only, disabled=not (here and allow_network),
+            help="Your home Wi-Fi doesn't encrypt Weather Lab's traffic, so another device on it could read the "
+                 "password or the Android token. Tailscale encrypts everything. With this on, only this PC and "
+                 "devices signed in to Tailscale can open Weather Lab or use the Android app.")
         away = _tailscale_address() if allow_network else None
         st.markdown(theme.section_html("Who can reach Weather Lab"), unsafe_allow_html=True)
-        for line in auth.reach_lines(allow_network, auth.password_set(), away, s.api_enabled and allow_network):
+        for line in auth.reach_lines(allow_network, auth.password_set(), away, main.api_enabled and allow_network):
             st.caption(line)
         if allow_network:
             st.caption("Other devices must sign in with a password. Set one below.")
@@ -449,7 +472,7 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
                 st.caption("Away from home: install Tailscale on this PC and your phone. The address appears here "
                            "once Tailscale is running.")
             _password_section()
-        _api_section(s, allow_network)
+        _api_section(main, allow_network)
 
     typed_keys = [airnow_key, wu_key, pws_key, wc_key, mqtt_pass]
     removed_keys = [remove_key, remove_wu_key, remove_pws_key, remove_wc_key, remove_mqtt_pass]
@@ -462,7 +485,8 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
         s.weathercloud_enabled != wc_on, s.weathercloud_id != wc_id.strip(),
         s.mqtt_enabled != mqtt_on, s.mqtt_host != mqtt_host.strip(), s.mqtt_port != int(mqtt_port),
         s.mqtt_user != mqtt_user.strip(), s.mqtt_prefix != mqtt_prefix.strip().strip("/"),
-        s.mqtt_discovery != mqtt_discovery, s.allow_network != allow_network,
+        s.mqtt_discovery != mqtt_discovery, main.allow_network != allow_network, main.tailscale_only != tailscale_only,
+        s.mqtt_tls != mqtt_tls,
     ]
     waiting = sum(changes) + sum(1 for k in typed_keys if k.strip()) + sum(1 for r in removed_keys if r)
     st.session_state["station_waiting"] = waiting  # shown under the Station / App switch (0.37.53)
@@ -535,7 +559,10 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
                                weathercloud_id=wc_id.strip(), mqtt_enabled=mqtt_on,
                                mqtt_host=mqtt_host.strip(), mqtt_port=int(mqtt_port),
                                mqtt_user=mqtt_user.strip(), mqtt_prefix=mqtt_prefix.strip().strip("/"),
-                               mqtt_discovery=mqtt_discovery, allow_network=allow_network))
+                               mqtt_discovery=mqtt_discovery, mqtt_tls=mqtt_tls))
+        if main.allow_network != allow_network or main.tailscale_only != tailscale_only:
+            with stations.using(stations.MAIN):
+                save_settings(replace(load_settings(), allow_network=allow_network, tailscale_only=tailscale_only))
         st.success(f"Saved to {settings_path()}")
 
 
@@ -785,6 +812,7 @@ def health_check_page() -> None:
         "copy_folder_ok": bool(copy) and Path(copy).is_dir() and os.access(copy, os.W_OK),
         "copy_behind_days": backup.copy_status(backup.folder_for(db_file), copy, datetime.now())["behind_days"] if copy else 0,
         "copy_error": poller.status.copy_error,
+        "job_errors": dict(poller.status.job_errors),
         "settings_writable": (not settings_dir.exists()) or os.access(settings_dir, os.W_OK),
         "notifications_ok": notifications_ok,
         "forecast_error": poller.status.forecast_error,

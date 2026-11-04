@@ -98,7 +98,7 @@ class MorningNotificationTests(unittest.TestCase):
         self.assertFalse(s.briefing_notice)
         self.assertEqual(s.briefing_hour, 7)
         root = Path(__file__).resolve().parent.parent
-        self.assertIn("self._briefing(db, s)", (root / "weatherlab" / "poller.py").read_text(encoding="utf-8"))
+        self.assertIn("self._briefing, db, s)", (root / "weatherlab" / "poller.py").read_text(encoding="utf-8"))
         self.assertIn("briefing_notice=brief_on", (root / "weatherlab" / "screens" / "system.py").read_text(encoding="utf-8"))
 
 

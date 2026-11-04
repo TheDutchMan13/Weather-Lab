@@ -33,7 +33,7 @@ class ApiTests(unittest.TestCase):
         patcher = mock.patch.object(api, "keystore", self.keys)
         patcher.start()
         self.addCleanup(patcher.stop)
-        api._failures, api._locked_until = 0, 0.0
+        api._fails.clear()
         self.tmp = Path(tempfile.mkdtemp())
         self.db = storage.connect(self.tmp / "t.db")
         self.addCleanup(self.db.close)
@@ -93,7 +93,21 @@ class ApiTests(unittest.TestCase):
         for _ in range(api.MAX_FAILURES - 1):
             api.route("/api/v1/status", "Bearer nope", self.db, self.s, self.now)
         api.route("/api/v1/status", f"Bearer {t}", self.db, self.s, self.now)
-        self.assertEqual(api._failures, 0)
+        self.assertEqual(api._locked(""), 0)
+        self.assertNotIn("", api._fails)
+
+    def test_the_right_token_gets_in_while_locked(self):
+        t = self.token()
+        for _ in range(api.MAX_FAILURES):
+            api.route("/api/v1/status", "Bearer nope", self.db, self.s, self.now, "192.168.1.66")
+        self.assertEqual(api.route("/api/v1/status", "Bearer nope", self.db, self.s, self.now, "192.168.1.66")[0], 429)
+        self.assertEqual(api.route("/api/v1/status", f"Bearer {t}", self.db, self.s, self.now, "192.168.1.66")[0], 200)
+
+    def test_one_address_guessing_does_not_lock_out_another(self):
+        self.token()
+        for _ in range(api.MAX_FAILURES):
+            api.route("/api/v1/status", "Bearer nope", self.db, self.s, self.now, "192.168.1.66")
+        self.assertEqual(api.route("/api/v1/status", "Bearer nope", self.db, self.s, self.now, "192.168.1.20")[0], 401)
 
     # --- data
     def test_current_converts_to_metric_only_when_chosen(self):

@@ -23,30 +23,48 @@ from weatherlab.screens.system import health_check_page, settings_page, stations
 
 
 def access_gate() -> bool:
-    """True when the page may be shown. Once network access is on, other devices need the password."""
-    if not load_settings().allow_network:
-        return True
-    if st.session_state.get("signed_in"):
+    """True when the page may be shown. Once network access is on, other devices need the password.
+
+    From 0.37.55: this PC is recognised by its connection (Streamlit reports no address for localhost, and headers
+    can't fake one), and remembered in the session as on_pc, so risky settings can be limited to it. A password
+    change signs other devices out. With network access off, a Host header that isn't this PC is refused."""
+    cfg = load_settings()
+    ip = st.context.ip_address
+    local = auth.is_local(ip)
+    if not cfg.allow_network:
+        if not auth.local_host_header(st.context.headers.get("Host")):
+            st.error("Weather Lab only answers to this PC while network access is off.")
+            return False
+        st.session_state["on_pc"] = True
         return True
     token = os.environ.get("WEATHERLAB_WINDOW_TOKEN", "")
-    if token and st.query_params.get("wl_token") == token:
+    if local or (token and st.query_params.get("wl_token") == token):
+        st.session_state["on_pc"] = True
         st.session_state["signed_in"] = True
         return True
-    if not auth.password_set():
+    st.session_state["on_pc"] = False
+    if not auth.client_allowed(ip, cfg.tailscale_only):
+        st.error("This Weather Lab only accepts devices on Tailscale. Turn on Tailscale on this device, or change "
+                 "the setting in Settings, Station, Access tab, on the PC.")
+        return False
+    version = auth.password_version()
+    if st.session_state.get("signed_in") and version and st.session_state.get("pw_version") == version:
+        return True
+    st.session_state["signed_in"] = False  # signed out by a password change, or never signed in
+    if not version:
         st.error("Other devices can't open Weather Lab until a password is set. Set one in Settings, Station, Access tab, on this PC.")
         return False
     st.markdown(theme.page_head("Sign in", "Enter the password you set in Settings, on the Access tab."), unsafe_allow_html=True)
     password = st.text_input("Password", type="password")
     if st.button("Sign in"):
-        wait = auth.locked_for()
+        ok, wait = auth.try_sign_in(password, ip or "")
         if wait:
             st.error(f"Too many attempts. Try again in {wait} seconds.")
-        elif auth.sign_in(password):
-            auth.reset_failures()
+        elif ok:
             st.session_state["signed_in"] = True
+            st.session_state["pw_version"] = version
             st.rerun()
         else:
-            auth.record_failure()
             st.error("That password isn't right.")
     return False
 
@@ -227,12 +245,16 @@ def main() -> None:
     st.set_page_config(page_title=APP_NAME, layout="wide")
     _select_station()
     cfg = load_settings()
+    from weatherlab import settings as settings_module
+    if settings_module.load_problem:  # a damaged or partly wrong settings file is said out loud (0.37.55)
+        st.warning(settings_module.load_problem, icon=":material/settings_alert:")
     st.markdown(theme.css(theme.is_dark(), cfg.color_scheme, cfg.compact, cfg.large_text), unsafe_allow_html=True)
     st.markdown(SIDEBAR_CSS, unsafe_allow_html=True)
     _install_app_head()
     start_poller()
-    api.ensure(cfg.api_enabled and cfg.allow_network, cfg.api_port)
-    with stations.using(stations.MAIN):
+    with stations.using(stations.MAIN):  # the API and sign-in belong to the whole app: always the main station's (0.37.55)
+        main_cfg = load_settings()
+        api.ensure(main_cfg.api_enabled and main_cfg.allow_network, main_cfg.api_port, main_cfg.tailscale_only)
         allowed = access_gate()
     if not allowed:
         return

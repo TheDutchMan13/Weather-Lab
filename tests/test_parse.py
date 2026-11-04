@@ -71,6 +71,10 @@ class CleanTests(unittest.TestCase):
 
     def test_implausible_without_temperature(self):
         self.assertFalse(parse.plausible({"humidity": 40.0}))
+        self.assertFalse(parse.plausible({}))
+
+    def test_indoor_and_pressure_are_kept_when_the_outdoor_sensor_is_out(self):
+        self.assertTrue(parse.plausible({"tempinf": 74.0, "baromrelin": 29.9}))
 
     def test_spike_rejected(self):
         import time

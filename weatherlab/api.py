@@ -74,8 +74,11 @@ _lock = threading.Lock()
 _server = None
 _running_port = None
 _error = ""
-_failures = 0
-_locked_until = 0.0
+_tailscale_only = False
+# Wrong tokens per device address (0.37.55): one device guessing can't lock the real phone out, and the right token
+# is always let in, even while that address is locked.
+_fails: dict[str, dict] = {}
+_fail_lock = threading.Lock()
 
 
 # ------------------------------------------------------------------ tokens
@@ -107,19 +110,24 @@ def token_ok(authorization: str | None) -> bool:
     return bool(supplied) and hmac.compare_digest(hash_token(supplied), stored)
 
 
-def _locked() -> int:
-    return max(0, int(_locked_until - time.time()))
+def _locked(client: str = "") -> int:
+    with _fail_lock:
+        entry = _fails.get(client)
+        return max(0, int(entry["until"] - time.time())) if entry else 0
 
 
-def _record(ok: bool) -> None:
-    global _failures, _locked_until
-    if ok:
-        _failures = 0
-        return
-    _failures += 1
-    if _failures >= MAX_FAILURES:
-        _failures = 0
-        _locked_until = time.time() + LOCK_SECONDS
+def _record(ok: bool, client: str = "") -> None:
+    with _fail_lock:
+        if ok:
+            _fails.pop(client, None)
+            return
+        entry = _fails.setdefault(client, {"count": 0, "until": 0.0})
+        entry["count"] += 1
+        if entry["count"] >= MAX_FAILURES:
+            entry["count"] = 0
+            entry["until"] = time.time() + LOCK_SECONDS
+        if len(_fails) > 1000:  # many addresses guessing: forget the oldest, never grow without limit
+            _fails.pop(next(iter(_fails)))
 
 
 # ------------------------------------------------------------------ data
@@ -538,14 +546,16 @@ def _board(days, s, now: float, metric: bool) -> list:
 
 # ------------------------------------------------------------------ routing
 
-def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int, dict]:
-    """(HTTP status, body). Checks the token and the lock first, then the path."""
-    if _locked():
-        return 429, {"error": f"Too many wrong tokens. Try again in {_locked()} seconds."}
+def route(path: str, authorization: str | None, db, s, now: float, client: str = "") -> tuple[int, dict]:
+    """(HTTP status, body). Checks the token first, then the path. A wrong token counts against that address only;
+    after MAX_FAILURES that address waits LOCK_SECONDS, but the right token always gets in."""
     if not token_ok(authorization):
-        _record(False)
+        wait = _locked(client)
+        if wait:
+            return 429, {"error": f"Too many wrong tokens. Try again in {wait} seconds."}
+        _record(False, client)
         return 401, {"error": "Sign in with the token from Weather Lab's Settings."}
-    _record(True)
+    _record(True, client)
     builders = {"/api/v1/status": lambda: status(db, s, now),
                 "/api/v1/current": lambda: current(db, s, now),
                 "/api/v1/today": lambda: today(db, s, now),
@@ -610,19 +620,29 @@ def route(path: str, authorization: str | None, db, s, now: float) -> tuple[int,
 
 
 class _Handler(BaseHTTPRequestHandler):
+    timeout = 15  # seconds a connection may sit idle, so slow or stuck clients can't tie up threads (0.37.55)
+
     def do_GET(self):  # noqa: N802 - the name http.server expects
+        from weatherlab import auth
         from weatherlab.settings import load_settings
         path = self.path.split("?", 1)[0]
+        client = self.client_address[0] if self.client_address else ""
         try:
-            s = load_settings()
-            with stations.using(stations.MAIN):
-                db = storage.connect()
-                try:
-                    code, body = route(path, self.headers.get("Authorization"), db, s, time.time())
-                finally:
-                    db.close()
+            if not auth.client_allowed(client, _tailscale_only):
+                code, body = 403, {"error": "This Weather Lab only accepts devices on Tailscale."}
+            else:
+                with stations.using(stations.MAIN):
+                    s = load_settings()
+                    db = storage.connect()
+                    try:
+                        code, body = route(path, self.headers.get("Authorization"), db, s, time.time(), client)
+                    finally:
+                        db.close()
         except Exception:  # keep the server alive; never send a traceback to a phone
             code, body = 500, {"error": "Weather Lab couldn't read its data just now."}
+        self._reply(code, body)
+
+    def _reply(self, code: int, body: dict) -> None:
         data = json.dumps(body).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -635,9 +655,11 @@ class _Handler(BaseHTTPRequestHandler):
         return
 
 
-def ensure(enabled: bool, port: int = PORT) -> None:
-    """Start the API when it is on, stop it when it is off, and restart it on a new port. Safe to call on every page load."""
-    global _server, _running_port, _error
+def ensure(enabled: bool, port: int = PORT, tailscale_only: bool = False) -> None:
+    """Start the API when it is on, stop it when it is off, and restart it on a new port. Safe to call on every page load.
+    tailscale_only: answer only this PC and Tailscale devices (0.37.55)."""
+    global _server, _running_port, _error, _tailscale_only
+    _tailscale_only = tailscale_only
     with _lock:
         if not enabled:
             _stop_locked()

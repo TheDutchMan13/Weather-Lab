@@ -34,6 +34,28 @@ def _solar_max(ts: float, lat: float, lon: float, elev_m: float, tz: tzinfo) -> 
     return 1367 * (1 + 0.033 * math.cos(2 * math.pi * doy / 365)) * sin_alt * 0.76 ** (air_mass * math.exp(-elev_m / 8434.5))
 
 
+CARRYOVER_S = 30 * 60  # how long after the day's first reading the gateway may still show yesterday's rain
+
+
+def day_rain(rows) -> float:
+    """The day's rain from the gateway's running daily total (0.37.55).
+
+    The gateway resets its total at its own midnight, which can be a minute or two after the PC's, so the first
+    readings of a day can still hold yesterday's total. Those are left out: any reading in the first half hour that
+    is larger than a later reading must be from before the reset."""
+    vals = [(ts, r["dailyrainin"]) for ts, r in rows if r.get("dailyrainin") is not None]
+    if not vals:
+        return 0.0
+    start = vals[0][0]
+    later_min = [0.0] * len(vals)
+    low = float("inf")
+    for i in range(len(vals) - 1, -1, -1):
+        later_min[i] = low
+        low = min(low, vals[i][1])
+    kept = [v for i, (ts, v) in enumerate(vals) if not (ts - start <= CARRYOVER_S and v > later_min[i])]
+    return max(kept) if kept else 0.0
+
+
 def summarize_day(rows, lat: float, lon: float, elev_m: float, tz: tzinfo):
     """rows: [(ts, reading dict)] for one local day in time order -> (summary dict, hours covered).
     summary is None when the day has too few readings."""
@@ -54,7 +76,7 @@ def summarize_day(rows, lat: float, lon: float, elev_m: float, tz: tzinfo):
     baro, hum, gust, wind = vals("baromrelin"), vals("humidity"), vals("windgustmph"), vals("windspeedmph")
     out = {"gust_max": max(gust) if gust else None, "tempf_min": min(temps), "tempf_max": max(temps),
            "baro_min": min(baro) if baro else None, "baro_max": max(baro) if baro else None,
-           "rainrate_max": max(vals("rainratein") or [0.0]), "rain_in": max(vals("dailyrainin") or [0.0]),
+           "rainrate_max": max(vals("rainratein") or [0.0]), "rain_in": day_rain(rows),
            "tempf_avg": round(avg, 1), "wind_run_mi": round(run, 1), "wind_max": max(wind) if wind else None,
            "humidity_min": min(hum) if hum else None, "humidity_max": max(hum) if hum else None,
            "sun_hours": round(sun, 1), "solar_rad": max(vals("solarradiation") or [0.0]),

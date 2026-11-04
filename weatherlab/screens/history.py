@@ -367,14 +367,17 @@ def _period_view(s, db, tz, today: date, n) -> None:
     _wind_section(rows, tz, metric, all_time=n is None, today=today, dark=dark)
 
     latest = storage.latest(db)
-    live_rain = latest[1].get("dailyrainin") if latest else None
+    # Today's live total only if the newest reading is from today (0.37.55). An older one is yesterday's rain, which
+    # is already in yesterday's summary, so it was counted twice.
+    fresh = latest is not None and datetime.fromtimestamp(latest[0], tz).date() == today
+    live_rain = latest[1].get("dailyrainin") if fresh else None
     totals = history.rain_totals(db, today, live_rain)
     st.markdown(theme.section_html("Rain totals"), unsafe_allow_html=True)
     st.markdown(theme.grid_html([
-        _tile("Rain today", f"{totals['today']:.2f} in"),
-        _tile("Last 7 days", f"{totals['last_7_days']:.2f} in"),
-        _tile("This month", f"{totals['this_month']:.2f} in"),
-        _tile("This year", f"{totals['this_year']:.2f} in"),
+        _tile("Rain today", _fmt("dailyrainin", totals["today"], metric, 2)),
+        _tile("Last 7 days", _fmt("dailyrainin", totals["last_7_days"], metric, 2)),
+        _tile("This month", _fmt("dailyrainin", totals["this_month"], metric, 2)),
+        _tile("This year", _fmt("dailyrainin", totals["this_year"], metric, 2)),
     ]), unsafe_allow_html=True)
 
     monthly: dict[str, float] = {}

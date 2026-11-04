@@ -30,6 +30,39 @@ def start_poller() -> Poller:
     return collectors[stations.current()]
 
 
+def with_picked_station(fn):
+    """For parts of a page that run on their own: auto-refreshing fragments and button callbacks (0.37.55).
+
+    Streamlit runs those on a fresh thread that starts on the main station, without app.py's station picker, so a
+    second station's Home switched to the main station's readings after 30 seconds, and its layout buttons saved to
+    the main station. This sets the station picked in the sidebar first."""
+    import functools
+
+    @functools.wraps(fn)
+    def run(*args, **kwargs):
+        from weatherlab import stations
+        picked = st.session_state.get("station_pick", stations.MAIN)
+        stations.set_current(picked if picked in stations.ids() else stations.MAIN)
+        return fn(*args, **kwargs)
+    return run
+
+
+def on_this_pc() -> bool:
+    """True when this page is open on the PC that runs Weather Lab (0.37.55). Set by the sign-in gate in app.py."""
+    return bool(st.session_state.get("on_pc", True))
+
+
+def pc_only(what: str) -> bool:
+    """For settings that could take over the PC if someone else changed them (the password, the Android token,
+    updates, the off-site folder, network access): True on this PC. Elsewhere it says why it can't be changed here
+    and returns False."""
+    if on_this_pc():
+        return True
+    st.caption(f":material/lock: {what} can only be changed on the PC that runs Weather Lab, so a phone or another "
+               "device can't use it to take over this PC.")
+    return False
+
+
 def _clock(ts: float) -> str:
     from weatherlab import timefmt
     return timefmt.time_text(datetime.fromtimestamp(ts), seconds=True)

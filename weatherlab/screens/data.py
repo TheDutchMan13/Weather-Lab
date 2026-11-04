@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from weatherlab import auto_reports, backup, ecowitt_import, exports, history, importer, noaa, report, secrets, storage, theme, units, timefmt
 from weatherlab.settings import Settings, load_settings, save_settings
 from zoneinfo import ZoneInfo
-from weatherlab.screens.common import _tz, empty_card, start_poller
+from weatherlab.screens.common import _tz, empty_card, pc_only, start_poller
 
 
 # ---------------------------------------------------------------- Reports
@@ -187,6 +187,14 @@ def backup_page() -> None:
 
 
 # ---------------------------------------------------------------- Export
+@st.cache_data(ttl=60, show_spinner=False)
+def _copy_status(folder: str, target: str) -> dict:
+    """The off-site copy's status, looked up at most once a minute (0.37.55). An offline network folder can take
+    Windows 20 seconds or more to give up on, and the page shouldn't wait that long every time it draws."""
+    from pathlib import Path
+    return backup.copy_status(Path(folder), target, datetime.now())
+
+
 def _offsite_section(s: Settings, folder) -> str:
     """The off-site copy (0.37.54): a folder outside this PC's own disk that gets a checked copy of every backup.
     Returns the folder as typed."""
@@ -195,13 +203,14 @@ def _offsite_section(s: Settings, folder) -> str:
                "copies every backup there and checks each copy opens. Good choices: your OneDrive, Google Drive or "
                "Dropbox folder (it syncs to the cloud), a USB drive, or a shared folder on another PC such as "
                "`\\\\OTHER-PC\\WeatherLab`, which also works over Tailscale.")
+    here = pc_only("The off-site folder")  # a folder on someone else's PC would receive every backup (0.37.55)
     copy_to = st.text_input("Off-site folder (optional)", value=s.backup_copy_folder, key="backup_copy",
-                            placeholder=r"for example C:\Users\you\OneDrive\Weather Lab backups")
-    if copy_to.strip() != s.backup_copy_folder.strip():
+                            placeholder=r"for example C:\Users\you\OneDrive\Weather Lab backups", disabled=not here)
+    if here and copy_to.strip() != s.backup_copy_folder.strip():
         save_settings(replace(s, backup_copy_folder=copy_to.strip()))
     if not copy_to.strip():
         return copy_to
-    status = backup.copy_status(folder, copy_to, datetime.now())
+    status = _copy_status(str(folder), copy_to)
     error = start_poller().status.copy_error
     newest = status["newest"]
     when = timefmt.stamp(newest, "%b %d, %Y") if newest else "none yet"
@@ -219,6 +228,7 @@ def _offsite_section(s: Settings, folder) -> str:
     if st.button("Copy now", key="offsite_now", help="Copy any backups the folder is missing, and check them."):
         try:
             made = backup.catch_up(folder, copy_to, s.backup_keep)
+            _copy_status.clear()
             st.success(f"Copied {len(made)} backup{'' if len(made) == 1 else 's'}." if made else "Nothing was missing.")
         except (OSError, sqlite3.Error) as exc:
             st.warning(f"Couldn't copy: {exc}")

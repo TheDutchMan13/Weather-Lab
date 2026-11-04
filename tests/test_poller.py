@@ -49,7 +49,8 @@ class PollerTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 p.run()
         self.assertEqual(calls["n"], 2)
-        self.assertIn("RuntimeError", p.status.last_error)
+        # From 0.37.55 each job reports its own failure; the rest of the pass still runs.
+        self.assertIn("RuntimeError", p.status.job_errors["_poll_once"])
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ from weatherlab import alert_map, card_order, astro, charts, comfort, dew, dials
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
-from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller
+from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller, with_picked_station
 
 
 REFRESH_SECONDS = 30
@@ -66,6 +66,10 @@ def _notices(s: Settings, poller, status) -> None:
         items.append(("error", "The background reader has stopped. Restart the app."))
     elif status.last_error:
         items.append(("warning", status.last_error))
+    jobs = [v for k, v in getattr(status, "job_errors", {}).items() if k != "_poll_once"]
+    if jobs:  # a background job keeps failing; the rest still run (0.37.55)
+        items.append(("warning", f"A background job is failing: {jobs[0]}. Station health has the details."
+                      if len(jobs) == 1 else f"{len(jobs)} background jobs are failing. Station health has the details."))
     items += [("warning", f"{m}  ·  {_clock(t)}, {card_order.ago(now - t)}")
               for t, m in status.recent_alerts if now - t < 6 * 3600][:3]
     active = (_live_alerts(s.latitude, s.longitude, s.nws_contact)
@@ -421,6 +425,7 @@ def _pill(text: str) -> str:
 
 
 @st.fragment(run_every=REFRESH_SECONDS)
+@with_picked_station
 def live_now() -> None:
     """The top of Home (0.37.39): the right-now panel, which also says how fresh the reading is and gives today's
     high, low, rain and gust, then the notices strip (0.37.47). Re-runs every REFRESH_SECONDS."""
@@ -445,6 +450,7 @@ def live_now() -> None:
 
 
 @st.fragment(run_every=REFRESH_SECONDS)
+@with_picked_station
 def live_readings() -> None:
     """Below the briefing: the last 24 hours, the dials and your cards. Re-runs every REFRESH_SECONDS."""
     s = load_settings()
@@ -500,6 +506,7 @@ def live_readings() -> None:
 
 
 @st.fragment(run_every=REFRESH_SECONDS)
+@with_picked_station
 def _dew_card() -> None:
     """Dew point with its 24-hour line, in More readings at the bottom of Home (0.37.51). Tap it for its history."""
     s = load_settings()
@@ -608,12 +615,14 @@ def _save_cards(cards: list) -> None:
     st.session_state["home_cards"] = list(cards)
 
 
+@with_picked_station
 def _move_card(key: str, step: int) -> None:
     """Button callback: move a card up or down."""
     from weatherlab import card_order
     _save_cards(card_order.move(load_settings().live_cards, key, step))
 
 
+@with_picked_station
 def _set_wide(key: str) -> None:
     """Size switch callback: save whether this card is wide."""
     from dataclasses import replace

@@ -9,6 +9,7 @@ does not use TLS, so use it on your local network only. The password is kept in 
 
 import json
 import socket
+import ssl
 import struct
 
 from weatherlab import uploads
@@ -110,13 +111,15 @@ CONNACK_ERRORS = {1: "the broker doesn't support this protocol version", 2: "the
 
 
 def send(host: str, port: int, user: str, password: str, messages: list[tuple[str, str]],
-         client_id: str = "weatherlab") -> None:
-    """Connect, publish each message (retained), and disconnect. Raises MqttError when it can't be done."""
+         client_id: str = "weatherlab", tls: bool = False) -> None:
+    """Connect, publish each message (retained), and disconnect. Raises MqttError when it can't be done.
+    tls: connect over TLS, checking the broker's certificate (0.37.55), so the password isn't sent in plain text."""
     host = (host or "").strip()
     if not host:
         raise MqttError("Enter the MQTT broker address in Settings, under Station.")
     try:
-        with socket.create_connection((host, int(port)), timeout=TIMEOUT_S) as sock:
+        with socket.create_connection((host, int(port)), timeout=TIMEOUT_S) as raw:
+            sock = ssl.create_default_context().wrap_socket(raw, server_hostname=host) if tls else raw
             sock.sendall(connect_packet(client_id, user, password))
             ack = sock.recv(4)
             if len(ack) != 4 or ack[0] != 0x20:
@@ -128,5 +131,8 @@ def send(host: str, port: int, user: str, password: str, messages: list[tuple[st
             sock.sendall(DISCONNECT)
     except MqttError:
         raise
+    except ssl.SSLError as exc:
+        raise MqttError(f"The MQTT broker's secure connection failed ({exc.reason or type(exc).__name__}). "
+                        "Check the port (usually 8883) and the broker's certificate.") from None
     except OSError as exc:
         raise MqttError(f"Couldn't reach the MQTT broker ({type(exc).__name__}).") from None

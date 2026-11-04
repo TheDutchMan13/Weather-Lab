@@ -190,6 +190,9 @@ def to_us_value(key: str, value: float, metric: bool) -> float:
     return units.to_us(key, value, metric)
 
 
+CLEAR_RESET_S = 20 * 60  # a rule must stay clear this long before it counts as a new event
+
+
 def rule_key(rule: dict) -> str:
     return repr(sorted(rule.items()))
 
@@ -204,12 +207,21 @@ def evaluate(rules, reading: dict, now: float, state: dict, metric: bool = False
             continue
         key = rule_key(rule)
         if not (in_window(rule, now, tz) and triggered(rule, reading, context)):
-            state.pop(key, None)
+            # A value hovering at the limit flips this on and off every reading. The rule's state is kept until it
+            # has been clear for CLEAR_RESET_S (0.37.55), so the hourly limit and the escalation level still apply.
+            entry = state.get(key)
+            if entry is not None:
+                entry.setdefault("cleared", now)
+                if now - entry["cleared"] >= CLEAR_RESET_S:
+                    state.pop(key, None)
             continue
         entry = state.get(key)
+        if entry is not None and now - entry.get("cleared", now) >= CLEAR_RESET_S:
+            entry = None  # it was clear long enough: this is a new event
         if entry is None:
             entry = {"since": now, "level": 0, "sent": None}
             state[key] = entry
+        entry.pop("cleared", None)
         text = describe(rule, metric)
         if rule.get("escalate"):
             elapsed = now - entry["since"]

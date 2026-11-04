@@ -30,6 +30,7 @@ def evaluate(f: dict, now: float) -> list[dict]:
     rows: list[Row] = []
     for part in (_station, _storage, _alerts_and_services, _this_app):
         rows.extend(part(f, now))
+    rows.extend(_jobs(f))
     return [{"name": name, "state": state, "detail": detail} for name, state, detail in rows]
 
 
@@ -60,6 +61,15 @@ def _station(f: dict, now: float) -> list[Row]:
     elif f.get("last_poll_ok"):
         add("Station connection", "ok", "Connected.")
     return out
+
+
+def _jobs(f: dict) -> list[Row]:
+    """The collector's jobs that failed on their last run (0.37.55). Each job runs on its own, so the rest still work,
+    but the user should know which one is stuck and why."""
+    errors = f.get("job_errors") or {}
+    if not errors:
+        return [("Background jobs", "ok", "All of the collector's jobs ran.")] if "job_errors" in f else []
+    return [("Background jobs", "warn", "; ".join(sorted(errors.values()))[:400])]
 
 
 def _storage(f: dict, now: float) -> list[Row]:
@@ -176,7 +186,7 @@ def _this_app(f: dict, now: float) -> list[Row]:
     return out
 
 
-GROUPS = [("Station", ["Background collector", "Station readings", "Station connection"]),
+GROUPS = [("Station", ["Background collector", "Background jobs", "Station readings", "Station connection"]),
           ("Storage", ["Database", "Disk space", "Backups", "Second backup folder", "Reading archive", "Settings"]),
           ("Alerts and reports", ["Windows notifications", "Weather warnings", "Automatic reports"]),
           ("Online services", ["Forecast", "Air quality"]),

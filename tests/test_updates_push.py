@@ -35,6 +35,17 @@ class UpdateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             updates.info_from_text("{not json", "https://example.com/latest.json", "0.10.0")
 
+    def test_only_https_is_used(self):
+        self.assertEqual(updates.require_https(" https://example.com/latest.json "), "https://example.com/latest.json")
+        for bad in ("http://example.com/latest.json", "file:///C:/x.json", "ftp://x/y", ""):
+            with self.assertRaises(ValueError):
+                updates.require_https(bad)
+        with self.assertRaises(ValueError):
+            updates.latest("http://example.com/latest.json", "0.1.0")
+        with self.assertRaises(ValueError):
+            updates.download({"installer_url": "http://example.com/a.exe", "file": "a.exe", "sha256": "0" * 64},
+                             Path(tempfile.gettempdir()) / "wl-never")
+
     def test_install_options_close_and_restart_the_app(self):
         self.assertIn("/CLOSEAPPLICATIONS", updates.INSTALL_ARGS)
         self.assertIn("/RESTARTAPPLICATIONS", updates.INSTALL_ARGS)
@@ -45,12 +56,14 @@ class UpdateTests(unittest.TestCase):
             source.write_bytes(INSTALLER)
             good = {"version": "0.11.0", "file": source.name, "sha256": hashlib.sha256(INSTALLER).hexdigest(),
                     "installer_url": source.as_uri()}
-            target = updates.download(good, Path(tmp) / "updates")
-            self.assertEqual(target.read_bytes(), INSTALLER)
+            from unittest import mock
+            with mock.patch.object(updates, "require_https", lambda url: url):  # a local file stands in for the server
+                target = updates.download(good, Path(tmp) / "updates")
+                self.assertEqual(target.read_bytes(), INSTALLER)
 
-            bad = dict(good, sha256="0" * 64, file="Other.exe")
-            with self.assertRaises(ValueError):
-                updates.download(bad, Path(tmp) / "updates")
+                bad = dict(good, sha256="0" * 64, file="Other.exe")
+                with self.assertRaises(ValueError):
+                    updates.download(bad, Path(tmp) / "updates")
             self.assertFalse((Path(tmp) / "updates" / "Other.exe").exists())
 
 

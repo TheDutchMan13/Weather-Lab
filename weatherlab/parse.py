@@ -131,11 +131,17 @@ def plausible(r, prev=None):
     prev: (ts, reading) of the last stored read, used for the spike check."""
     t = r.get("tempf")
     if t is None:
-        return False
+        # Outdoor sensor offline (a flat battery) or an indoor-only setup: keep the reading as long as the gateway
+        # still reports something useful, so indoor, pressure and rain are saved and no false "offline" alert goes
+        # out (0.37.55).
+        return any(r.get(k) is not None for k in CORE_WITHOUT_OUTDOOR)
     if prev and time.time() - prev[0] < 300 and prev[1].get("tempf") is not None \
             and abs(t - prev[1]["tempf"]) > MAX_TEMP_JUMP:
         return False
     return True
+
+
+CORE_WITHOUT_OUTDOOR = ("tempinf", "humidityin", "baromrelin", "baromabsin", "dailyrainin")
 
 
 # ------------------------------------------------------------------ talking to the gateway

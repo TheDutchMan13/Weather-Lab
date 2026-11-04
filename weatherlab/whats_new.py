@@ -5,6 +5,25 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.55",
+        "date": "November 4, 2026",
+        "items": [
+            "Security: the password, network access, the Android app token, updates and the off-site backup folder can now only be changed on the PC that runs Weather Lab. A phone or another computer that is signed in can still see them, but can't use them to take over the PC.",
+            "Security: updates are only downloaded over HTTPS, so an installer can't be swapped on its way to your PC.",
+            "Security: changing the password signs out every other device. Wrong passwords and wrong Android tokens now lock out only the device that typed them, and the right Android token always gets in.",
+            "New: Settings, Station, Access tab has Only allow devices on Tailscale. Your home Wi-Fi doesn't encrypt Weather Lab's traffic; Tailscale does. With this on, only this PC and Tailscale devices can connect.",
+            "New: MQTT can use a secure connection (TLS), so the broker password isn't sent in plain text.",
+            "Fixed: rain from the day before was sometimes counted again just after midnight, which inflated daily, monthly and yearly totals.",
+            "Fixed: an alert rule with a value hovering at its limit could send a notification every minute. It now waits until the value has been clear for 20 minutes before it counts as a new event.",
+            "Fixed: when the outdoor sensor stops reporting (a flat battery), indoor, pressure and rain readings are still saved, and no false station-offline alert is sent.",
+            "Fixed: one failing background job no longer stops the others, such as backups and offline alerts. Failing jobs show on Home and on Station health.",
+            "Fixed: History's rain tiles no longer count yesterday's rain as today's when the station is offline, and they show metric units when you've chosen metric.",
+            "Fixed: with a second station picked, Home no longer switches to the main station's readings after 30 seconds, and Home layout changes save to the right station. Viewing a second station no longer turns off the Android app's connection.",
+            "Fixed: settings are saved safely, so a crash mid-save can't wipe them. A damaged settings file is kept as settings.json.bad and Weather Lab tells you, and one wrong value no longer breaks a page.",
+            "Fixed: the Backup page no longer waits on an offline network folder every time it opens.",
+        ],
+    },
+    {
         "version": "0.37.54",
         "date": "October 30, 2026",
         "items": [

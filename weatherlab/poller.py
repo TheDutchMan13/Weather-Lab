@@ -65,6 +65,7 @@ class PollStatus:
     mqtt_last: float | None = None
     backup_error: str = ""
     copy_error: str = ""  # the off-site backup copy (0.37.54)
+    job_errors: dict = field(default_factory=dict)  # the collector's jobs that failed last time, by name (0.37.55)
     sensor_error: str = ""
     forecast_error: str = ""
     nws_error: str = ""
@@ -94,6 +95,7 @@ class Poller(threading.Thread):
         self._best_at = 0.0
         self._record_day: dict = {}
         self._last_backup = 0.0
+        self._reconnect = False
         self._last_sensors = 0.0
         self._last_forecast = 0.0
         self._digest_day = None
@@ -127,61 +129,79 @@ class Poller(threading.Thread):
         db = None
         while not self._stop_event.is_set():
             try:
-                if db is None:
+                if db is None or self._reconnect:
                     db = storage.connect()
+                    self._reconnect = False
                 self._db = db
                 s = load_settings()
                 self._quiet = s.quiet_enabled and quiet.is_quiet(datetime.now(_zone(s)).hour, s.quiet_start, s.quiet_end)
                 if s.station_ip.strip():
-                    self._poll_once(db, s)
+                    self._job("_poll_once", self._poll_once, db, s)
                 if time.time() - self._last_rollup > ROLLUP_SECONDS:
-                    self._rollup(db, s)
+                    self._job("_rollup", self._rollup, db, s)
                 if time.time() - self._last_aqi > AQI_SECONDS:
-                    self._aqi(db, s)
+                    self._job("_aqi", self._aqi, db, s)
                 if time.time() - self._last_fire > FIRE_SECONDS:
-                    self._fire(db, s)
+                    self._job("_fire", self._fire, db, s)
                 if s.cwop_enabled and time.time() - self._last_cwop > CWOP_SECONDS:
-                    self._cwop(db, s)
+                    self._job("_cwop", self._cwop, db, s)
                 if s.wu_enabled and time.time() - self._last_wu > UPLOAD_SECONDS:
-                    self._wu(db, s)
+                    self._job("_wu", self._wu, db, s)
                 if (s.pws_enabled or s.weathercloud_enabled) and time.time() - self._last_extra > UPLOAD_SECONDS:
-                    self._extra_uploads(db, s)
+                    self._job("_extra_uploads", self._extra_uploads, db, s)
                 if s.mqtt_enabled and time.time() - self._last_mqtt > MQTT_SECONDS:
-                    self._mqtt(db, s)
+                    self._job("_mqtt", self._mqtt, db, s)
                 if s.backup_enabled and time.time() - self._last_backup > BACKUP_CHECK_SECONDS:
-                    self._backup(s)
+                    self._job("_backup", self._backup, s)
                 if s.sensor_alerts and s.station_ip.strip() and time.time() - self._last_sensors > SENSOR_SECONDS:
-                    self._sensors(s)
+                    self._job("_sensors", self._sensors, s)
                 if s.latitude is not None and s.longitude is not None and time.time() - self._last_forecast > FORECAST_SECONDS:
-                    self._forecast(db, s)
+                    self._job("_forecast", self._forecast, db, s)
                 if s.digest_enabled:
-                    self._digest(db, s)
+                    self._job("_digest", self._digest, db, s)
                 if s.briefing_notice:
-                    self._briefing(db, s)
+                    self._job("_briefing", self._briefing, db, s)
                 if s.weekly_digest:
-                    self._weekly(db, s)
+                    self._job("_weekly", self._weekly, db, s)
                 if s.offline_alerts and s.station_ip.strip():
-                    self._watch_station()
+                    self._job("_watch_station", self._watch_station)
                 if s.stuck_alerts and s.station_ip.strip() and time.time() - self._last_stuck > STUCK_SECONDS:
-                    self._stuck(db, s)
+                    self._job("_stuck", self._stuck, db, s)
                 if s.health_alerts and time.time() - self._last_health > HEALTH_SECONDS:
-                    self._health_alerts(s)
+                    self._job("_health_alerts", self._health_alerts, s)
                 if time.time() - self._last_env > ENV_SECONDS:
-                    self._environment(db, s)
+                    self._job("_environment", self._environment, db, s)
                 if s.nws_alerts and s.latitude is not None and s.longitude is not None and time.time() - self._last_nws > NWS_SECONDS:
-                    self._nws_alerts(s)
+                    self._job("_nws_alerts", self._nws_alerts, s)
                 if s.auto_reports and time.time() - self._last_reports > REPORTS_SECONDS:
-                    self._auto_reports(db, s)
+                    self._job("_auto_reports", self._auto_reports, db, s)
                 if s.archive_after_days > 0 and time.time() - self._last_archive > ARCHIVE_SECONDS:
-                    self._archive(db, s)
+                    self._job("_archive", self._archive, db, s)
                 if s.update_url.strip() and time.time() - self._last_update > UPDATE_SECONDS:
-                    if self.station == "main": self._update_check(s)
+                    if self.station == "main":
+                        self._job("_update_check", self._update_check, s)
             except Exception as exc:  # keep the thread alive no matter what
                 self.status.last_error = f"Poller error: {type(exc).__name__}: {exc}"
                 traceback.print_exc()
                 errlog.log("background collector", exc)
                 db = None  # reconnect next time
             self._stop_event.wait(POLL_SECONDS)
+
+    def _job(self, name: str, fn, *args) -> None:
+        """Run one of the collector's jobs. A job that fails is logged and named, and the other jobs still run
+        (0.37.55); before, one failing job skipped every job after it, including backups and offline alerts."""
+        try:
+            fn(*args)
+            self.status.job_errors.pop(name, None)
+        except Exception as exc:  # noqa: BLE001 - any one job's failure must not stop the rest
+            text = f"{name.strip('_').replace('_', ' ')} failed: {type(exc).__name__}: {exc}"
+            self.status.job_errors[name] = text
+            if name == "_poll_once":  # other jobs are shown in the notices and on Station health, by name
+                self.status.last_error = f"Poller error: {type(exc).__name__}: {exc}"
+            traceback.print_exc()
+            errlog.log("background collector", exc)
+            if isinstance(exc, sqlite3.Error):
+                self._reconnect = True
 
     def _poll_once(self, db, s) -> None:
         ip = s.station_ip.strip()
@@ -591,7 +611,7 @@ class Poller(threading.Thread):
             if discovering:
                 messages = mqtt_publish.discovery(s.mqtt_prefix) + messages
             mqtt_publish.send(s.mqtt_host, s.mqtt_port, s.mqtt_user, secrets.get_key(mqtt_publish.KEY_NAME),
-                              messages, client_id=f"weatherlab-{self.station}")
+                              messages, client_id=f"weatherlab-{self.station}", tls=s.mqtt_tls)
             if discovering:
                 self._last_discovery = time.time()
             self.status.mqtt_last = time.time()

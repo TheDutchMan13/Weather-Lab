@@ -54,10 +54,19 @@ def info_from_text(text: str, address: str, current: str) -> dict | None:
     return {"version": latest_line, "file": "", "sha256": "", "installer_url": ""}
 
 
+def require_https(url: str) -> str:
+    """The address, if it starts with https://. From 0.37.55 updates come only over HTTPS: over plain HTTP, anyone
+    between this PC and the server could swap both the installer and its checksum. Raises ValueError otherwise."""
+    url = (url or "").strip()
+    if urllib.parse.urlparse(url).scheme.lower() != "https":
+        raise ValueError("The update address must start with https://, so the download can't be swapped on the way.")
+    return url
+
+
 def latest(url: str, current: str, timeout: float = 8.0) -> dict | None:
     """The newer version at this address, with installer details when it names one. None when up to date.
     Raises OSError when the address can't be read and ValueError when its contents don't make sense."""
-    with urllib.request.urlopen(url, timeout=timeout) as response:
+    with urllib.request.urlopen(require_https(url), timeout=timeout) as response:
         text = response.read(20000).decode("utf-8", "replace")
     return info_from_text(text, url, current)
 
@@ -95,7 +104,8 @@ def download(info: dict, folder: Path, timeout: float = 120.0) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / info["file"]
     partial = folder / (info["file"] + ".part")
-    with urllib.request.urlopen(info["installer_url"], timeout=timeout) as response, open(partial, "wb") as out:
+    with urllib.request.urlopen(require_https(info["installer_url"]), timeout=timeout) as response, \
+            open(partial, "wb") as out:
         while True:
             chunk = response.read(256 * 1024)
             if not chunk:
