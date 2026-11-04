@@ -1,7 +1,7 @@
 """Bug fixes in 0.37.55: midnight rain, alert rules at the limit, readings without outdoor temperature."""
 import unittest
 
-from weatherlab import alert_rules, daily, parse
+from weatherlab import alert_rules, daily
 
 
 class MidnightRainTests(unittest.TestCase):
