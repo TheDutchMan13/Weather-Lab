@@ -8,7 +8,6 @@ Colour schemes change both sets, as they do in the dashboard.
 """
 
 import html as _html
-import math
 import re
 import time
 
@@ -38,8 +37,6 @@ PAGE_DARK = {"background": "#0e1117", "surface": "#161b22", "border": "#30363d",
 
 # Selected pill-tab colours (wxdash/live_glue.py inject_style): background, text.
 TAB_ON = {True: ("#23324a", "#ffffff"), False: ("#e6eefb", "#17325c")}
-
-DOT_COLORS = {"ok": "#3ddc84", "slow": "#f6d55c", "silent": "#e5633c"}
 
 # Colour schemes (utils/theme.py COLOR_SCHEMES), copied exactly.
 SCHEMES = {
@@ -268,8 +265,6 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
               "[class*='st-key-wcard-'] [data-testid='stButton']", "display:contents !important"),
         _rule("[class*='st-key-wcard-'] [data-testid='stButton'] button",
               "position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;min-height:0;z-index:1"),
-        "@keyframes wl-sweep{from{stroke-dasharray:0.001,var(--c)}to{stroke-dasharray:var(--v),var(--c)}}",
-        "@media (prefers-reduced-motion:no-preference){.wl-sweep{animation:wl-sweep .9s ease-out}}",
         # A gentle fade as a page opens: on the title, its line and the briefing, which are drawn once per page.
         "@keyframes wl-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}",
         "@keyframes wl-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}",
@@ -288,10 +283,6 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
 def skeleton_html(heights: tuple = (72, 96)) -> str:
     """Grey shimmering shapes to stand in for a part of the page that is still loading."""
     return "".join(f'<div class="wl-skel" style="height:{h}px" aria-hidden="true"></div>' for h in heights)
-
-
-def title_html(text: str) -> str:
-    return f'<div class="wl-title">{text}</div>'
 
 
 def page_head(title: str, subtitle: str = "") -> str:
@@ -330,32 +321,6 @@ def strip_tile_html(label: str, value: str, note: str = "", tone: str | None = N
 
 def grid_html(tiles: list[str]) -> str:
     return f'<div class="wl-grid">{"".join(tiles)}</div>'
-
-
-def gauge_html(value, lo: float, hi: float, label: str, fmt: str, dark: bool, animate: bool = False) -> str:
-    """A round gauge in a tile. The arc fills from lo to hi and is clamped at both ends."""
-    p = DARK if dark else LIGHT
-    frac = 0.0 if value is None else max(0.0, min(1.0, (value - lo) / (hi - lo)))
-    r = 44
-    circ = 2 * math.pi * r
-    text = "--" if value is None else fmt.format(value)
-    sweep = f' class="wl-sweep" style="--v:{circ * frac:.1f};--c:{circ:.1f}"' if animate else ""
-    return ('<div class="wl-tile" style="text-align:center">'
-            '<svg viewBox="0 0 120 120" width="100%" style="max-width:120px;display:block;margin:0 auto">'
-            f'<circle cx="60" cy="60" r="{r}" fill="none" stroke="{p["line"]}" stroke-width="10"/>'
-            f'<circle cx="60" cy="60" r="{r}" fill="none" stroke="{p["accent"]}" stroke-width="10" '
-            f'stroke-linecap="round" stroke-dasharray="{circ * frac:.1f},{circ:.1f}" transform="rotate(-90 60 60)"'
-            f'{sweep}/>'
-            f'<text x="60" y="68" text-anchor="middle" font-family="{FONT}" font-size="22" '
-            f'font-weight="650" fill="{p["text"]}">{text}</text></svg>'
-            f'<div class="wl-label" style="margin-top:4px">{label}</div></div>')
-
-
-def status_dot(state: str) -> str:
-    """A small colored dot: ok (green), slow (yellow), silent (red), anything else grey."""
-    color = DOT_COLORS.get(state, "#9aa3b0")
-    return (f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
-            f'background:{color};margin-right:6px;vertical-align:middle"></span>')
 
 
 HEALTH_DOT = {"ok": "#2fbf71", "warn": "#e0a526", "fail": "#e5533d", "info": "#4ea1ff"}

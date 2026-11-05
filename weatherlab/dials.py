@@ -121,7 +121,7 @@ def pressure_dial_html(now_inhg: float, change_inhg: float, dark: bool = False,
               f'transform="rotate({deg:.1f} {cx} {cy})"/><circle cx="{cx}" cy="{cy}" r="6" fill="{c["text"]}"/>')
     scale = (f'<text x="14" y="146" font-size="10" fill="{c["muted"]}">Falling fast</text>'
              f'<text x="246" y="146" font-size="10" text-anchor="end" fill="{c["muted"]}">Rising fast</text>')
-    svg = (f'<svg viewBox="0 0 260 156" width="260" style="max-width:100%;height:auto" role="img" aria-label="Pressure trend">'
+    svg = ('<svg viewBox="0 0 260 156" width="260" style="max-width:100%;height:auto" role="img" aria-label="Pressure trend">'
            + "".join(bands) + needle + scale + "</svg>")
     name, text = pressure_band(change_inhg)
     unit = U.unit("baromrelin", metric)

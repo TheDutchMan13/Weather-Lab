@@ -1,7 +1,6 @@
-"""Pages under Explore: rain calendar, rain events, questions, unusual days and replay."""
+"""Rain calendar, rain events, Ask, unusual days and replay. All but Ask are tabs of History from 0.37.56."""
 
 import calendar
-import html
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date, datetime, timedelta

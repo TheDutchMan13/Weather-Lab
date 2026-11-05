@@ -613,7 +613,6 @@ def _day_text(d) -> str:
 
 def _extreme_events(days: list, metric: bool) -> None:
     ev = records_events.events(days)
-    sm = records_events.summary(days)
     hot = ev["heat"][0][1] if ev["heat"] else None
     _tile_row([
         ("Heat events", str(len(ev["heat"])), "hottest " + units.format_value("tempf", hot, metric, 1) if hot is not None else "none recorded", "#e5534b"),

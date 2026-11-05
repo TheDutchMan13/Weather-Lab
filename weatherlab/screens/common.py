@@ -3,7 +3,7 @@
 import html
 import streamlit as st
 from datetime import datetime
-from weatherlab import history, nws, stations, storage, theme, wx_icons
+from weatherlab import history, nws, stations, storage, theme
 from weatherlab.poller import Poller
 from weatherlab.settings import Settings
 from zoneinfo import ZoneInfo
@@ -125,13 +125,6 @@ def _tz(s: Settings) -> ZoneInfo:
         return ZoneInfo(s.timezone)
     except Exception:
         return ZoneInfo("UTC")
-
-
-def _now_tile(short: str, night: bool) -> str:
-    icon = wx_icons.forecast_icon(short, night, 64)
-    return (f'<div class="wl-tile"><div style="display:flex;align-items:center;gap:12px">{icon}'
-            f'<div style="min-width:0"><div class="wl-label">Right now</div>'
-            f'<div class="wl-value" style="font-size:18px">{html.escape(short)}</div></div></div></div>')
 
 
 # ---------------------------------------------------------------- History: rankings, rewind, climate, my year

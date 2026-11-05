@@ -294,10 +294,15 @@ def _app_settings(s: Settings, default_tab: str | None = None) -> None:
     with look_tab:
         _appearance_section(s)
     with alerts_tab:
-        _alert_rules_section()
-        _notifications_section(s)
-        _quiet_section(s)
-        _alert_extras_section(s)
+        # Four folding sections instead of one long page (0.37.56). Keys keep each one open or shut as you work.
+        with st.expander("Alert rules", expanded=True, key="alerts_rules_box", icon=":material/rule:"):
+            _alert_rules_section()
+        with st.expander("Notifications and summaries", key="alerts_notify_box", icon=":material/notifications:"):
+            _notifications_section(s)
+        with st.expander("Quiet hours and more checks", key="alerts_quiet_box", icon=":material/bedtime:"):
+            _quiet_section(s)
+        with st.expander("Other warnings", key="alerts_other_box", icon=":material/warning:"):
+            _alert_extras_section(s)
     with phone_tab:
         _phone_alerts_section(s)
     with updates_tab:
@@ -341,11 +346,11 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
                               format="%.5f", help="Used for sun hours, day summaries, forecasts and air quality.")
         lon = st.number_input("Longitude", value=float(s.longitude or 0.0), min_value=-180.0, max_value=180.0,
                               format="%.5f")
-        elev = st.number_input("Elevation (meters)", value=float(s.elevation_m), min_value=-500.0,
-                               max_value=9000.0, step=1.0)
-        st.markdown(theme.section_html("Forecast requests"), unsafe_allow_html=True)
-        contact = st.text_input("Contact email (optional)", value=s.nws_contact,
-                                help="Sent to the National Weather Service with forecast requests.")
+        with st.expander("More details", key="station_more_box"):  # set once, rarely changed (0.37.56)
+            elev = st.number_input("Elevation (meters)", value=float(s.elevation_m), min_value=-500.0,
+                                   max_value=9000.0, step=1.0)
+            contact = st.text_input("Contact email for forecast requests (optional)", value=s.nws_contact,
+                                    help="Sent to the National Weather Service with forecast requests.")
         if s.latitude is None or s.longitude is None:
             st.caption("Set your latitude and longitude so sun hours and forecasts can be calculated.")
 
@@ -568,25 +573,27 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
 
 def _notifications_section(s: Settings) -> None:
     """Sensor warnings and the morning summary, plus a button to check that Windows notifications show."""
-    st.markdown(theme.section_html("Notifications"), unsafe_allow_html=True)
     sensors_on = st.checkbox("Warn about low sensor batteries and weak signal", value=s.sensor_alerts, key="notify_sensors")
     digest_on = st.checkbox("Send a short summary each morning about yesterday", value=s.digest_enabled, key="notify_digest")
     hour = int(st.number_input("Morning summary time (hour, 0 to 23)", min_value=0, max_value=23,
-                               value=int(s.digest_hour), step=1, key="notify_hour"))
+                               value=int(s.digest_hour), step=1, key="notify_hour")) if digest_on else s.digest_hour
     brief_on = st.checkbox("Send the day's briefing each morning", value=s.briefing_notice, key="notify_briefing",
                            help="One notification to this PC and your phone: the expected high, how it compares with yesterday, and any warning in effect.")
     brief_hour = int(st.number_input("Briefing time (hour, 0 to 23)", min_value=0, max_value=23,
-                                     value=int(s.briefing_hour), step=1, key="notify_briefing_hour"))
+                                     value=int(s.briefing_hour), step=1, key="notify_briefing_hour")) \
+        if brief_on else s.briefing_hour
     weekly_on = st.checkbox("Also send a summary of the last 7 days on Mondays", value=s.weekly_digest, key="notify_weekly")
     offline_on = st.checkbox("Warn when the station stops sending readings", value=s.offline_alerts, key="notify_offline")
     frost_on = st.checkbox("Warn about freezing nights in the forecast", value=s.frost_alerts, key="notify_frost")
     metric = units.is_metric(s.units)
-    frost_shown = float(st.number_input(
-        f"Freeze warning when the forecast low is at or below ({'°C' if metric else '°F'})",
-        min_value=round(units.convert("tempf", 20.0, metric), 1), max_value=round(units.convert("tempf", 45.0, metric), 1),
-        value=round(units.convert("tempf", float(s.frost_threshold_f), metric), 1), step=1.0,
-        key=f"notify_frost_{'c' if metric else 'f'}"))
-    frost_f = round(units.to_us("tempf", frost_shown, metric), 1)
+    frost_f = round(s.frost_threshold_f, 1)
+    if frost_on:
+        frost_shown = float(st.number_input(
+            f"Freeze warning when the forecast low is at or below ({'°C' if metric else '°F'})",
+            min_value=round(units.convert("tempf", 20.0, metric), 1), max_value=round(units.convert("tempf", 45.0, metric), 1),
+            value=round(units.convert("tempf", float(s.frost_threshold_f), metric), 1), step=1.0,
+            key=f"notify_frost_{'c' if metric else 'f'}"))
+        frost_f = round(units.to_us("tempf", frost_shown, metric), 1)
     if (sensors_on, digest_on, hour, offline_on, frost_on, frost_f, weekly_on, brief_on, brief_hour) != (
             s.sensor_alerts, s.digest_enabled, s.digest_hour, s.offline_alerts, s.frost_alerts,
             round(s.frost_threshold_f, 1), s.weekly_digest, s.briefing_notice, s.briefing_hour):
@@ -602,19 +609,21 @@ def _notifications_section(s: Settings) -> None:
 
 def _quiet_section(s: Settings) -> None:
     """Quiet hours, the stuck-sensor check and the lightning notice."""
-    st.markdown(theme.section_html("Quiet hours and more checks"), unsafe_allow_html=True)
     quiet_on = st.checkbox("Quiet hours: hold back non-urgent notifications", value=s.quiet_enabled, key="quiet_on",
                            help="Sensor warnings, stuck-sensor warnings and the morning summary wait until quiet hours end. "
                                 "Station offline, freeze and lightning notices still sound.")
-    start = int(st.number_input("Quiet from (hour, 0 to 23)", min_value=0, max_value=23, value=int(s.quiet_start),
-                                step=1, key="quiet_start"))
-    end = int(st.number_input("Quiet until (hour, 0 to 23)", min_value=0, max_value=23, value=int(s.quiet_end),
-                              step=1, key="quiet_end"))
+    start, end = s.quiet_start, s.quiet_end
+    if quiet_on:
+        start = int(st.number_input("Quiet from (hour, 0 to 23)", min_value=0, max_value=23, value=int(s.quiet_start),
+                                    step=1, key="quiet_start"))
+        end = int(st.number_input("Quiet until (hour, 0 to 23)", min_value=0, max_value=23, value=int(s.quiet_end),
+                                  step=1, key="quiet_end"))
     stuck_on = st.checkbox("Warn when outdoor temperature or humidity stops changing", value=s.stuck_alerts, key="stuck_on")
     health_on = st.checkbox("Warn me when disk space runs out or a backup fails", value=s.health_alerts, key="health_on")
     light_on = st.checkbox("Notify me when lightning is close", value=s.lightning_alerts, key="light_on")
     miles = float(st.number_input("Lightning notice within (miles)", min_value=1.0, max_value=25.0,
-                                  value=float(s.lightning_alert_miles), step=1.0, key="light_miles"))
+                                  value=float(s.lightning_alert_miles), step=1.0, key="light_miles")) \
+        if light_on else s.lightning_alert_miles
     if (quiet_on, start, end, stuck_on, health_on, light_on, miles) != (
             s.quiet_enabled, s.quiet_start, s.quiet_end, s.stuck_alerts, s.health_alerts, s.lightning_alerts,
             s.lightning_alert_miles):
@@ -625,17 +634,19 @@ def _quiet_section(s: Settings) -> None:
 
 def _alert_extras_section(s: Settings) -> None:
     """UV, air quality and fire danger notices, rain start and stop, and the optional version check address."""
-    st.markdown(theme.section_html("Other warnings"), unsafe_allow_html=True)
     uv_on = st.checkbox("UV index notice", value=s.uv_alerts, key="ex_uv")
     uv_level = float(st.number_input("UV level for the notice", min_value=1.0, max_value=15.0,
-                                     value=float(s.uv_alert_level), step=1.0, key="ex_uv_level"))
+                                     value=float(s.uv_alert_level), step=1.0, key="ex_uv_level")) \
+        if uv_on else s.uv_alert_level
     aqi_on = st.checkbox("Air quality notice", value=s.aqi_alerts, key="ex_aqi",
                          help="Uses the AirNow key saved in Settings, under Station.")
     aqi_level = float(st.number_input("Air quality notice at AQI", min_value=50.0, max_value=500.0,
-                                      value=float(s.aqi_alert_level), step=1.0, key="ex_aqi_level"))
+                                      value=float(s.aqi_alert_level), step=1.0, key="ex_aqi_level")) \
+        if aqi_on else s.aqi_alert_level
     fire_on = st.checkbox("Fire danger notice", value=s.fire_alerts, key="ex_fire")
     fire_level = float(st.number_input("Fire danger notice at fire weather index", min_value=5.0, max_value=60.0,
-                                       value=float(s.fire_alert_fwi), step=1.0, key="ex_fire_level"))
+                                       value=float(s.fire_alert_fwi), step=1.0, key="ex_fire_level")) \
+        if fire_on else s.fire_alert_fwi
     rain_on = st.checkbox("Rain started and stopped notices", value=s.rain_notices, key="ex_rain")
     nws_on = st.checkbox("National Weather Service warnings and advisories (US only)", value=s.nws_alerts, key="ex_nws",
                          help="Sends each new warning or advisory for your location once, to this PC and your phone.")
@@ -649,7 +660,6 @@ def _alert_extras_section(s: Settings) -> None:
 
 def _alert_rules_section() -> None:
     s = load_settings()
-    st.markdown(theme.section_html("Alert rules"), unsafe_allow_html=True)
     st.caption("Weather Lab sends a notification when a rule's conditions hold. A rule repeats at most once an hour, "
                "unless it escalates: then it becomes more serious the longer it lasts.")
     metric = units.is_metric(s.units)
@@ -665,7 +675,7 @@ def _alert_rules_section() -> None:
     names = list(labels)
     unit_text = "°C, km/h or mm" if metric else "°F, mph or inches"
     default_value = round(units.convert("tempf", 110.0, metric), 1)
-    with st.form("new-rule"):
+    with st.popover("Add a rule", icon=":material/add:"), st.form("new-rule"):
         st.markdown("**What to watch**")
         name = st.text_input("Name", placeholder="Extreme heat")
         watch = st.selectbox("Watch", names, help="Pressure falling and temperature falling are changes per hour.")
@@ -701,11 +711,6 @@ def _alert_rules_section() -> None:
             else:
                 save_settings(replace(s, alert_rules=rules + [rule]))
                 st.rerun()
-    recent = start_poller().status.recent_alerts[:5]
-    if recent:
-        st.markdown(theme.section_html("Recent alerts"), unsafe_allow_html=True)
-        for ts, text in recent:
-            st.caption(f"{_clock(ts)}  {text}")
 
 
 # ---------------------------------------------------------------- Status
@@ -718,13 +723,24 @@ def _gateway_sensors(ip: str) -> list[dict] | None:
         return None
 
 
+WHATS_NEW_OPEN = 3  # versions shown in full; older ones fold into one section (0.37.56)
+
+
+def _news_entry(entry: dict, note: str) -> None:
+    with st.container(border=True):
+        st.markdown(theme.section_html(f"Version {entry['version']}", note), unsafe_allow_html=True)
+        st.markdown("\n".join(f"- {item}" for item in entry["items"]))
+
+
 def whats_new_page() -> None:
     st.markdown(theme.page_head("What's New", "What changed in each version, newest first."), unsafe_allow_html=True)
-    for i, entry in enumerate(whats_new.ENTRIES):
-        note = f"{entry['date']} · latest" if i == 0 else entry["date"]
-        with st.container(border=True):
-            st.markdown(theme.section_html(f"Version {entry['version']}", note), unsafe_allow_html=True)
-            st.markdown("\n".join(f"- {item}" for item in entry["items"]))
+    recent, older = whats_new.ENTRIES[:WHATS_NEW_OPEN], whats_new.ENTRIES[WHATS_NEW_OPEN:]
+    for i, entry in enumerate(recent):
+        _news_entry(entry, f"{entry['date']} · latest" if i == 0 else entry["date"])
+    if older:
+        with st.expander(f"Older versions ({len(older)})", icon=":material/history:"):
+            for entry in older:
+                _news_entry(entry, entry["date"])
 
 
 def status_page() -> None:

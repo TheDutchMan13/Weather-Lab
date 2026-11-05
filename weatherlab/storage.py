@@ -1,7 +1,6 @@
 """Local SQLite storage. Same readings and daily tables the dashboard uses, in the user's own AppData folder."""
 
 import json
-import os
 import sqlite3
 import time
 from pathlib import Path

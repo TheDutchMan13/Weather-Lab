@@ -37,9 +37,6 @@ class GroupTests(unittest.TestCase):
         self.assertEqual(sidebar.set_open(["Gone", "History"], "Storms", False), ["History", "Storms"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class HomeApiTests(unittest.TestCase):
     def test_home_layout_says_the_hero_style(self):
@@ -47,3 +44,12 @@ class HomeApiTests(unittest.TestCase):
         from weatherlab.settings import Settings
         self.assertEqual(api.home_layout(Settings())["hero"], "gradient")
         self.assertEqual(api.home_layout(Settings(hero_style="plain"))["hero"], "plain")
+
+
+class MovedPinTests(unittest.TestCase):
+    def test_a_pin_on_a_page_that_became_a_tab_moves_to_its_page(self):
+        self.assertEqual(sidebar.clean_pins(["Rain calendar", "Backup", "Replay", "Radar"]), ["History", "Data", "Radar"])
+
+
+if __name__ == "__main__":
+    unittest.main()

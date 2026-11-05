@@ -30,7 +30,9 @@ class Items(unittest.TestCase):
             self.assertIn(item.page, pages, item.key)
         settings_src = (pathlib.Path(__file__).resolve().parents[1] / "weatherlab" / "screens" / "system.py").read_text(encoding="utf-8")
         for item in checklist.items(Settings(), False, False):
-            if item.tab:
+            if item.tab and item.page in nav_groups.TABS:  # a tab of a tabbed page (0.37.56)
+                self.assertIn(item.tab.lower(), [t.lower() for t in nav_groups.TABS[item.page]], item.tab)
+            elif item.tab:
                 self.assertIn(f'"{item.tab.capitalize()}"', settings_src, item.tab)
 
 

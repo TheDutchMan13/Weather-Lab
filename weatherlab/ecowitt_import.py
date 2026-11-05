@@ -112,10 +112,6 @@ def parse_daily_rows(rows):
     return out
 
 
-def days_from_file(source):
-    return parse_daily_rows(read_xlsx(source))
-
-
 def days_from_files(sources):
     """{date: summary} from one or more exports. Daily exports are used as they are. Exports with readings finer than
     daily (every minute, 5-minute or 4-hour) are summarized into days; days from the 4-hour readings are marked estimated."""

@@ -44,7 +44,8 @@ class BackupPage(unittest.TestCase):
         self.assertEqual(backup.describe(self.dir / "nothing"), [])
 
     def test_page_is_in_station_and_wired_into_the_app(self):
-        self.assertIn("Backup", nav_groups.GROUPS["Station"])  # Tools became part of Station (0.37.40)
+        self.assertIn("Data", nav_groups.GROUPS["Station"])  # Tools became part of Station (0.37.40)
+        self.assertIn("Backup", nav_groups.TABS["Data"])  # Backup is a tab of Data (0.37.56)
         app = (ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn('"Backup": backup_page', app)
         self.assertIn('"Backup": "💾"', app)

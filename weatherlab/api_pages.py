@@ -2,8 +2,6 @@
 What's New and the forecast. Read-only, in the units chosen in Settings. api.py routes to these."""
 
 import calendar
-import json
-import time
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -211,7 +209,6 @@ def _heat_series(today: list, metric: bool) -> list:
 
 
 def station(db, s, now: float) -> dict:
-    tz = _tz(s)
     rows = health.window(db, now - 24 * 3600, now)
     latest = storage.latest(db)
     state, text = health.age_status(latest[0] if latest else None, now)
@@ -608,7 +605,7 @@ def radar(db, s, now: float) -> dict:
     try:
         station = _cached(("radar", s.latitude, s.longitude), now, 86400,
                           lambda: nws.points(s.latitude, s.longitude, s.nws_contact).get("radar", ""))
-    except Exception as exc:
+    except Exception:
         station = ""
     out = {"available": True, "us_image": RADAR_RIDGE + "CONUS_0.gif", "us_page": "https://radar.weather.gov/"}
     if station:

@@ -25,7 +25,7 @@ def items(s, has_topic: bool, has_backup: bool) -> list[Item]:
              "Rain, lightning, a station that stops reporting, and app problems.", "Settings", "phone alerts"),
         Item("backup", has_backup, "Back up your readings",
              "With backups on, Weather Lab copies the readings once a day. This ticks off once the first copy exists.",
-             "Backup"),
+             "Data", "backup"),
         Item("updates", bool(s.update_url.strip()), "Turn on update checks",
              "Home tells you when a newer Weather Lab is out. Turn on uses the official releases on GitHub.",
              "Settings", "updates"),

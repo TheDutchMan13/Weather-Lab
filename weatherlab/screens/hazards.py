@@ -13,7 +13,6 @@ from weatherlab.screens.common import _clock, _tile, _tz, empty_card, start_poll
 # ---------------------------------------------------------------- Air
 def air_page() -> None:
     s = load_settings()
-    tz = _tz(s)
     st.markdown(theme.page_head("Air quality", "Air quality for your area from AirNow, with the pollutant levels."), unsafe_allow_html=True)
     if not secrets.get_key("airnow"):
         empty_card("Add a free AirNow API key in Settings, under Station to see air quality.")

@@ -5,6 +5,18 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.56",
+        "date": "November 5, 2026",
+        "items": [
+            "A tidier sidebar: 19 pages instead of 28. Pages that belong together are now tabs of one page. History has tabs for Rain calendar, Rain events, Unusual days and Replay. Air and heat, Wind (with Wind map), and Sun and sky (with Astronomy) replace six weather pages. Data holds Backup, Reports, Export and Import, and Help holds What's New.",
+            "Nothing was taken away. The old page names still work in Jump to page, in links and bookmarks, and in your pins: each opens its new page on the right tab, and a pinned page that became a tab is pinned as its new page.",
+            "Settings, Alerts folds into four sections: Alert rules, Notifications and summaries, Quiet hours and more checks, and Other warnings. A time or level box only shows when its notice is on, and Add a rule opens in a small window.",
+            "Settings, Station: Elevation and the forecast contact email moved under More details.",
+            "What's New shows the newest 3 versions. Older versions fold into one section at the bottom.",
+            "Behind the scenes: unused code was removed.",
+        ],
+    },
+    {
         "version": "0.37.55",
         "date": "November 4, 2026",
         "items": [

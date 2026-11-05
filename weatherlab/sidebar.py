@@ -1,7 +1,7 @@
 """The sidebar (0.37.53): a Jump to page box, pinned pages, and groups that fold shut.
 
 Pure functions, so the rules can be tested without Streamlit. app.py draws the sidebar from these."""
-from weatherlab.nav_groups import GROUPS
+from weatherlab.nav_groups import GROUPS, moved
 
 MAX_PINS = 8
 
@@ -12,10 +12,13 @@ def group_of(page: str) -> str | None:
 
 
 def clean_pins(pins: list[str]) -> list[str]:
-    """Pinned pages that still exist, in the order pinned, without repeats, at most MAX_PINS."""
+    """Pinned pages that still exist, in the order pinned, without repeats, at most MAX_PINS. A pin on a page that
+    became a tab (0.37.56) moves to the page holding it."""
     known = {n for names in GROUPS.values() for n in names}
+    renamed = moved()
     out: list[str] = []
     for p in pins:
+        p = renamed.get(p, p)
         if p in known and p not in out:
             out.append(p)
     return out[:MAX_PINS]

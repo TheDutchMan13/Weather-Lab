@@ -7,7 +7,8 @@ import time
 from dataclasses import replace
 from weatherlab import auth, health, sidebar, stations, storage, theme
 from weatherlab.config import APP_NAME, APP_VERSION
-from weatherlab.nav_groups import DEFAULT_PAGE, GROUPS
+from weatherlab import nav_groups
+from weatherlab.nav_groups import DEFAULT_PAGE, GROUPS, TABS
 from weatherlab.settings import load_settings, save_settings
 from weatherlab import api
 from weatherlab.screens.common import start_poller
@@ -79,6 +80,7 @@ PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
     "Import": "📥", "Export": "📤", "Backup": "💾", "Reports": "📄",
     "Station health": "🩺", "Home layout": "🧩",
     "What's New": "🆕", "Help": "❔", "Settings": "⚙️", "Stations": "📍",
+    "Air and heat": "🌡️", "Sun and sky": "🌤️", "Data": "🗄️",
 }
 
 
@@ -109,20 +111,71 @@ def station_health_page() -> None:
     STATION_VIEWS[view]()
 
 
-PAGE_FUNCS = {"Home": home_page, "Compare stations": compare_stations_page, "History": history_page, "Station health": station_health_page, "Home layout": home_layout_page, "Help": help_page, "Alert history": alerts_log_page, "What's New": whats_new_page, "Settings": settings_page, 
-              "Rain events": rain_events_page, "Ask": ask_page, "Unusual days": unusual_page,
-              "Rain calendar": rain_calendar_page,
-              "Replay": replay_page, "Reports": reports_page, "Forecast": forecast_page, "Heat": heat_page,
-              "Wind": wind_page, "Wind map": wind_map_page, "Sun": sun_page, "Astronomy": astronomy_page, "Air": air_page,
-              "Fire": fire_page, "Lightning": lightning_page, "Tropics": tropics_page, "Radar": radar_page,
-              "Import": _import_page, "Export": export_page, "Backup": backup_page, "Stations": stations_page}
+# Pages without tabs.
+PAGE_FUNCS = {"Home": home_page, "Forecast": forecast_page, "Alert history": alerts_log_page,
+              "Compare stations": compare_stations_page, "Ask": ask_page, "Fire": fire_page,
+              "Lightning": lightning_page, "Tropics": tropics_page, "Radar": radar_page,
+              "Station health": station_health_page, "Stations": stations_page, "Settings": settings_page,
+              "Home layout": home_layout_page}
+
+# The tabs of the tabbed pages (nav_groups.TABS, 0.37.56). Each was a page of its own before.
+VIEW_FUNCS = {"History": history_page, "Rain calendar": rain_calendar_page, "Rain events": rain_events_page,
+              "Unusual days": unusual_page, "Replay": replay_page, "Air": air_page, "Heat": heat_page,
+              "Wind": wind_page, "Wind map": wind_map_page, "Sun": sun_page, "Astronomy": astronomy_page,
+              "Backup": backup_page, "Reports": reports_page, "Export": export_page, "Import": _import_page,
+              "Help": help_page, "What's New": whats_new_page}
+
+
+def _tabbed(page: str):
+    """A page made of tabs. ?tab=<name> picks the tab, so links and old page names land on the right one."""
+    tabs = TABS[page]
+
+    def run() -> None:
+        key = nav_groups.view_key(page)
+        wanted = st.query_params.get("tab")
+        match = next((t for t in tabs if wanted and t.lower() == wanted.lower()), None)
+        if match:
+            st.session_state[key] = match
+            del st.query_params["tab"]
+        elif st.session_state.get(key) not in tabs:
+            st.session_state[key] = tabs[0]
+        view = st.segmented_control(page, tabs, key=key, required=True, label_visibility="collapsed")
+        VIEW_FUNCS[view if view in tabs else tabs[0]]()
+    return run
+
+
+def _moved(name: str):
+    """An old page name (before 0.37.56): opens the page that holds it, on its tab. Old bookmarks and links keep
+    working this way."""
+    page, tab = nav_groups.where(name)
+
+    def run() -> None:
+        target = st.session_state.get("wl_pages", {}).get(page)
+        if target is not None:
+            st.switch_page(target, query_params={"tab": tab} if tab else None)
+    return run
+
+
+def _url(page: str) -> str:
+    """Pages keep the web address they had (Streamlit names it after the page's function); new pages get one from
+    their name."""
+    fn = PAGE_FUNCS.get(page) or VIEW_FUNCS.get(page)
+    return fn.__name__ if fn else page.lower().replace(" ", "_")
 
 
 def _sections() -> dict:
     """The sidebar sections and their pages, as Streamlit page objects."""
-    return {group: [st.Page(PAGE_FUNCS[name], title=name, icon=PAGE_ICONS[name], default=(name == DEFAULT_PAGE))
+    return {group: [st.Page(PAGE_FUNCS[name] if name in PAGE_FUNCS else _tabbed(name), title=name,
+                            icon=PAGE_ICONS[name], url_path=_url(name), default=(name == DEFAULT_PAGE))
                     for name in names]
             for group, names in GROUPS.items()}
+
+
+def _moved_pages() -> list:
+    """Hidden pages under the old names, which send you to the new place."""
+    return [st.Page(_moved(name), title=name, icon=PAGE_ICONS[name], url_path=VIEW_FUNCS[name].__name__,
+                    visibility="hidden")
+            for name in nav_groups.moved()]
 
 
 def _jump_box(all_pages: dict) -> None:
@@ -260,8 +313,12 @@ def main() -> None:
         return
     sections = _sections()
     _station_picker()
-    nav = st.navigation(sections, position="hidden")  # the sidebar menu is drawn by _sidebar_menu (0.37.53)
+    moved = _moved_pages()
+    # The sidebar menu is drawn by _sidebar_menu (0.37.53). Old page names (0.37.56) are in the navigation so their
+    # addresses still open, but not in the menu.
+    nav = st.navigation({**sections, "Moved": moved}, position="hidden")
     pages = {page.title: page for group in sections.values() for page in group}
+    pages.update({page.title: page for page in moved})
     st.session_state["wl_pages"] = pages  # lets a page link to another, such as Customize on Home
     _sidebar_menu(sections, pages, nav.title)
     _sidebar_status()

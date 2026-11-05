@@ -5,7 +5,6 @@ folder, so the page doesn't ask Open-Meteo every time it opens.
 """
 
 import json
-import time
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
