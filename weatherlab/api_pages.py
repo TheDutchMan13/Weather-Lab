@@ -169,6 +169,36 @@ def sun(db, s, now: float) -> dict:
             "sunrise": rise, "sunset": set_, "burn_now": burn(uv_now), "burn_peak": burn(uv_peak), "metric": metric}
 
 
+def astronomy(db, s, now: float) -> dict:
+    """Sun and moon for the station's location: the sun's day (rise, noon, golden hour, set, twilight, length and how it
+    is changing), the moon (phase, rise, set, next full and new) and the next 14 days. Added in 0.37.57."""
+    from datetime import timezone
+    from weatherlab import timefmt
+    if s.latitude is None or s.longitude is None:
+        return {"has_location": False}
+    tz = _tz(s)
+    o = astro.overview(s.latitude, s.longitude, tz, datetime.fromtimestamp(now, timezone.utc))
+
+    def clock(dt):
+        return None if dt is None else timefmt.time_text(dt)
+
+    moon = o["moon"]
+    return {
+        "has_location": True,
+        "sunrise": clock(o["sunrise"]), "sunset": clock(o["sunset"]),
+        "sun_progress": None if o["progress"] is None else round(o["progress"], 4),
+        "day_length": astro.length_text(o["length"]), "day_change": astro.change_text(o["change"]),
+        "solar_noon": clock(o["noon"]), "noon_altitude": round(o["noon_altitude"]),
+        "golden_hour": clock(o["golden_hour"]), "twilight_end": clock(o["twilight_end"]),
+        "moon": {"name": moon["name"], "illumination": round(moon["illumination"], 1), "age_days": round(moon["age"], 1),
+                 "waxing": moon["waxing"], "rise": clock(moon["rise"]), "set": clock(moon["set"]),
+                 "next_full": f"{moon['next_full']:%b} {moon['next_full'].day}", "next_new": f"{moon['next_new']:%b} {moon['next_new'].day}"},
+        "days": [{"label": f"{d['date']:%a} {d['date']:%b} {d['date'].day}", "sunrise": clock(d["sunrise"]),
+                  "sunset": clock(d["sunset"]), "day_length": astro.length_text(d["length"]), "moon": d["moon"]}
+                 for d in o["days"]],
+    }
+
+
 def heat(db, s, now: float) -> dict:
     tz = _tz(s)
     metric = units.is_metric(s.units)

@@ -25,6 +25,7 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/wind/1  (or /7, /30, /all) where the wind came from and how strong
   /api/v1/lightning/days  strikes per day for the last 30 days, with the closest
   /api/v1/sun  UV, sunshine hours, sunrise and sunset, and sunburn times
+  /api/v1/astronomy  sunrise, solar noon, golden hour, sunset, twilight and day length, the moon's phase, rise and set, and the next 14 days
   /api/v1/heat  heat index now, today's peak, hot days this year and the heat safety levels
   /api/v1/station  how complete the data is, gaps, each sensor, and battery and signal when the station can be reached
   /api/v1/whatsnew  what each Weather Lab version added
@@ -575,6 +576,7 @@ def route(path: str, authorization: str | None, db, s, now: float, client: str =
                      "/api/v1/rain/events": lambda: api_pages.rain_event_list(db, s, now),
                      "/api/v1/lightning/days": lambda: api_pages.lightning_days(db, s, now),
                      "/api/v1/sun": lambda: api_pages.sun(db, s, now),
+                     "/api/v1/astronomy": lambda: api_pages.astronomy(db, s, now),
                      "/api/v1/heat": lambda: api_pages.heat(db, s, now),
                      "/api/v1/station": lambda: api_pages.station(db, s, now),
                      "/api/v1/whatsnew": lambda: api_pages.whats_new_list(db, s, now),

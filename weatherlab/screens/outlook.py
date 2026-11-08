@@ -4,7 +4,7 @@ import html
 import streamlit as st
 import time
 from datetime import datetime, timedelta, timezone
-from weatherlab import astro, charts, forecast_card, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
+from weatherlab import astro, astro_art, charts, forecast_card, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
 from weatherlab.settings import Settings, load_settings
 from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller
 
@@ -309,41 +309,47 @@ def _local_time(dt, tz) -> str:
 def astronomy_page() -> None:
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.page_head("Astronomy", "Sunrise, sunset, moon phases and daylight for your location."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Astronomy", "The sun and moon for your location: sunrise, sunset, golden hour, twilight, moonrise, moonset and phases."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
         empty_card("Set your location in Settings, under Station to see sunrise, sunset and the moon.")
         return
 
     now = datetime.now(timezone.utc)
-    today = now.astimezone(tz).date()
-    rise, set_ = astro.sun_times(s.latitude, s.longitude, today)
-    if rise is None or set_ is None:
-        length = "--"
-    else:
-        minutes = round((set_ - rise).total_seconds() / 60)
-        length = f"{minutes // 60} h {minutes % 60} min"
-    moon = astro.moon_phase(now)
-    full = astro.next_phase(now, astro.FULL_AGE).astimezone(tz)
-    new = astro.next_phase(now, 0).astimezone(tz)
+    o = astro.overview(s.latitude, s.longitude, tz, now, days=14)
+    moon = o["moon"]
+    rise_text, set_text = _local_time(o["sunrise"], tz), _local_time(o["sunset"], tz)
+
+    sun_col, moon_col = st.columns(2)
+    with sun_col:
+        st.markdown(theme.section_html("Sun today"), unsafe_allow_html=True)
+        st.markdown(astro_art.sun_arc_svg(o["progress"], rise_text, set_text), unsafe_allow_html=True)
+        change = astro.change_text(o["change"])
+        st.markdown(f"**{astro.length_text(o['length'])}** of daylight" + (f", {change}" if change else ""))
+    with moon_col:
+        st.markdown(theme.section_html("Moon"), unsafe_allow_html=True)
+        st.markdown(f'<div style="display:flex;gap:14px;align-items:center">{astro_art.moon_svg(moon["illumination"], moon["waxing"])}'
+                    f'<div><div style="font-size:1.15rem;font-weight:600">{html.escape(moon["name"])}</div>'
+                    f'<div style="opacity:.7">{moon["illumination"]:.0f}% lit, day {moon["age"]:.0f} of 29</div></div></div>',
+                    unsafe_allow_html=True)
+        st.markdown(f"Moonrise {_local_time(moon['rise'], tz)}, moonset {_local_time(moon['set'], tz)}")
+
     st.markdown(theme.grid_html([
-        _tile("Sunrise", _local_time(rise, tz)),
-        _tile("Sunset", _local_time(set_, tz)),
-        _tile("Day length", length),
-        _tile("Moon", moon["name"], f"{moon['illumination']:.0f}% lit"),
-        _tile("Next full moon", f"{full:%b %d}"),
-        _tile("Next new moon", f"{new:%b %d}"),
+        _tile("Sunrise", rise_text),
+        _tile("Sunset", set_text),
+        _tile("Day length", astro.length_text(o["length"], short=True)),
+        _tile("Solar noon", _local_time(o["noon"], tz), f"Sun {o['noon_altitude']:.0f}° up"),
+        _tile("Golden hour", _local_time(o["golden_hour"], tz), "Evening light starts"),
+        _tile("Twilight ends", _local_time(o["twilight_end"], tz), "Properly dark after"),
+        _tile("Next new moon", f"{moon['next_new']:%b} {moon['next_new'].day}"),
+        _tile("Next full moon", f"{moon['next_full']:%b} {moon['next_full'].day}"),
     ]), unsafe_allow_html=True)
 
-    st.markdown(theme.section_html("Next 7 days"), unsafe_allow_html=True)
-    rows = []
-    for offset in range(7):
-        day = today + timedelta(days=offset)
-        day_rise, day_set = astro.sun_times(s.latitude, s.longitude, day)
-        rows.append({"Date": f"{day:%a %b %d}", "Sunrise": _local_time(day_rise, tz),
-                     "Sunset": _local_time(day_set, tz)})
-    theme.table(rows)
+    st.markdown(theme.section_html("Next 14 days"), unsafe_allow_html=True)
+    theme.table([{"Date": f"{d['date']:%a} {d['date']:%b} {d['date'].day}", "Sunrise": _local_time(d["sunrise"], tz),
+                  "Sunset": _local_time(d["sunset"], tz), "Daylight": astro.length_text(d["length"]),
+                  "Moon": d["moon"]} for d in o["days"]])
     st.caption(f"Times are in {s.timezone}. Sun times use the standard NOAA method, accurate to about a minute. "
-               "Moon dates can be off by about a day.")
+               "Moonrise and moonset are estimates, good to a few minutes. Moon phase dates can be off by about a day.")
 
 
 # ---------------------------------------------------------------- Wind map

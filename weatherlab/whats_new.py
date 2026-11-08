@@ -5,6 +5,16 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.57",
+        "date": "November 8, 2026",
+        "items": [
+            "Astronomy is bigger. A picture of the sun's path with where it is now, how much daylight you have and how that is changing against yesterday, solar noon and how high the sun gets, when golden hour starts and when twilight ends, and the moon drawn with its phase, how much is lit, moonrise and moonset.",
+            "The day table now covers 14 days, with sunrise, sunset, daylight and the moon for each.",
+            "Moonrise and moonset are new, and are estimates good to a few minutes. Some days the moon doesn't rise, or doesn't set, and that shows as a dash.",
+            "The Android app has the same page, under Sun and heat, Astronomy. It needs this version on your PC.",
+        ],
+    },
+    {
         "version": "0.37.56",
         "date": "November 5, 2026",
         "items": [

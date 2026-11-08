@@ -83,6 +83,75 @@ class AstroTests(unittest.TestCase):
         self.assertTrue(date(2000, 1, 20) <= nxt.date() <= date(2000, 1, 22))  # first full moon after 6 Jan 2000
 
 
+class AstroExtraTests(unittest.TestCase):
+    PHX = (33.45, -112.07)
+
+    def test_twilight_and_golden_hour_order(self):
+        lat, lon = self.PHX
+        day = date(2026, 11, 8)
+        rise, set_ = astro.sun_times(lat, lon, day)
+        self.assertLess(astro.golden_hour(lat, lon, day), set_)
+        self.assertGreater(astro.twilight_end(lat, lon, day), set_)
+        noon = astro.solar_noon(lat, lon, day)
+        self.assertTrue(rise < noon < set_)
+        self.assertTrue(38 < astro.noon_altitude(lat, lon, day) < 42)
+
+    def test_default_sun_times_unchanged(self):
+        rise, set_ = astro.sun_times(33.45, -112.07, date(2026, 11, 8))
+        mst = timezone(timedelta(hours=-7))
+        self.assertEqual(rise.astimezone(mst).strftime("%H:%M"), "06:53")
+        self.assertEqual(set_.astimezone(mst).strftime("%H:%M"), "17:30")
+
+    def test_day_shortens_in_autumn_and_lengthens_in_spring(self):
+        lat, lon = self.PHX
+        self.assertLess(astro.day_length(lat, lon, date(2026, 11, 8)), astro.day_length(lat, lon, date(2026, 11, 7)))
+        self.assertGreater(astro.day_length(lat, lon, date(2026, 3, 8)), astro.day_length(lat, lon, date(2026, 3, 7)))
+
+    def test_moonrise_and_set_known_day(self):
+        from zoneinfo import ZoneInfo
+        # checked against the ephem library: Phoenix, 8 November 2026
+        rise, set_ = astro.moon_rise_set(33.45, -112.07, date(2026, 11, 8), ZoneInfo("America/Phoenix"))
+        local = ZoneInfo("America/Phoenix")
+        self.assertEqual(rise.astimezone(local).strftime("%H:%M"), "06:23")
+        self.assertEqual(set_.astimezone(local).strftime("%H:%M"), "16:54")
+
+    def test_moon_can_skip_a_day(self):
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("America/Phoenix")
+        found_gap = any(None in astro.moon_rise_set(33.45, -112.07, date(2026, 1, 1) + timedelta(days=k), tz)
+                        for k in range(30))
+        self.assertTrue(found_gap)  # about once a month the moon doesn't rise, or doesn't set, on a calendar day
+
+    def test_polar_summer_moon_and_sun_do_not_crash(self):
+        from zoneinfo import ZoneInfo
+        o = astro.overview(80.0, 0.0, ZoneInfo("UTC"), datetime(2026, 6, 21, 12, tzinfo=timezone.utc), days=3)
+        self.assertIsNone(o["sunrise"])
+        self.assertIsNone(o["twilight_end"])
+        self.assertEqual(astro.length_text(o["length"]), "--")
+
+    def test_texts(self):
+        self.assertEqual(astro.length_text(38253), "10 h 38 min")
+        self.assertEqual(astro.change_text(-65), "1 min 5 s shorter than yesterday")
+        self.assertEqual(astro.change_text(40), "40 s longer than yesterday")
+        self.assertEqual(astro.change_text(0.2), "the same as yesterday")
+
+    def test_waxing_flag(self):
+        self.assertTrue(astro.moon_waxing(astro.NEW_MOON_REF + timedelta(days=3)))
+        self.assertFalse(astro.moon_waxing(astro.NEW_MOON_REF + timedelta(days=20)))
+
+    def test_pictures(self):
+        from weatherlab import astro_art
+        self.assertIn("Sunrise 6:53 AM", astro_art.sun_arc_svg(0.4, "6:53 AM", "5:30 PM"))
+        self.assertIn("The sun is down", astro_art.sun_arc_svg(None, "6:53 AM", "5:30 PM"))
+        self.assertNotIn("<path d=\"M32 4", astro_art.moon_svg(0.0, True))   # a new moon draws no lit part
+        self.assertIn("<circle", astro_art.moon_svg(100.0, True))
+        crescent, gibbous = astro_art.moon_svg(20.0, True), astro_art.moon_svg(80.0, True)
+        self.assertIn("0 0 1 32 60 A16.8 28 0 0 0 32 4", crescent)   # lit on the right, inner curve on the lit side
+        self.assertIn("0 0 1 32 60 A16.8 28 0 0 1 32 4", gibbous)
+        self.assertIn("0 0 0 32 60 A16.8 28 0 0 1 32 4", astro_art.moon_svg(20.0, False))  # waning: lit on the left
+        self.assertEqual(astro.length_text(38253, short=True), "10 h 38 m")
+
+
 class RainCalendarTests(unittest.TestCase):
     def test_month_grid_starts_on_sunday(self):
         weeks = rain_calendar.month_cells(2026, 10, {})

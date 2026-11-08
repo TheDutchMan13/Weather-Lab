@@ -104,6 +104,17 @@ class ApiPagesTests(ApiHelpers, unittest.TestCase):
         self.assertGreater(body["sunshine_week_hours"], 0)
         self.assertTrue(body["sunrise"] and body["sunset"])
 
+    def test_astronomy(self):
+        _, body = self.get("/api/v1/astronomy")
+        self.assertTrue(body["has_location"])
+        self.assertTrue(body["sunrise"] and body["sunset"] and body["solar_noon"])
+        self.assertEqual(len(body["days"]), 14)
+        self.assertIn("lit", body["days"][0]["moon"] + " lit")
+        self.assertIn(body["moon"]["name"], ("New moon", "Waxing crescent", "First quarter", "Waxing gibbous", "Full moon",
+                                              "Waning gibbous", "Last quarter", "Waning crescent"))
+        _, none = self.get("/api/v1/astronomy", replace(self.s, latitude=None, longitude=None))
+        self.assertEqual(none, {"has_location": False})
+
     def test_heat(self):
         self.seed_readings()
         self.seed_days()
