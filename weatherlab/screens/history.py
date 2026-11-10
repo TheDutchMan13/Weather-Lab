@@ -657,7 +657,7 @@ def _distribution(days: list, metric: bool, dark: bool) -> None:
     fig.update_layout(title="Days by daily high (" + units.suffix("tempf", metric).strip() + ", 5-degree steps)",
                       height=340, margin=dict(l=10, r=10, t=40, b=10), yaxis_title="Days",
                       template="plotly_dark" if dark else "plotly_white")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme=None)
 
 
 def _rain_view(days: list, metric: bool) -> None:

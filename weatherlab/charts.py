@@ -56,9 +56,14 @@ def figure(dark: bool, height: int = 340, scheme: str | None = None) -> go.Figur
         hoverlabel=dict(bgcolor=pg["surface"], bordercolor=pg["accent"], font=dict(color=pg["text"])),
         margin=dict(l=36, r=10, t=36, b=24) if phone else dict(l=40, r=20, t=40, b=30),
         legend=dict(orientation="h", y=-0.3 if phone else -0.22, bgcolor="rgba(0,0,0,0)",
+                    font=dict(color=TEXT[bool(dark)]),
                     bordercolor=_rgba(pg["accent"], 0.2), borderwidth=1),
         xaxis=dict(showgrid=False, zeroline=False, showline=False),
         yaxis=dict(showgrid=True, gridwidth=1, gridcolor=GRID, zeroline=False),
+        # Round charts (the wind rose) sit on the page like the others, instead of Plotly's white disc (0.37.60).
+        polar=dict(bgcolor="rgba(0,0,0,0)",
+                   angularaxis=dict(gridcolor=GRID, linecolor=GRID, tickfont=dict(color=TEXT[bool(dark)])),
+                   radialaxis=dict(gridcolor=GRID, linecolor=GRID, tickfont=dict(color=TEXT[bool(dark)], size=10))),
     )
     return fig
 
@@ -82,6 +87,7 @@ def show(fig: go.Figure, **kwargs) -> None:
                                                   dict(dtickrange=[1800000, 86400000], value="%-I %p")])
             break
     config = dict(CONFIG, displayModeBar=True) if load_settings().chart_toolbar else CONFIG
+    kwargs.setdefault("theme", None)  # our own colours; Streamlit's theme turned legends dark on dark (0.37.60)
     st.plotly_chart(fig, config=config, **kwargs)
 
 

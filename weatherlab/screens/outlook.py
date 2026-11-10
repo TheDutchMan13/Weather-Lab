@@ -256,9 +256,11 @@ def wind_page() -> None:
     ]), unsafe_allow_html=True)
     pct = wind_rose.percentages(counts, total)
     fig = charts.figure(dark, height=480)
+    from weatherlab.screens.history import ROSE_BLUES_DARK, ROSE_BLUES_LIGHT  # the same blues as History's rose
+    ramp = ROSE_BLUES_DARK if dark else ROSE_BLUES_LIGHT
     for n, i in enumerate(wind_rose.DRAWN):
         fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric),
-                         marker_color=charts.CHART_COLORS[n % len(charts.CHART_COLORS)])
+                         marker_color=ramp[n % len(ramp)], marker_line_width=0)
     fig.update_layout(polar=dict(barmode="stack", angularaxis=dict(direction="clockwise", rotation=90),
                                  radialaxis=dict(ticksuffix="%")))
     charts.show(fig)

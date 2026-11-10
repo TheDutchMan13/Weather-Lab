@@ -5,6 +5,14 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.60",
+        "date": "November 10, 2026",
+        "items": [
+            "Charts read properly in dark mode: legends and labels were drawn in dark text on the dark page, and the wind rose sat on a white disc. The wind rose on the Wind page now uses the same blues as the one in History.",
+            "The Streamlit Deploy button and its developer menu no longer show in Weather Lab's window.",
+        ],
+    },
+    {
         "version": "0.37.59",
         "date": "November 10, 2026",
         "items": [

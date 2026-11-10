@@ -1,2 +1,6 @@
 [server]
 enableStaticServing = true
+
+[client]
+# No Streamlit "Deploy" button or developer menu in Weather Lab's window (0.37.60). launcher.py passes the same.
+toolbarMode = "minimal"
