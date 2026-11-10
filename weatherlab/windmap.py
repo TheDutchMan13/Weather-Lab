@@ -123,3 +123,14 @@ def arrow_html(speed: float | None, direction: float | None, size: str = "70%") 
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" aria-hidden="true" '
             f'style="transform:rotate({toward(direction):.0f}deg)"><path d="M12 2 L19 20 L12 16 L5 20 Z" '
             f'fill="{colour}" stroke="#1b4f7a" stroke-width="0.8"/></svg>')
+
+
+def band_label(i: int, metric: bool) -> str:
+    """The speed range of a colour band, in the chosen units, such as 10–15 or 20+ (moved from the page, 0.37.60)."""
+    from weatherlab import units
+    lower = 0.0 if i == 0 else BANDS[i - 1][0]
+    upper = BANDS[i][0]
+    low = units.convert("windspeedmph", lower, metric)
+    if upper == float("inf"):
+        return f"{low:.0f}+"
+    return f"{low:.0f}–{units.convert('windspeedmph', upper, metric):.0f}"

@@ -747,3 +747,106 @@ def briefing_page(db, s, now: float) -> dict:
 def _f(value, metric):
     """A displayed temperature back in °F."""
     return value * 9 / 5 + 32 if metric else value
+
+
+# ------------------------------------------------------------------ pages added for the Android app (0.37.60)
+
+def fire_weather(db, s, now: float) -> dict:
+    """The Fire Weather Index and its parts, days since rain, and the forecast days, as on the Fire page."""
+    rec = storage.latest_fire(db)
+    if rec is None:
+        return {"available": False, "reason": "Fire weather appears once the station has sent readings for an hour."}
+    metric = units.is_metric(s.units)
+    from weatherlab.fire import day_note as _fire_day_note  # the same words as the PC page
+    parts = [("Fire Weather Index", "fwi", ""), ("FFMC", "ffmc", "fine fuels"), ("DMC", "dmc", "duff layer"),
+             ("DC", "dc", "deep drought"), ("ISI", "isi", "spread index"), ("BUI", "bui", "build-up index")]
+    return {"available": True, "as_of": rec["timestamp"][11:16], "days_since_rain": rec.get("days_since_rain"),
+            "parts": [{"label": label, "value": round(float(rec[key]), 1), "note": note}
+                      for label, key, note in parts if isinstance(rec.get(key), (int, float))],
+            "forecast": [{"day": f["day"], "fwi": round(float(f["fwi"]), 1), "note": _fire_day_note(f, metric)}
+                         for f in (rec.get("forecast") or [])[1:]],
+            "notes": "Approximate. It uses the latest reading instead of the usual 1 pm observation, assumes no rain in "
+                     "the forecast, and uses day-length values for about 30° north."}
+
+
+def ask_answer(db, s, now: float, question: str) -> dict:
+    """An answer to a typed question about the station's history, such as "wettest month"."""
+    from urllib.parse import unquote
+    from weatherlab import ask
+    text = unquote(question).strip()[:200]
+    days = history.all_daily(db)
+    today = datetime.fromtimestamp(now, _tz(s)).date()
+    return {"question": text, "answer": ask.answer(text, days, today, units.is_metric(s.units)) if text else "",
+            "examples": [e.strip() for e in ask.EXAMPLES.split(",") if e.strip()]}
+
+
+def station_list(db, s, now: float) -> dict:
+    """Every station this Weather Lab keeps, so the phone can offer two to compare."""
+    from weatherlab import stations
+    return {"stations": [{"id": r["id"], "name": r["name"]} for r in stations.all_stations()]}
+
+
+def compare_stations(db, s, now: float, first: str, second: str) -> dict:
+    """Two stations side by side, now and over the last 24 hours, as on the Compare stations page."""
+    from weatherlab import station_compare, stations
+    known = {r["id"] for r in stations.all_stations()}
+    if first not in known or second not in known or first == second:
+        return {"error": "Pick two different stations from /api/v1/stations."}
+    metric = units.is_metric(s.units)
+    tz = _tz(s)
+    out = {}
+    for side, sid in (("a", first), ("b", second)):
+        with stations.using(sid):
+            other = storage.connect()
+            try:
+                readings = storage.readings_between(other, now - 86400, now + 1)
+            finally:
+                other.close()
+        out[side] = (station_compare.summarize(stations.name_of(sid), readings, now), readings)
+    (a, ra), (b, rb) = out["a"], out["b"]
+
+    def line(readings):
+        pts = [(ts, units.convert("tempf", d["tempf"], metric)) for ts, d in readings if isinstance(d.get("tempf"), (int, float))]
+        return [[ts, round(v, 1)] for ts, v in history_series_thin(pts, 1800)]
+    return {"a": {"name": a["name"], "age": station_compare.age_text(a["age_seconds"]), "temps": line(ra)},
+            "b": {"name": b["name"], "age": station_compare.age_text(b["age_seconds"]), "temps": line(rb)},
+            "headline": station_compare.headline(a, b, metric), "rows": station_compare.rows(a, b, metric),
+            "temp_unit": units.unit("tempf", metric), "tz": tz.key}
+
+
+def history_series_thin(points, bucket):
+    from weatherlab import history_series
+    return history_series.thin(points, bucket)
+
+
+def wind_map(db, s, now: float, hours: str) -> dict:
+    """The wind across the area around the station for one time: a grid of speeds and directions, the speed bands and
+    the station's own wind. The middle point is the station."""
+    from weatherlab import nws, windmap
+    if s.latitude is None or s.longitude is None:
+        return {"available": False, "reason": "Set the station's latitude and longitude in Weather Lab's Settings, under Station."}
+    if hours not in {str(h) for h in windmap.TIMES.values()}:
+        return {"error": "Use /api/v1/windmap/0, /3, /6 or /12."}
+    metric = units.is_metric(s.units)
+    try:
+        grid = windmap.load(s.latitude, s.longitude, now, _tz(s))
+    except windmap.WindError as exc:
+        return {"available": False, "reason": str(exc)}
+    frame = grid["frames"].get(hours, [])
+    _band_label = windmap.band_label
+    latest = storage.latest(db)
+    reading = latest[1] if latest else {}
+    usable = [p for p in frame if p[0] is not None]
+    top = max(usable, key=lambda p: p[0]) if usable else None
+
+    def speed(mph):
+        return None if mph is None else round(units.convert("windspeedmph", mph, metric), 1)
+    return {"available": True, "rows": windmap.ROWS, "cols": windmap.COLS,
+            "points": [{"speed": speed(sp), "toward": round(windmap.toward(d), 1) if d is not None else None,
+                        "band": windmap.band(sp)} for sp, d in frame],
+            "bands": [{"color": colour, "label": _band_label(i, metric)} for i, (_, colour, _) in enumerate(windmap.BANDS)],
+            "station": {"speed": speed(reading.get("windspeedmph")), "gust": speed(reading.get("windgustmph")),
+                        "from": nws.compass(reading.get("winddir"))},
+            "strongest": speed(top[0]) if top else None,
+            "unit": units.unit("windspeedmph", metric), "hours": int(hours),
+            "times": [{"label": k, "hours": v} for k, v in windmap.TIMES.items()]}

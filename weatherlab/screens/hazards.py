@@ -100,14 +100,8 @@ def lightning_page() -> None:
 
 # ---------------------------------------------------------------- Fire
 def _fire_day_note(f: dict, metric: bool) -> str:
-    """Temperature, humidity and wind for one forecast day, in the chosen units."""
-    if not metric:
-        return f"{f['temperature']}°F · {f['humidity']}% · {f['wind_speed']} mph"
-    import re
-    temp = f"{units.convert('tempf', f['temperature'], True):.0f} °C"
-    wind = re.sub(r"\d+(?:\.\d+)?", lambda m: f"{float(m.group(0)) * units.speed_factor(True):.0f}",
-                  str(f["wind_speed"]).replace(" mph", "").replace("mph", ""))
-    return f"{temp} · {f['humidity']}% · {wind} km/h"
+    from weatherlab import fire
+    return fire.day_note(f, metric)
 
 
 def fire_page() -> None:

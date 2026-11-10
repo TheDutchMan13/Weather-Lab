@@ -356,13 +356,7 @@ def astronomy_page() -> None:
 
 # ---------------------------------------------------------------- Wind map
 def _band_label(i: int, metric: bool) -> str:
-    """The speed range of a colour band, in the chosen units, such as 10–15 or 20+."""
-    lower = 0.0 if i == 0 else windmap.BANDS[i - 1][0]
-    upper = windmap.BANDS[i][0]
-    low = units.convert("windspeedmph", lower, metric)
-    if upper == float("inf"):
-        return f"{low:.0f}+"
-    return f"{low:.0f}–{units.convert('windspeedmph', upper, metric):.0f}"
+    return windmap.band_label(i, metric)
 
 
 def _wind_grid_html(frame: list, plate: str = "#dfe7ef") -> str:

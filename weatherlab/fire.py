@@ -211,3 +211,15 @@ def build(obs: dict, state: dict, now: datetime, forecast_by_day: dict) -> dict:
         "timestamp": now.isoformat(),
         "forecast": forecast,
     }
+
+
+def day_note(f: dict, metric: bool) -> str:
+    """Temperature, humidity and wind for one forecast day, in the chosen units (moved from the Fire page, 0.37.60)."""
+    import re
+    from weatherlab import units
+    if not metric:
+        return f"{f['temperature']}°F · {f['humidity']}% · {f['wind_speed']} mph"
+    temp = f"{units.convert('tempf', f['temperature'], True):.0f} °C"
+    wind = re.sub(r"\d+(?:\.\d+)?", lambda m: f"{float(m.group(0)) * units.speed_factor(True):.0f}",
+                  str(f["wind_speed"]).replace(" mph", "").replace("mph", ""))
+    return f"{temp} · {f['humidity']}% · {wind} km/h"

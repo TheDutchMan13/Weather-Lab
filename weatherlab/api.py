@@ -56,6 +56,11 @@ Endpoints (all GET, all JSON, version 1):
   /api/v1/radar  radar image addresses for the station's location
   /api/v1/air  AirNow air quality (only when an AirNow key is set)
   /api/v1/push  the phone-alert server and topic
+  /api/v1/fire  the Fire Weather Index, its parts and the forecast days (0.37.60)
+  /api/v1/ask/<question>  an answer to a question about your history, such as /api/v1/ask/wettest%20month (0.37.60)
+  /api/v1/stations  every station this Weather Lab keeps (0.37.60)
+  /api/v1/compare/<a>/<b>  two stations side by side, now and over 24 hours (0.37.60)
+  /api/v1/windmap/<0|3|6|12>  the wind across the area around the station, now or hours ahead (0.37.60)
 """
 
 import hashlib
@@ -673,7 +678,16 @@ def route(path: str, authorization: str | None, db, s, now: float, client: str =
                      "/api/v1/tropics": lambda: api_pages.tropics_list(db, s, now),
                      "/api/v1/radar": lambda: api_pages.radar(db, s, now),
                      "/api/v1/air": lambda: api_pages.air(db, s, now),
-                     "/api/v1/push": lambda: api_pages.push_info(db, s, now)})
+                     "/api/v1/push": lambda: api_pages.push_info(db, s, now),
+                     "/api/v1/fire": lambda: api_pages.fire_weather(db, s, now),
+                     "/api/v1/stations": lambda: api_pages.station_list(db, s, now)})
+    if clean.startswith("/api/v1/ask/"):
+        builders[clean] = lambda: api_pages.ask_answer(db, s, now, clean[len("/api/v1/ask/"):])
+    if clean.startswith("/api/v1/windmap/"):
+        builders[clean] = lambda: api_pages.wind_map(db, s, now, clean.rsplit("/", 1)[1])
+    if clean.startswith("/api/v1/compare/") and clean.count("/") == 5:
+        pair = clean[len("/api/v1/compare/"):].split("/")
+        builders[clean] = lambda: api_pages.compare_stations(db, s, now, pair[0], pair[1])
     for prefix, make in (("/api/v1/onthisday/", api_pages.on_this_day), ("/api/v1/month/", api_pages.month_card),
                          ("/api/v1/rewind/", api_pages.rewind)):
         if clean.startswith(prefix):
