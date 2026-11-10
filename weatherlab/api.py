@@ -1,8 +1,18 @@
 """A small read-only JSON API for companion apps, such as the Android app. Off by default.
 
-It runs only while Weather Lab is open, and only when "Let phones and devices" is on. Every request needs the token
-from Settings, sent as "Authorization: Bearer <token>". The token is stored as a SHA-256 hash in Windows Credential
-Manager, so the app keeps no copy of it in plain text. Too many wrong tokens lock the API for ten minutes.
+It runs only while Weather Lab is open, and only when "Let phones and devices" is on. Every request must prove it knows
+the token from Settings. The token is stored as a SHA-256 hash in Windows Credential Manager, so the app keeps no copy
+of it in plain text. Too many wrong tokens lock that device out for ten minutes.
+
+Signed requests (0.37.59). The token itself never crosses the network. Each request carries:
+  X-WL-Time:  the phone's clock, in Unix seconds
+  X-WL-Nonce: 16 to 64 random letters or digits, never reused
+  Authorization: WL-HMAC <hex>  where <hex> is HMAC-SHA256, keyed with the lowercase hex SHA-256 of the token (as text),
+                                of "GET\n<path>\n<time>\n<nonce>"
+A request more than five minutes off the PC's clock, or reusing a nonce, is refused. So a request seen on the network
+can't be replayed, and the token can't be read from it.
+The older "Authorization: Bearer <token>" still works until a signed request has been seen, so an older phone keeps
+working until it is updated. After that, Bearer is refused, so a token copied off the network earlier is useless.
 
 Endpoints (all GET, all JSON, version 1):
   /api/v1/status    app and station status
@@ -101,14 +111,68 @@ def create_token() -> str:
 
 def clear_token() -> None:
     keystore.set_key(KEY, "")
+    keystore.set_key(SIGNED_KEY, "")
 
 
-def token_ok(authorization: str | None) -> bool:
+SIGNED_KEY = "api-signed"  # set once a signed request has been seen for the current token; Bearer is refused after that
+CLOCK_SLACK = 300  # seconds a signed request's time may differ from the PC's
+_nonces: dict[str, float] = {}
+_nonce_lock = threading.Lock()
+
+
+def signature(token_hash: str, path: str, stamp: str, nonce: str) -> str:
+    """The hex HMAC a signed request carries. token_hash is the lowercase hex SHA-256 of the token."""
+    msg = f"GET\n{path}\n{stamp}\n{nonce}".encode("utf-8")
+    return hmac.new(token_hash.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+
+
+def _fresh_nonce(nonce: str, now: float) -> bool:
+    """True the first time a nonce is seen within the clock window. Remembers at most 20,000."""
+    with _nonce_lock:
+        if len(_nonces) > 20000:
+            for old in [n for n, t in _nonces.items() if t < now - 2 * CLOCK_SLACK]:
+                del _nonces[old]
+            while len(_nonces) > 20000:
+                _nonces.pop(next(iter(_nonces)))
+        if nonce in _nonces:
+            return False
+        _nonces[nonce] = now
+        return True
+
+
+def check_auth(path: str, authorization: str | None, headers=None, now: float | None = None) -> tuple[bool, str]:
+    """(allowed, reason when not). Accepts a signed request, or a Bearer token until signing has been seen."""
     stored = keystore.get_key(KEY)
-    if not stored or not authorization or not authorization.startswith("Bearer "):
-        return False
-    supplied = authorization[len("Bearer "):].strip()
-    return bool(supplied) and hmac.compare_digest(hash_token(supplied), stored)
+    now = time.time() if now is None else now
+    if not stored or not authorization:
+        return False, ""
+    if authorization.startswith("WL-HMAC "):
+        get = (headers.get if headers is not None else (lambda _k, _d=None: None))
+        stamp, nonce = (get("X-WL-Time") or "").strip(), (get("X-WL-Nonce") or "").strip()
+        supplied = authorization[len("WL-HMAC "):].strip().lower()
+        if not stamp.isdigit() or not (16 <= len(nonce) <= 64) or not nonce.isalnum():
+            return False, ""
+        if not hmac.compare_digest(signature(stored, path, stamp, nonce), supplied):
+            return False, ""
+        if abs(now - int(stamp)) > CLOCK_SLACK:
+            return False, "clock"
+        if not _fresh_nonce(nonce, now):
+            return False, "replay"
+        if keystore.get_key(SIGNED_KEY) != stored[:16]:
+            keystore.set_key(SIGNED_KEY, stored[:16])  # from now on this token only works signed
+        return True, ""
+    if authorization.startswith("Bearer "):
+        supplied = authorization[len("Bearer "):].strip()
+        if not supplied or not hmac.compare_digest(hash_token(supplied), stored):
+            return False, ""
+        if keystore.get_key(SIGNED_KEY) == stored[:16]:
+            return False, "unsigned"
+        return True, ""
+    return False, ""
+
+
+def token_ok(authorization: str | None, path: str = "/", headers=None) -> bool:
+    return check_auth(path, authorization, headers)[0]
 
 
 def _locked(client: str = "") -> int:
@@ -547,10 +611,17 @@ def _board(days, s, now: float, metric: bool) -> list:
 
 # ------------------------------------------------------------------ routing
 
-def route(path: str, authorization: str | None, db, s, now: float, client: str = "") -> tuple[int, dict]:
+def route(path: str, authorization: str | None, db, s, now: float, client: str = "", headers=None) -> tuple[int, dict]:
     """(HTTP status, body). Checks the token first, then the path. A wrong token counts against that address only;
     after MAX_FAILURES that address waits LOCK_SECONDS, but the right token always gets in."""
-    if not token_ok(authorization):
+    ok, why = check_auth(path.split("?", 1)[0], authorization, headers, now)
+    if not ok:
+        if why == "clock":  # the right token, but the clocks disagree: not a guess, so not counted
+            return 401, {"error": "This device's clock and the PC's clock are more than 5 minutes apart. "
+                                  "Set both to the correct time automatically, then try again.", "server_time": int(now)}
+        if why == "unsigned":
+            return 401, {"error": "Update this app: Weather Lab now needs signed requests, which keep the token off "
+                                  "the network."}
         wait = _locked(client)
         if wait:
             return 429, {"error": f"Too many wrong tokens. Try again in {wait} seconds."}
@@ -637,7 +708,8 @@ class _Handler(BaseHTTPRequestHandler):
                     s = load_settings()
                     db = storage.connect()
                     try:
-                        code, body = route(path, self.headers.get("Authorization"), db, s, time.time(), client)
+                        code, body = route(path, self.headers.get("Authorization"), db, s, time.time(), client,
+                                           self.headers)
                     finally:
                         db.close()
         except Exception:  # keep the server alive; never send a traceback to a phone

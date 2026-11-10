@@ -61,6 +61,8 @@ The sidebar groups the pages into eight sections.
 
 In **Settings**, under **Station**, open the **Access** tab and turn on "Let phones and other devices on my home network open Weather Lab", then restart Weather Lab. Open the address shown there from a phone on the same Wi-Fi. Other devices must sign in with the password you set there. Only turn this on for a network you trust. If Windows asks about the firewall, allow Private networks.
 
+The Android app reads Weather Lab through a separate read-only API (port 8600), turned on under **Android app** in Settings. From 0.37.59 the app signs each request with the token instead of sending it, so the token can't be read off the Wi-Fi and a captured request can't be replayed. The phone's and PC's clocks must be within 5 minutes of each other. Older Android app versions keep working until the app has made its first signed request; after that the PC only accepts signed ones.
+
 ## Where your data lives
 
 The first station's settings and history are stored in `%APPDATA%\WeatherLab`. Other stations are in `%APPDATA%\WeatherLab\stations\<name>`. Uninstalling Weather Lab removes the program and its start-on-login entry, but keeps these folders. Delete them yourself if you want to remove your history.

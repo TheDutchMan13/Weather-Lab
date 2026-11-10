@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.59",
+        "date": "November 10, 2026",
+        "items": [
+            "The Android app's connection is safer. The app now signs each request with your token instead of sending the token itself, so someone on the same Wi-Fi can't read it or replay a request they saw. Needs the Android app 0.7.33.",
+            "An older Android app keeps working until the updated app connects for the first time. After that, Weather Lab only accepts signed requests for that token, so a token copied off the network before is useless. Making a new token starts this over.",
+            "If the phone's clock and the PC's clock are more than 5 minutes apart, the app now says so instead of asking for the token again.",
+        ],
+    },
+    {
         "version": "0.37.58",
         "date": "November 10, 2026",
         "items": [
