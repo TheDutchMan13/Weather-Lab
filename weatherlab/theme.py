@@ -14,7 +14,11 @@ import time
 import streamlit as st
 
 
-FONT = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"  # tiles and headings (utils/live_cards.py)
+# Manrope, the Android app's font, bundled in static/ (0.37.60) so both apps look alike. Before, Inter was asked for
+# but not shipped, so most PCs fell back to Segoe UI.
+FONT = "Manrope, Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"  # tiles and headings
+FONT_FACE = ("@font-face{font-family:'Manrope';src:url('app/static/manrope.ttf') format('truetype');"
+             "font-weight:200 800;font-display:swap}")
 
 # Shape and depth (0.37.33): one set of corner sizes and shadows used everywhere, so every card looks the same.
 RADIUS = {"sm": 10, "md": 14, "lg": 18, "pill": 99}
@@ -277,7 +281,7 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
                   ".wx-sec h3{font-size:22px !important}"]
     extra = ".wl-grid{gap:6px;margin-bottom:6px}" if compact else ""
     # One line, no indentation: Streamlit shows indented lines as code.
-    return "<style>" + "".join(rules) + MOBILE_CSS + extra + "</style>"
+    return "<style>" + FONT_FACE + "".join(rules) + MOBILE_CSS + extra + "</style>"
 
 
 def skeleton_html(heights: tuple = (72, 96)) -> str:
