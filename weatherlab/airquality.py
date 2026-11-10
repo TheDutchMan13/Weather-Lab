@@ -7,6 +7,7 @@ it lives in Windows Credential Manager (see secrets.py).
 import json
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from weatherlab import plain_errors
 
 BASE = "https://www.airnowapi.org/aq/observation/current/ziplatlong/"
 TIMEOUT_S = 10
@@ -37,7 +38,7 @@ def fetch(lat: float, lon: float, api_key: str) -> dict | None:
         with urlopen(req, timeout=TIMEOUT_S) as response:
             records = json.loads(response.read().decode("utf-8"))
     except (OSError, ValueError) as exc:
-        raise AirNowError(f"Couldn't reach AirNow ({type(exc).__name__}).") from exc
+        raise AirNowError(plain_errors.service("AirNow", exc)) from exc
     if not isinstance(records, list):
         raise AirNowError("AirNow refused the request. Check the API key in Settings, under Station.")
     if not records:

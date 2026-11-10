@@ -278,8 +278,8 @@ def measure_history(db, s, now: float, key: str, days: int) -> dict:
     if key not in HISTORY_KEYS or days not in _HISTORY_BUCKET:
         return {"error": "Use /api/v1/measure/<reading>/<1, 7 or 30>."}
     metric = units.is_metric(s.units)
-    raw = [(ts, r[key]) for ts, r in storage.readings_between(db, now - days * 86400, now + 1) if r.get(key) is not None]
-    points = [[ts, round(units.convert(key, v, metric), 2)] for ts, v in history_series.thin(raw, _HISTORY_BUCKET[days])]
+    raw = storage.series(db, key, now - days * 86400, now + 1, _HISTORY_BUCKET[days])
+    points = [[ts, round(units.convert(key, v, metric), 2)] for ts, v in raw]
     values = [p[1] for p in points]
     return {"key": key, "days": days, "metric": metric, "unit": _HISTORY_UNIT.get(key, units.unit(key, metric)),
             "points": points,

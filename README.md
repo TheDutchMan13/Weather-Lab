@@ -65,6 +65,8 @@ In **Settings**, under **Station**, open the **Access** tab and turn on "Let pho
 
 The first station's settings and history are stored in `%APPDATA%\WeatherLab`. Other stations are in `%APPDATA%\WeatherLab\stations\<name>`. Uninstalling Weather Lab removes the program and its start-on-login entry, but keeps these folders. Delete them yourself if you want to remove your history.
 
+Readings older than about a month are packed an hour at a time, which makes them about 14 times smaller. Nothing is thrown away, and every page reads them as before. A year of readings every 30 seconds takes about 85 MB. Versions before 0.37.58 can't read packed readings, so don't go back to an older version after updating.
+
 ## Troubleshooting
 
 - **"Can't reach the station":** check the IP address in Settings, under Station, and make sure the PC and the gateway are on the same network.

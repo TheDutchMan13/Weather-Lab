@@ -37,7 +37,7 @@ def parse_sensors(pages):
     return rows
 
 
-def fetch(ip, path, timeout=6):
+def fetch(ip, path, timeout=3):  # a station on the same network answers in milliseconds (0.37.58)
     with urllib.request.urlopen(f"http://{ip}{path}", timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8", "replace"))
 

@@ -3,6 +3,7 @@
 import json
 import sqlite3
 import time
+import zlib
 from pathlib import Path
 
 from weatherlab import stations
@@ -24,6 +25,12 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_readings_ts ON readings(ts)")
     db.execute("CREATE TABLE IF NOT EXISTS readings_archive (ts INTEGER PRIMARY KEY, data TEXT NOT NULL, "
                "source TEXT DEFAULT 'gw2000')")
+    # Old readings packed an hour at a time (0.37.58): one compressed row per hour holds every reading in it, about 14
+    # times smaller than one row per reading. Nothing is thrown away; reads unpack them transparently.
+    # first_ts and first hold the hour's first reading unpacked, so hourly sampling (the all-time wind rose) needn't
+    # unpack anything.
+    db.execute("CREATE TABLE IF NOT EXISTS readings_packed (hour INTEGER PRIMARY KEY, n INTEGER NOT NULL, "
+               "first_ts INTEGER NOT NULL, first TEXT NOT NULL, data BLOB NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS daily (date TEXT PRIMARY KEY, data TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS noaa_daily (date TEXT PRIMARY KEY, data TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS aqi (ts INTEGER PRIMARY KEY, data TEXT NOT NULL)")
@@ -87,23 +94,151 @@ def recent_daily_rain(db: sqlite3.Connection, limit: int = 60) -> list[tuple[str
     return out
 
 
-def readings_between(db: sqlite3.Connection, start_ts: float, end_ts: float) -> list[tuple[int, dict]]:
-    """Readings in a time range, including ones moved to the archive table."""
-    return [(ts, json.loads(data)) for ts, data in db.execute(
+PACK_AFTER_DAYS = 35  # readings older than this are packed by hour; the last month stays one row per reading
+
+
+def _unpack(blob: bytes) -> list[tuple[int, str]]:
+    return [(int(ts), data) for ts, data in json.loads(zlib.decompress(blob))]
+
+
+def _pack(rows: list[tuple[int, str]]) -> bytes:
+    return zlib.compress(json.dumps(rows, separators=(",", ":")).encode("utf-8"), 6)
+
+
+def packed_rows(db: sqlite3.Connection, start_ts: float, end_ts: float) -> list[tuple[int, str]]:
+    """Packed readings in [start_ts, end_ts), as (ts, raw JSON text), in time order."""
+    s, e = int(start_ts), int(end_ts)
+    out = []
+    for (blob,) in db.execute("SELECT data FROM readings_packed WHERE hour >= ? AND hour < ? ORDER BY hour",
+                              (s // 3600, (e + 3599) // 3600)):
+        out.extend((ts, data) for ts, data in _unpack(blob) if s <= ts < e)
+    return out
+
+
+def _raw_between(db: sqlite3.Connection, start_ts: float, end_ts: float) -> list[tuple[int, str]]:
+    s, e = int(start_ts), int(end_ts)
+    rows = db.execute(
         "SELECT ts, data FROM readings WHERE ts >= ? AND ts < ? "
-        "UNION ALL SELECT ts, data FROM readings_archive WHERE ts >= ? AND ts < ? ORDER BY ts",
-        (int(start_ts), int(end_ts), int(start_ts), int(end_ts)))]
+        "UNION ALL SELECT ts, data FROM readings_archive WHERE ts >= ? AND ts < ?", (s, e, s, e)).fetchall()
+    packed = packed_rows(db, s, e)
+    if packed:
+        rows = rows + packed
+    rows.sort(key=lambda r: r[0])
+    return rows
+
+
+def readings_between(db: sqlite3.Connection, start_ts: float, end_ts: float) -> list[tuple[int, dict]]:
+    """Readings in a time range, including archived and packed ones, in time order. Unreadable rows are skipped."""
+    out = []
+    for ts, data in _raw_between(db, start_ts, end_ts):
+        try:
+            out.append((ts, json.loads(data)))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def reading_times(db: sqlite3.Connection, start_ts: float, end_ts: float) -> list[int]:
+    """Just the timestamps of the readings in a range, sorted."""
+    return [ts for ts, _ in _raw_between(db, start_ts, end_ts)]
 
 
 def readings_sampled(db: sqlite3.Connection, start_ts: float, end_ts: float, every_s: int = 600) -> list[tuple[int, dict]]:
-    """The first reading in each every_s-second slot of a time range, in time order, including the archive. Enough
-    for a wind pattern, and far quicker than reading every row."""
+    """The first reading in each every_s-second slot of a time range, in time order, including archived and packed
+    readings. Enough for a wind pattern, and far quicker than reading every row."""
     s, e = int(start_ts), int(end_ts)
     rows = db.execute(
         "SELECT MIN(ts), data FROM readings WHERE ts >= ? AND ts < ? GROUP BY ts / ? "
-        "UNION ALL SELECT MIN(ts), data FROM readings_archive WHERE ts >= ? AND ts < ? GROUP BY ts / ? ORDER BY 1",
+        "UNION ALL SELECT MIN(ts), data FROM readings_archive WHERE ts >= ? AND ts < ? GROUP BY ts / ?",
         (s, e, every_s, s, e, every_s)).fetchall()
-    return [(ts, json.loads(data)) for ts, data in rows]
+    if every_s % 3600 == 0:  # whole hours: each packed hour's first reading is enough, and is kept unpacked
+        rows.extend(db.execute("SELECT MIN(first_ts), first FROM readings_packed WHERE first_ts >= ? AND first_ts < ? "
+                               "GROUP BY first_ts / ?", (s, e, every_s)).fetchall())
+    else:
+        last = None
+        for ts, data in packed_rows(db, s, e):
+            slot = ts // every_s
+            if slot != last:
+                rows.append((ts, data))
+                last = slot
+    rows.sort(key=lambda r: r[0])
+    out, seen = [], set()
+    for ts, data in rows:
+        slot = ts // every_s
+        if slot in seen:
+            continue
+        seen.add(slot)
+        try:
+            out.append((ts, json.loads(data)))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def series(db: sqlite3.Connection, key: str, start_ts: float, end_ts: float, every_s: int) -> list[tuple[int, float]]:
+    """One reading's value, the latest in each every_s slot, as (ts, value). Done in SQL for the recent rows so a month
+    of readings isn't parsed in Python (0.37.58)."""
+    s, e = int(start_ts), int(end_ts)
+    path = "$." + "".join(c for c in key if c.isalnum() or c == "_")
+    rows = db.execute(
+        "SELECT MAX(ts), json_extract(data, ?) FROM readings WHERE ts >= ? AND ts < ? AND json_valid(data) GROUP BY ts / ? "
+        "UNION ALL SELECT MAX(ts), json_extract(data, ?) FROM readings_archive WHERE ts >= ? AND ts < ? "
+        "AND json_valid(data) GROUP BY ts / ?",
+        (path, s, e, every_s, path, s, e, every_s)).fetchall()
+    for ts, data in packed_rows(db, s, e):
+        try:
+            rows.append((ts, json.loads(data).get(key)))
+        except (TypeError, ValueError, AttributeError):
+            continue
+    best: dict[int, tuple[int, float]] = {}
+    for ts, value in rows:
+        if value is None or isinstance(value, str):
+            continue
+        slot = ts // every_s
+        if slot not in best or ts > best[slot][0]:
+            best[slot] = (ts, float(value))
+    return [best[k] for k in sorted(best)]
+
+
+def pack_before(db: sqlite3.Connection, cutoff_ts: float, batch_hours: int = 500) -> int:
+    """Pack readings from whole hours before the cutoff into readings_packed and remove the single rows. Works in
+    batches so the app stays responsive. Returns the number of readings packed. Nothing is lost: each hour is written
+    and checked before its rows are deleted, in one transaction."""
+    cutoff_hour = int(cutoff_ts) // 3600
+    moved = 0
+    while True:
+        hours = [h for (h,) in db.execute(
+            "SELECT DISTINCT ts / 3600 FROM (SELECT ts FROM readings WHERE ts < ?1 "
+            "UNION ALL SELECT ts FROM readings_archive WHERE ts < ?1) ORDER BY 1 LIMIT ?2",
+            (cutoff_hour * 3600, batch_hours))]
+        if not hours:
+            return moved
+        with db:
+            for hour in hours:
+                lo, hi = hour * 3600, hour * 3600 + 3600
+                fresh = db.execute("SELECT ts, data FROM readings WHERE ts >= ? AND ts < ? "
+                                   "UNION SELECT ts, data FROM readings_archive WHERE ts >= ? AND ts < ?",
+                                   (lo, hi, lo, hi)).fetchall()
+                held = db.execute("SELECT data FROM readings_packed WHERE hour = ?", (hour,)).fetchone()
+                merged = dict(_unpack(held[0])) if held else {}
+                for ts, data in fresh:
+                    merged.setdefault(int(ts), data)
+                rows = sorted(merged.items())
+                blob = _pack(rows)
+                if len(_unpack(blob)) != len(rows):  # never delete anything that didn't pack cleanly
+                    raise sqlite3.DatabaseError("Packing check failed")
+                db.execute("INSERT OR REPLACE INTO readings_packed (hour, n, first_ts, first, data) VALUES (?, ?, ?, ?, ?)",
+                           (hour, len(rows), rows[0][0], rows[0][1], blob))
+                db.execute("DELETE FROM readings WHERE ts >= ? AND ts < ?", (lo, hi))
+                db.execute("DELETE FROM readings_archive WHERE ts >= ? AND ts < ?", (lo, hi))
+                moved += len(fresh)
+
+
+def reading_count(db: sqlite3.Connection) -> int:
+    """Every reading kept, single and packed."""
+    single = db.execute("SELECT (SELECT COUNT(*) FROM readings) + (SELECT COUNT(*) FROM readings_archive)").fetchone()[0]
+    packed = db.execute("SELECT COALESCE(SUM(n), 0) FROM readings_packed").fetchone()[0]
+    return single + packed
 
 
 def archive_before(db: sqlite3.Connection, cutoff_ts: float) -> int:

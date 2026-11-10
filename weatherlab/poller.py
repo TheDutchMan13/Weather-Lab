@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 from weatherlab import alert_rules, airquality, backup, briefing, cwop, mqtt_publish, pwsweather, uploads, weathercloud, wunderground, daily, digest, errlog, fire, health_check, forecast_card, forecast_check, gateway_sensors, history, lightning, nws, parse, quiet, station_watch, stuck, updates, record_alerts, secrets, storage, units
 from weatherlab.config import APP_VERSION
 from weatherlab.settings import load_settings
+from weatherlab import plain_errors
 
 POLL_SECONDS = 30  # the gateway refreshes about every 16-60 seconds
 ROLLUP_SECONDS = 300  # how often to rebuild the last few daily summaries
@@ -41,6 +42,8 @@ ENV_SECONDS = 300  # how often to check UV, air quality and fire danger
 NWS_SECONDS = 900  # how often to check National Weather Service warnings
 REPORTS_SECONDS = 21600  # how often to check whether an automatic PDF report is due
 ARCHIVE_SECONDS = 86400  # how often to move old raw readings into the archive table
+PACK_SECONDS = 86400  # how often to pack readings older than storage.PACK_AFTER_DAYS by hour (0.37.58)
+VACUUM_AFTER = 50000  # readings packed in one go before the file is compacted to give the space back
 UPDATE_SECONDS = 86400  # how often to check for a newer version
 
 
@@ -117,6 +120,7 @@ class Poller(threading.Thread):
         self._last_nws = 0.0
         self._last_reports = 0.0
         self._last_archive = 0.0
+        self._last_pack = time.time() - PACK_SECONDS + 600  # first pack ten minutes after start, not during it
 
     def stop(self) -> None:
         """Ask the collector to finish its current pass and exit."""
@@ -175,6 +179,8 @@ class Poller(threading.Thread):
                     self._job("_nws_alerts", self._nws_alerts, s)
                 if s.auto_reports and time.time() - self._last_reports > REPORTS_SECONDS:
                     self._job("_auto_reports", self._auto_reports, db, s)
+                if time.time() - self._last_pack > PACK_SECONDS:
+                    self._job("_pack", self._pack, db)
                 if s.archive_after_days > 0 and time.time() - self._last_archive > ARCHIVE_SECONDS:
                     self._job("_archive", self._archive, db, s)
                 if s.update_url.strip() and time.time() - self._last_update > UPDATE_SECONDS:
@@ -209,7 +215,7 @@ class Poller(threading.Thread):
         try:
             live = parse.fetch(ip)
         except (OSError, ValueError) as exc:
-            self.status.last_error = f"Can't reach the station at {ip} ({type(exc).__name__})."
+            self.status.last_error = plain_errors.station(ip, exc)
             return
         reading = parse.clean(parse.parse_livedata(live))
         if not parse.plausible(reading, self._prev):
@@ -341,6 +347,18 @@ class Poller(threading.Thread):
             self.status.archive_error = ""
         except sqlite3.Error as exc:
             self.status.archive_error = f"Archiving readings failed: {exc}"
+
+    def _pack(self, db) -> None:
+        """Pack readings older than about a month by hour, about 14 times smaller. After a big first pack the file is
+        compacted so Windows gets the space back. Nothing is deleted from the data."""
+        self._last_pack = time.time()
+        try:
+            moved = storage.pack_before(db, time.time() - storage.PACK_AFTER_DAYS * 86400)
+            if moved >= VACUUM_AFTER:
+                db.execute("VACUUM")
+            self.status.archive_error = ""
+        except sqlite3.Error as exc:
+            self.status.archive_error = f"Packing old readings failed: {exc}"
 
     def _backup(self, s) -> None:
         """Copy the database once a day and keep the newest few copies."""

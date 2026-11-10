@@ -9,6 +9,7 @@ from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
 from weatherlab.screens.common import _clock, pc_only, _tile, clear_key_button, confirm_button, empty_card, start_poller
+from weatherlab import plain_errors
 
 
 # ---------------------------------------------------------------- Setup
@@ -85,7 +86,7 @@ def _station_tools(s: Settings) -> None:
                     shown = units.format_value("tempf", reading.get("tempf"), units.is_metric(s.units), 1)
                     st.success(f"Connected to {ip}. Outdoor temperature reads {shown}.")
                 except (OSError, ValueError) as exc:
-                    st.error(f"Couldn't reach the station at {ip} ({type(exc).__name__}).")
+                    st.error(plain_errors.station(ip, exc))
         if st.button("Find the station on my network", key="station_find"):
             with st.spinner("Looking on your network. This takes a few seconds."):
                 st.session_state["found_station"] = discover.find()
@@ -760,7 +761,9 @@ def status_page() -> None:
                 st.write(f"{timefmt.stamp(datetime.fromtimestamp(ts))}: {reason}")
 
     ip = s.station_ip.strip()
-    raw = _gateway_sensors(ip) if ip else []
+    # When the collector already can't reach the station, don't wait for it again here (0.37.58).
+    unreachable = poller.status.last_error.startswith("Can't reach the station")
+    raw = None if unreachable else (_gateway_sensors(ip) if ip else [])
     sensors = []
     for sensor in raw or []:
         battery, battery_text = gateway_sensors.battery_state(sensor["batt"])

@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from weatherlab import secrets
+from weatherlab import plain_errors
 
 BASE = "https://www.ncei.noaa.gov/cdo-web/api/v2"
 TOKEN_KEY = "noaa_token"
@@ -35,7 +36,7 @@ def _get(path: str, params: dict, token: str) -> dict:
             raise NoaaError("NOAA didn't accept the token. Check it on the NOAA Climate Data Online website.") from exc
         raise NoaaError(f"NOAA returned an error ({exc.code}).") from exc
     except (OSError, ValueError) as exc:
-        raise NoaaError(f"Couldn't reach NOAA ({type(exc).__name__}).") from exc
+        raise NoaaError(plain_errors.service("NOAA", exc)) from exc
 
 
 def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

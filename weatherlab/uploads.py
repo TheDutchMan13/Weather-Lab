@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 
 from weatherlab.config import APP_VERSION
+from weatherlab import plain_errors
 
 TIMEOUT_S = 10
 
@@ -26,7 +27,7 @@ def get(url: str, params: dict, name: str) -> str:
     except urllib.error.HTTPError as exc:
         raise UploadError(f"{name} returned an error ({exc.code}).") from None
     except OSError as exc:
-        raise UploadError(f"Couldn't reach {name} ({type(exc).__name__}).") from None
+        raise UploadError(plain_errors.service(name, exc)) from None
 
 
 def tenths(value: float) -> str:

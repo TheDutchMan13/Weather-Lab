@@ -1,7 +1,9 @@
+# Each library is held to the major version it was tested with (0.37.58), so a new major release can't change
+# the app between two builds. Raise a bound only after the tests pass on the new version.
 streamlit==1.65.0
-plotly>=6.0
-pywebview>=5.0
-keyring>=25.0
-reportlab>=4.0
-openpyxl>=3.1
-plyer>=2.1
+plotly>=6.0,<8
+pywebview>=5.0,<7
+keyring>=25.0,<26
+reportlab>=4.0,<6
+openpyxl>=3.1,<4
+plyer>=2.1,<3

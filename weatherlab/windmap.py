@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from weatherlab import stations
+from weatherlab import plain_errors
 
 BASE = "https://api.open-meteo.com/v1/forecast"
 ROWS, COLS = 5, 7  # the grid; odd numbers keep the station in the middle
@@ -83,7 +84,7 @@ def _fetch(points: list[tuple[float, float]], now_local: str) -> dict:
         with urlopen(request, timeout=TIMEOUT_S) as response:
             data = json.loads(response.read().decode("utf-8"))
     except (OSError, ValueError) as exc:
-        raise WindError(f"Couldn't reach the wind service ({type(exc).__name__}).") from exc
+        raise WindError(plain_errors.service("the wind service", exc)) from exc
     return frames_from(data, now_local)
 
 

@@ -14,6 +14,7 @@ import struct
 
 from weatherlab import uploads
 from weatherlab.config import APP_VERSION
+from weatherlab import plain_errors
 
 TIMEOUT_S = 10
 KEY_NAME = "mqtt"
@@ -135,4 +136,4 @@ def send(host: str, port: int, user: str, password: str, messages: list[tuple[st
         raise MqttError(f"The MQTT broker's secure connection failed ({exc.reason or type(exc).__name__}). "
                         "Check the port (usually 8883) and the broker's certificate.") from None
     except OSError as exc:
-        raise MqttError(f"Couldn't reach the MQTT broker ({type(exc).__name__}).") from None
+        raise MqttError(plain_errors.service("the MQTT broker", exc)) from None

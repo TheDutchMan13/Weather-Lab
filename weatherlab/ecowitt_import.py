@@ -157,9 +157,8 @@ def store_readings(db, found, widest, tz, lat=0.0, lon=0.0, elev_m=0.0):
         return 0, 0, 0
     lo, hi = min(found), max(found)
     pad = int(widest * 60) + 1
-    held = sorted(r[0] for r in db.execute(
-        "SELECT ts FROM readings WHERE ts BETWEEN ?1 AND ?2 UNION SELECT ts FROM readings_archive WHERE ts BETWEEN ?1 AND ?2",
-        (lo - pad, hi + pad)))
+    from . import storage
+    held = sorted(set(storage.reading_times(db, lo - pad, hi + pad + 1)))
     rows = []
     for ts, (reading, minutes) in sorted(found.items()):
         near = int(minutes * 30)  # half an interval

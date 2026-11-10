@@ -25,16 +25,8 @@ SENSORS = [
 
 
 def window(db, since_ts: float, until_ts: float) -> list[tuple[int, dict]]:
-    import json
-    rows = db.execute("SELECT ts, data FROM readings WHERE ts >= ? AND ts <= ? ORDER BY ts",
-                      (int(since_ts), int(until_ts))).fetchall()
-    out = []
-    for ts, data in rows:
-        try:
-            out.append((ts, json.loads(data)))
-        except (TypeError, ValueError):
-            continue
-    return out
+    from weatherlab import storage
+    return storage.readings_between(db, since_ts, int(until_ts) + 1)
 
 
 def completeness(rows, hours: float) -> float:

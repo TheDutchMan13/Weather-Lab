@@ -9,6 +9,7 @@ import math
 import time
 from pathlib import Path
 from urllib.request import Request, urlopen
+from weatherlab import plain_errors
 
 NHC_URL = "https://www.nhc.noaa.gov/CurrentStorms.json"
 KT_TO_MPH = 1.15078
@@ -93,7 +94,7 @@ def refresh(home, path, min_minutes=30, fetch=None):
         raw = fetch() if fetch else _download()
         cache = {**checked, "ok": True, "storms": parse(raw, home), "error": ""}
     except (OSError, ValueError) as exc:
-        cache = {**cache, **checked, "ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        cache = {**cache, **checked, "ok": False, "error": plain_errors.service("the National Hurricane Center", exc)}
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(cache, indent=1), encoding="utf-8")
     return cache

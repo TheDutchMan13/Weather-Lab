@@ -99,15 +99,8 @@ def day_rows(db, day: date, tz: tzinfo):
     start = int(datetime(day.year, day.month, day.day, tzinfo=tz).timestamp())
     nxt = day + timedelta(days=1)
     end = int(datetime(nxt.year, nxt.month, nxt.day, tzinfo=tz).timestamp())
-    rows = []
-    for ts, data in db.execute("SELECT ts, data FROM readings WHERE ts >= ? AND ts < ? "
-                               "UNION ALL SELECT ts, data FROM readings_archive WHERE ts >= ? AND ts < ? ORDER BY ts",
-                               (start, end, start, end)):
-        try:
-            rows.append((ts, json.loads(data)))
-        except (TypeError, ValueError):
-            continue
-    return rows
+    from weatherlab import storage
+    return storage.readings_between(db, start, end)
 
 
 def _imported(data: str) -> bool:

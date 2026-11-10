@@ -11,6 +11,7 @@ not from the dashboard's hardcoded grid point.
 import json
 import math
 from urllib.request import Request, urlopen
+from weatherlab import plain_errors
 
 BASE = "https://api.weather.gov"
 TIMEOUT_S = 10
@@ -36,7 +37,7 @@ def _get(url: str, contact: str) -> dict:
         with urlopen(req, timeout=TIMEOUT_S) as response:
             return json.loads(response.read().decode("utf-8"))
     except (OSError, ValueError) as exc:
-        raise NwsError(f"Couldn't reach the National Weather Service ({type(exc).__name__}).") from exc
+        raise NwsError(plain_errors.service("the National Weather Service", exc)) from exc
 
 
 def points(lat: float, lon: float, contact: str) -> dict:

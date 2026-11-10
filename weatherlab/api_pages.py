@@ -111,7 +111,8 @@ def wind_rose_data(db, s, now: float, days: int | None) -> dict:
     """days None = every reading kept, sampled hourly."""
     metric = units.is_metric(s.units)
     if days is None:
-        items = storage.readings_sampled(db, 0, now + 1, every_s=3600)
+        # Every reading ever, sampled hourly: slow on years of data and slow to change, so kept for an hour (0.37.58).
+        items = _cached(("wind_all", storage.db_path()), now, 3600, lambda: storage.readings_sampled(db, 0, now + 1, every_s=3600))
     else:
         items = storage.readings_sampled(db, now - days * 86400, now + 1, every_s=120 if days == 1 else 600)
     rows = [r for _, r in items]

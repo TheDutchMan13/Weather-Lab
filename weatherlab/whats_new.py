@@ -5,6 +5,16 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.58",
+        "date": "November 10, 2026",
+        "items": [
+            "Your history takes far less room. Readings older than about a month are packed an hour at a time, about 14 times smaller, and so are the daily backups. A year of readings went from about 530 MB to 85 MB in testing. Nothing is thrown away, and every page shows the same numbers. The first packing runs ten minutes after Weather Lab starts and takes a few seconds.",
+            "Faster: the all-time wind rose and a month of one reading load several times quicker, and a station that's switched off no longer holds up Station health for as long.",
+            "Clearer messages when something can't be reached. Instead of names like URLError, Weather Lab says what happened (it didn't answer in time, the address couldn't be found, it refused the key) and what to check.",
+            "Once you've updated, don't go back to an older version: older versions can't read the packed readings.",
+        ],
+    },
+    {
         "version": "0.37.57",
         "date": "November 8, 2026",
         "items": [

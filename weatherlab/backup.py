@@ -204,6 +204,9 @@ def verify(path: Path) -> tuple[bool, str]:
         if not has:
             return False, "It opens, but it has no readings table, so it is not a Weather Lab database."
         rows = con.execute("SELECT count(*) FROM readings").fetchone()[0]
+        for table, expr in (("readings_archive", "count(*)"), ("readings_packed", "COALESCE(SUM(n), 0)")):
+            if con.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()[0]:
+                rows += con.execute(f"SELECT {expr} FROM {table}").fetchone()[0]  # table names are fixed above
         if rows == 0:
             return True, "It opens and is intact, but it holds no readings yet."
         return True, f"It opens, is intact, and holds {rows:,} readings."

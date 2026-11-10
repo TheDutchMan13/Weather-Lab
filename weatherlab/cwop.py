@@ -8,6 +8,7 @@ The passcode is the standard APRS-IS passcode, calculated from the callsign.
 
 import socket
 from datetime import datetime, timezone
+from weatherlab import plain_errors
 
 HOST = "rotate.aprs2.net"
 PORT = 14580
@@ -86,5 +87,5 @@ def send_reading(callsign: str, reading: dict, lat, lon, now: datetime | None = 
             link.write((packet + "\r\n").encode("ascii"))
             link.flush()
     except OSError as exc:
-        raise CwopError(f"Couldn't reach the CWOP network ({type(exc).__name__}).") from exc
+        raise CwopError(plain_errors.service("the CWOP network", exc)) from exc
     return packet
