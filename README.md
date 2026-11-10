@@ -17,10 +17,12 @@ A Windows weather dashboard for the Ecowitt GW2000 station. It reads your statio
 
 ## First-time setup
 
-In **Settings**, under **Station**:
+The first time Weather Lab opens, a short setup on **Home** finds the station on your network (or takes its address), tests it, and asks where it is: type a town or ZIP code and pick it, and the latitude, longitude, time zone and elevation fill in. Only the place name is sent, to Open-Meteo's free place search; you can type the numbers yourself instead. Run it again any time from **Settings > Station > Run setup again**.
 
-1. Enter the station's IP address.
-2. Choose your timezone, and enter your latitude, longitude, and elevation.
+Then, in **Settings**, under **Station**:
+
+1. Check the station's IP address.
+2. Check your timezone, latitude, longitude, and elevation.
 3. Choose which readings appear on the **Live** page.
 4. Optional, on the **Air** tab: paste a free **AirNow** API key for air quality. It is stored in Windows Credential Manager, not in a file. If lightning distances look too small, turn on the kilometres switch there.
 5. Optional: turn on **Start Weather Lab when I sign in to Windows**. It is under **Settings > Startup**.

@@ -75,6 +75,13 @@ def _password_section() -> None:
 
 def _station_tools(s: Settings) -> None:
     """Test the connection to the station, or look for it on the local network."""
+    if st.button("Run setup again", key="station_wizard", help="The three-step setup from the first run."):
+        from weatherlab.screens import setup_wizard
+        setup_wizard.start()
+        home = st.session_state.get("wl_pages", {}).get("Home")
+        if home is not None:
+            st.switch_page(home)
+        st.info("Open Home to continue the setup.")
     with st.expander("Find or test the station"):
         if st.button("Test the connection", key="station_test"):
             ip = s.station_ip.strip()

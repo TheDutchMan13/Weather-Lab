@@ -10,6 +10,7 @@ ENTRIES = [
         "items": [
             "Charts read properly in dark mode: legends and labels were drawn in dark text on the dark page, and the wind rose sat on a white disc. The wind rose on the Wind page now uses the same blues as the one in History.",
             "The Streamlit Deploy button and its developer menu no longer show in Weather Lab's window.",
+            "A setup for new users on Home: find the station on your network or type its address, test it, then type a town or ZIP code to fill in the location, time zone and elevation. Only the place name is sent, to Open-Meteo's free place search. Run it again from Settings, Station, Run setup again.",
         ],
     },
     {

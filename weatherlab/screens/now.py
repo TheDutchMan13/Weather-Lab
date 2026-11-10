@@ -582,22 +582,6 @@ def airport_card(s: Settings) -> None:
         st.caption(". ".join(notes) + ".")
 
 
-def _welcome(s: Settings) -> None:
-    """First run: the three steps to a working app, with a tick for each one already done."""
-    has_readings = bool(storage.connect().execute("SELECT 1 FROM readings LIMIT 1").fetchone())
-    steps = [
-        (bool(s.station_ip), "Point Weather Lab at your station", "Settings, Station tab: enter the station's IP address."),
-        (has_readings, "Wait for the first reading", "It arrives within a minute of the address being saved."),
-        (False, "Choose your phone alerts (optional)",
-         "Settings: rain, lightning, stuck sensors and app problems."),
-    ]
-    with st.container(border=True):
-        st.markdown("**Welcome. Three steps and Live fills in.**")
-        for done, title, detail in steps:
-            mark = "✓" if done else "○"
-            st.markdown(f"{mark} **{title}**  \n<span style='opacity:.7'>{detail}</span>", unsafe_allow_html=True)
-
-
 # Roomier cards on the Home page (0.37.18): more padding inside each card, bigger numbers, and space between cards.
 LIVE_ROOMY_CSS = ("<style>"
                   ".wl-tile{padding:16px 18px !important}"
@@ -793,8 +777,9 @@ def home_page() -> None:
     left, right = st.columns([5, 1])
     with left:
         st.markdown(theme.page_head("Home", "Right now at your station, today's briefing, and the last 24 hours."), unsafe_allow_html=True)
-    if not s.station_ip:
-        _welcome(s)
+    from weatherlab.screens import setup_wizard
+    if setup_wizard.active():
+        setup_wizard.show()
         return
     with right:
         _customize_link()
