@@ -773,6 +773,10 @@ def _briefing_card(s: Settings) -> None:
 def home_page() -> None:
     """Home (0.37.39): right now first, then today's briefing, the last 24 hours and the cards you chose."""
     s = load_settings()
+    from weatherlab.screens import welcome
+    if welcome.pending():  # a brand-new install starts here, before the setup wizard (0.37.61)
+        welcome.show()
+        return
     st.markdown(LIVE_ROOMY_CSS, unsafe_allow_html=True)
     left, right = st.columns([5, 1])
     with left:

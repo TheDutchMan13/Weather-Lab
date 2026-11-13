@@ -52,7 +52,8 @@ def _station() -> None:
     s = load_settings()
     st.markdown("**1. Find your station**")
     st.caption("Weather Lab reads an Ecowitt gateway such as the GW2000 on your home network.")
-    if st.button("Find it on my network", key="wiz_find", type="primary"):
+    # From the welcome screen's "Find my station", the search starts straight away (0.37.61).
+    if st.button("Find it on my network", key="wiz_find", type="primary") or st.session_state.pop("wiz_autofind", False):
         with st.spinner("Looking on your network. This takes a few seconds."):
             st.session_state["wiz_found"] = discover.find()
         if not st.session_state["wiz_found"]:

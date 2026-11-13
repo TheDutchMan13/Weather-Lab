@@ -5,6 +5,15 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.61",
+        "date": "November 13, 2026",
+        "items": [
+            "A new welcome screen for first-time users: a full-window sky that follows your PC's clock (morning, afternoon, evening or night), a greeting, and one button, Find my station, that opens the setup and starts looking for your station right away. If you already know its address, there's a link for that too.",
+            "The welcome shows only until a station is saved. Run setup again from Settings, Station goes straight to the setup, without it.",
+            "The welcome uses the Outfit typeface, bundled with the app under its free Open Font License.",
+        ],
+    },
+    {
         "version": "0.37.60",
         "date": "November 10, 2026",
         "items": [

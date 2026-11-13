@@ -120,5 +120,6 @@ Parts of this project were written with help from an AI assistant (Claude, made 
 ## License
 
 Weather Lab bundles the Manrope typeface (`static/manrope.ttf`), Copyright 2018 The Manrope Project Authors, under the SIL Open Font License 1.1 (`static/manrope-OFL.txt`).
+It also bundles the Outfit typeface (`static/outfit.ttf`), Copyright 2021 The Outfit Project Authors, under the same license (`static/outfit-OFL.txt`), used by the welcome screen.
 
 GNU GPL v3.0 or later. Copyright (C) 2026 Hans De Kryger. See `LICENSE`.
