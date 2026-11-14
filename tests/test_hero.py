@@ -23,7 +23,7 @@ class HeroTests(unittest.TestCase):
         self.assertEqual(hero.sky_phase("rain", datetime(2026, 10, 20, 6, 40), rise, sset), "rain")
 
     def test_html_escapes_text_and_shows_values(self):
-        out, height = hero.hero_html({"temp_text": "83°", "label": "<b>Clear</b>", "place": "Goodyear",
+        out, height = hero.hero_html({"temp_text": "83°", "label": "<b>Clear</b>", "place": "Springfield",
                                       "live_text": "Live · updated just now", "live_state": "ok",
                                       "tiles": [("Wind", "8 mph", "gusts 12")]})
         self.assertIn("83°", out)

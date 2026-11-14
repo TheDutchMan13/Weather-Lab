@@ -20,7 +20,7 @@ The dashboard at `C:\Weather Station\ecowitt-dashboard` is never edited by this 
 | `weatherlab/comfort.py` | `update_records.py` lines 50–80 (`heat_index_f`, `humidex_c`, `wind_chill_f`) | 2026-10-20 | Formulas copied as they were. |
 | `weatherlab/airquality.py` | `import_airnow.py` `fetch_aqi` | 2026-10-20 | Endpoint and pollutant names copied. The ZIP-code lookup is replaced with latitude and longitude from settings. The API key is not copied. |
 | `weatherlab/lightning.py` | `collectors/gw2000_collector.py` `parse_lightning` (lines 174–194) | 2026-10-20 | The dashboard's km switch became the `lightning_value_is_km` setting. |
-| `weatherlab/fire.py` | `import_fire_weather.py` lines 39–158 (`DEFAULT_CODES`, `DAY_LENGTH`, `DAY_FACTOR`, the FFMC, DMC, DC, and FWI equations) and lines 226–249 (forecast at the hour nearest 1 pm) | 2026-10-20 | Equations unchanged. Location, time zone, and NWS grid point come from settings. Moisture codes are stored in the database, not in `fwi_state.json`. The dashboard's hardcoded grid `PSR/145,58` and `America/Phoenix` are not copied. |
+| `weatherlab/fire.py` | `import_fire_weather.py` lines 39–158 (`DEFAULT_CODES`, `DAY_LENGTH`, `DAY_FACTOR`, the FFMC, DMC, DC, and FWI equations) and lines 226–249 (forecast at the hour nearest 1 pm) | 2026-10-20 | Equations unchanged. Location, time zone, and NWS grid point come from settings. Moisture codes are stored in the database, not in `fwi_state.json`. The dashboard's hardcoded NWS grid and time zone are not copied. |
 | `weatherlab/nws.py` `forecast_hourly` (humidity, wind, limit) | `import_fire_weather.py` `fetch_forecast_near_1pm` fields | 2026-10-20 | Fields added for the fire index. |
 | `weatherlab/wx_icons.py` | `utils/wx_icons.py`, the whole file (copied unchanged) | 2026-10-20 | Forecast icons on the Forecast page. The dashboard's Live 'right now' icon is not used yet. |
 
@@ -47,7 +47,7 @@ The dashboard at `C:\Weather Station\ecowitt-dashboard` is never edited by this 
 
 These were hardcoded or personal in the dashboard and are settings or left out:
 
-- Goodyear, AZ coordinates (`LATITUDE`, `LONGITUDE`, `ELEV_M`) and the NWS grid point (`PSR/148,59`)
+- The original station's coordinates (`LATITUDE`, `LONGITUDE`, `ELEV_M`) and its NWS grid point
 - `C:\Weather Station\...`, CumulusMX paths, and `dbpath.py`
 - NOAA station ID and `noaa_token.txt`
 - `airnow_key.txt` and any other key files

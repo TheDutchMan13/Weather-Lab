@@ -30,8 +30,8 @@ class HeroLine(unittest.TestCase):
         self.assertNotIn("Feels like 71 °F · </div>", out)
 
     def test_parts_are_joined_once(self):
-        out, _ = hero.hero_html({"temp_text": "69°", "feels": "71 °F", "label": "Sunny", "place": "Goodyear"})
-        self.assertIn("Feels like 71 °F · Sunny · Goodyear</div>", out)
+        out, _ = hero.hero_html({"temp_text": "69°", "feels": "71 °F", "label": "Sunny", "place": "Springfield"})
+        self.assertIn("Feels like 71 °F · Sunny · Springfield</div>", out)
 
 
 class OneHighContrast(unittest.TestCase):

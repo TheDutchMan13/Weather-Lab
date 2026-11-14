@@ -34,7 +34,7 @@ class TilesApiTests(ApiHelpers, unittest.TestCase):
         obs = nws.parse_observation({"properties": {"visibility": {"value": 16093.44}, "presentWeather": [{"weather": "haze"}]}})
         self.assertAlmostEqual(obs["visibility_mi"], 10.0, places=1)
         self.assertEqual(obs["present"], ["haze"])
-        station = {"id": "KGYR", "name": "Goodyear", "airport": True, "km": 5}
+        station = {"id": "KXXX", "name": "Springfield", "airport": True, "km": 5}
         with mock.patch.object(nws, "points", return_value={"stations": "u"}), \
                 mock.patch.object(nws, "nearest_airport_station", return_value=station), \
                 mock.patch.object(nws, "latest_observation", return_value=obs):

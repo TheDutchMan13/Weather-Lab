@@ -18,11 +18,11 @@ class TempRingTests(unittest.TestCase):
         self.assertGreater(height, 400)
 
     def test_metric_converts_and_visibility_shows(self):
-        out, height = gauges.temp_ring_html(32.0, vis=10.0, vis_note="Goodyear Airport", metric=True)
+        out, height = gauges.temp_ring_html(32.0, vis=10.0, vis_note="Springfield Airport", metric=True)
         self.assertIn("0.0", out)
         self.assertIn("°C", out)
         self.assertIn("Visibility", out)
-        self.assertIn("Goodyear Airport", out)
+        self.assertIn("Springfield Airport", out)
         self.assertGreater(height, 440)
 
     def test_missing_values_show_dashes_and_escape_note(self):

@@ -105,7 +105,7 @@ def hero_html(d: dict) -> tuple[str, int]:
     kind = d.get("kind", "clear_day")
     g = GRADS.get(kind, GRADS["clear_day"])
     dot = {"ok": "#3ddc84", "slow": "#f6d55c", "silent": "#e5633c"}.get(d.get("live_state"), "#9aa3b0")
-    # One line, "Feels like 71 °F · Sunny · Goodyear", with no separator left over when a part is missing (0.37.47).
+    # One line, "Feels like 71 °F · Sunny · Springfield", with no separator left over when a part is missing (0.37.47).
     feels = ""
     label_line = " · ".join(x for x in (f"Feels like {_e(d['feels'])}" if d.get("feels") else "",
                                          _e(d.get("label") or ""), _e(d.get("place") or "")) if x)
