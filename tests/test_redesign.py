@@ -91,3 +91,60 @@ class Icons(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AlertKinds(unittest.TestCase):
+    def test_levels_from_words(self):
+        from weatherlab import alert_kinds
+        self.assertEqual(alert_kinds.classify("Lightning about 8 miles away.")["level"], "Critical")
+        self.assertEqual(alert_kinds.classify("High wind gust: 28 mph")["level"], "Warning")
+        self.assertEqual(alert_kinds.classify("Sensor battery low on the outdoor sensor.")["kind"], "Station")
+        self.assertEqual(alert_kinds.classify("Weather Lab hasn't received a reading from the station for 15 minutes.")["kind"], "Station")
+        self.assertEqual(alert_kinds.classify("Rain has started.")["level"], "Info")
+        self.assertEqual(alert_kinds.classify("Yesterday (Nov 23): high 81 °F, rain 0.00 in.")["icon"], "calendar")
+        self.assertEqual(alert_kinds.classify("Weather Lab 0.38.0 is available.")["kind"], "App")
+
+    def test_title_and_detail(self):
+        from weatherlab import alert_kinds
+        self.assertEqual(alert_kinds.split("High wind gust: 28 mph, above your alert."), ("High wind gust", "28 mph, above your alert."))
+        self.assertEqual(alert_kinds.split("Rain has started."), ("Rain has started", ""))
+
+    def test_counts(self):
+        from weatherlab import alert_kinds
+        c = alert_kinds.counts([{"level": "Info"}, {"level": "Info"}, {"level": "Critical"}])
+        self.assertEqual((c["Critical"], c["Warning"], c["Info"], c["total"]), (1, 0, 2, 3))
+
+
+class AskFocus(unittest.TestCase):
+    def setUp(self):
+        from datetime import date
+        self.today = date(2026, 11, 24)
+        self.days = [(date(2026, 8, 10), {"rain_in": 2.0, "tempf_max": 101, "tempf_min": 80}),
+                     (date(2026, 9, 3), {"rain_in": 0.5, "tempf_max": 96, "tempf_min": 70}),
+                     (date(2026, 11, 2), {"rain_in": 5.0, "tempf_max": 75, "tempf_min": 45})]
+
+    def test_month_answer_skips_this_month(self):
+        from weatherlab import ask
+        f = ask.focus("wettest month", self.days, self.today)
+        self.assertEqual((f["measure"], f["year"], f["month"], f["day"]), ("rain", 2026, 8, None))
+        bars = ask.bars(f, self.days)
+        self.assertEqual(len(bars), 12)
+        self.assertTrue(bars[7][2])  # August is the answer
+
+    def test_day_answer(self):
+        from weatherlab import ask
+        f = ask.focus("coldest night", self.days, self.today)
+        self.assertEqual((f["measure"], f["day"].month), ("low", 11))
+        self.assertEqual(ask.bars(f, self.days), [("2", 45, True)])
+
+    def test_nothing_to_draw(self):
+        from weatherlab import ask
+        self.assertIsNone(ask.focus("how many days over 100", self.days, self.today))
+        self.assertIsNone(ask.focus("hello", self.days, self.today))
+
+
+class RainHits(unittest.TestCase):
+    def test_rate(self):
+        from weatherlab import forecast_check
+        self.assertEqual(forecast_check.rain_hit_rate({"wet_days": 2, "wet_rained": 1, "dry_days": 8, "dry_rained": 1}), 80)
+        self.assertIsNone(forecast_check.rain_hit_rate({"wet_days": 0, "wet_rained": 0, "dry_days": 0, "dry_rained": 0}))

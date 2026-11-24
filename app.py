@@ -239,6 +239,7 @@ def _sidebar_menu(sections: dict, pages: dict, current: str) -> None:
     with stations.using(stations.MAIN):
         cfg = load_settings()
     st.sidebar.markdown(BRAND_HTML, unsafe_allow_html=True)
+    _station_picker()  # under the brand from 0.37.63
     _jump_box(pages)
     pins = sidebar.clean_pins(cfg.pinned_pages)
     sb = st.sidebar
@@ -393,7 +394,6 @@ def main() -> None:
     if not allowed:
         return
     sections = _sections()
-    _station_picker()
     moved = _moved_pages()
     # The sidebar menu is drawn by _sidebar_menu (0.37.53). Old page names (0.37.56) are in the navigation so their
     # addresses still open, but not in the menu.

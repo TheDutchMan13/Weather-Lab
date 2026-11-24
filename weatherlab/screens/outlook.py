@@ -4,7 +4,7 @@ import html
 import streamlit as st
 import time
 from datetime import datetime, timedelta, timezone
-from weatherlab import astro, astro_art, charts, forecast_card, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
+from weatherlab import astro, astro_art, line_icons, wx_icons, charts, forecast_card, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
 from weatherlab.settings import Settings, load_settings
 from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller
 
@@ -118,21 +118,19 @@ def _uv_tone(uv) -> str | None:
 
 
 def forecast_page() -> None:
+    """Forecast (0.37.63, the redesign): the next 24 hours, the 7-day outlook beside how accurate past forecasts were,
+    then the full temperature curve, the report card and recent days under More detail."""
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.page_head("Forecast", "The National Weather Service forecast, and how close past forecasts were."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Forecast", "National Weather Service forecast and how close past forecasts were."), unsafe_allow_html=True)
     if s.latitude is None or s.longitude is None:
         empty_card("Set your latitude and longitude in Settings, under Station.")
         return
     contact = s.nws_contact
-
     try:
         alerts = _alerts(s.latitude, s.longitude, contact)
-        if alerts:
+        if alerts:  # only when there are some: no alerts needs no box (0.37.63)
             st.markdown("".join(_alert_box(a) for a in alerts), unsafe_allow_html=True)
-        else:
-            st.markdown(theme.grid_html([theme.strip_tile_html("Weather alerts", "None active", tone="ok")]),
-                        unsafe_allow_html=True)
         pts = _points(s.latitude, s.longitude, contact)
         periods = _daily(pts["forecast"], contact)
         hourly = _hourly(pts["forecastHourly"], contact) if pts.get("forecastHourly") else []
@@ -142,13 +140,93 @@ def forecast_page() -> None:
 
     metric = units.is_metric(s.units)
     now = datetime.now(tz)
-    views = forecast_view.overview_html(hourly, s.latitude, s.longitude, tz, metric, len(alerts), now)
-    views += forecast_view.days_html(periods, tz, metric, now.date())
-    if views:
-        st.markdown(forecast_view.STYLE + views, unsafe_allow_html=True)
-    _report_card(storage.connect(), s)
-    _forecast_accuracy(storage.connect(), s)
-    _rain_accuracy(storage.connect(), s)
+    _next_hours(hourly, s, tz, metric, now)
+    left, right = st.columns([1.35, 1], gap="medium")
+    with left:
+        _seven_days(periods, tz, metric, now.date())
+    with right:
+        _accuracy_panel(storage.connect(), s)
+    with st.expander("More detail: the temperature curve, the report card and recent days", icon=":material/insights:"):
+        views = forecast_view.overview_html(hourly, s.latitude, s.longitude, tz, metric, len(alerts), now)
+        if views:
+            st.markdown(forecast_view.STYLE + views, unsafe_allow_html=True)
+        _report_card(storage.connect(), s)
+        _forecast_accuracy(storage.connect(), s)
+        _rain_accuracy(storage.connect(), s)
+
+
+def _next_hours(hourly, s: Settings, tz, metric: bool, now) -> None:
+    """Every second hour for the next 24, with the sky, temperature and rain chance."""
+    hours = forecast_view.overview_hours(hourly, s.latitude, s.longitude, tz, now, count=12, step=2)
+    if not hours:
+        return
+    cells = []
+    for h in hours:
+        t = forecast_view.to_shown(h["temp"], h["unit"], metric)
+        pop = h.get("pop") or 0
+        cells.append(f'<div>{html.escape(forecast_view.clock(h["when"]).replace(":00", ""))}<br>'
+                     f'{wx_icons.forecast_icon(h["short"], h["night"], 40)}<b>{"--" if t is None else f"{t:.0f}°"}</b>'
+                     f'<span class="wl-pop">{line_icons.icon("drop", 14)} {pop:.0f}%</span></div>')
+    st.markdown('<div class="wl-panel wl-outlook"><div style="display:flex;justify-content:space-between;align-items:baseline">'
+                '<div class="wl-ptitle">Next 24 hours</div><span class="wl-note">2 hour forecast · National Weather Service</span></div>'
+                f'<div class="wl-hours">{"".join(cells)}</div></div>', unsafe_allow_html=True)
+
+
+def _seven_days(periods, tz, metric: bool, today) -> None:
+    rows = forecast_view.days(periods, tz, today, 7)
+    if not rows:
+        return
+    out = []
+    for r in rows:
+        high = forecast_view.to_shown(r["high"], r["unit"], metric)
+        low = forecast_view.to_shown(r["low"], r["unit"], metric)
+        date_text = f'{r["date"]:%a}, {r["date"]:%b} {r["date"].day}' if r["name"] == "Today" else f'{r["date"]:%b} {r["date"].day}'
+        name = r["name"] if r["name"] == "Today" else f'{r["date"]:%a}'
+        pop = "–" if r["pop"] is None else f'{round(r["pop"])}%'
+        out.append(f'<div><div><b>{html.escape(name)}</b><small>{html.escape(date_text)}</small></div>'
+                   f'{wx_icons.forecast_icon(r["short"], r["night_only"], 36)}<span>{html.escape(r["short"])}</span>'
+                   f'<span class="wl-up">↑ {"--" if high is None else f"{high:.0f}°"}</span>'
+                   f'<span class="wl-dn">↓ {"--" if low is None else f"{low:.0f}°"}</span>'
+                   f'<span class="wl-pp">{line_icons.icon("drop", 15)} {pop}</span></div>')
+    st.markdown('<div class="wl-panel" style="padding:16px 22px"><div style="display:flex;justify-content:space-between;'
+                'align-items:baseline"><div class="wl-ptitle">7 day outlook</div><span class="wl-note">National Weather Service'
+                f'</span></div><div class="wl-daysrows">{"".join(out)}</div></div>', unsafe_allow_html=True)
+
+
+ACCURACY_SPANS = {"30 days": 30, "90 days": 90, "1 year": 365}
+
+
+def _accuracy_panel(db, s: Settings) -> None:
+    """How close past forecasts were, for the span picked: the average miss on highs and how often the rain chance was right."""
+    metric = units.is_metric(s.units)
+    scale, unit = (5 / 9, "°C") if metric else (1, "°F")
+    with st.container(border=True, key="wl-accuracy"):
+        st.markdown('<div class="wl-ptitle" style="margin-bottom:2px">Forecast accuracy</div>'
+                    '<div class="wl-note">How close the past forecasts were for this location.</div>', unsafe_allow_html=True)
+        span = st.segmented_control("Span", list(ACCURACY_SPANS), default="30 days", key="accuracy_span",
+                                    label_visibility="collapsed") or "30 days"
+        since = datetime.now(_tz(s)).date() - timedelta(days=ACCURACY_SPANS[span])
+        daily = history.all_daily(db)
+        actuals = {d: x["tempf_max"] for d, x in daily if x.get("tempf_max") is not None}
+        rows = [r for r in forecast_check.compare(storage.forecast_highs(db), actuals) if r[0] >= since]
+        stats = forecast_check.accuracy(rows)
+        pops = {d: v for d, v in storage.forecast_pops(db).items() if d >= since}
+        rained = {d: (x.get("rain_in") or 0.0) >= 0.01 for d, x in daily}
+        hit = forecast_check.rain_hit_rate(forecast_check.rain_summary(pops, rained))
+        miss = f"{stats['mae'] * scale:.1f}{unit}" if stats["days"] else "--"
+        st.markdown('<div class="wl-statrows">'
+                    f'<div>{line_icons.icon("thermo", 34, "#f07a5a")}<div><b>High temperature error</b>'
+                    f'<span>Average difference vs. observed</span></div><span class="wl-big">{miss}</span></div>'
+                    f'<div>{line_icons.icon("rain", 34, "#7cc4ff")}<div><b>Rain chance results</b>'
+                    f'<span>Correctly predicted rain / no rain</span></div><span class="wl-big">{"--" if hit is None else f"{hit}%"}</span></div>'
+                    '</div>', unsafe_allow_html=True)
+        if stats["days"]:
+            text = f"Last {span}: high temps were off by {stats['mae'] * scale:.1f}{unit} on average"
+            text += f", and the forecast correctly predicted rain {hit}% of the time." if hit is not None else "."
+        else:
+            text = "This fills in once Weather Lab has saved a forecast and a day has finished. Forecasts are saved every three hours."
+        st.markdown(f'<div class="wl-note-line">{line_icons.icon("info", 22)}<span>{html.escape(text)}</span></div>',
+                    unsafe_allow_html=True)
 
 
 WIND_PERIODS = {"Last 24 hours": 1, "Last 7 days": 7, "Last 30 days": 30}

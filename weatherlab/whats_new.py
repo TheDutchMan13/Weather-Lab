@@ -5,6 +5,18 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.63",
+        "date": "November 24, 2026",
+        "items": [
+            "The new look, part 2: Forecast, Alert history, Compare stations and Ask are redesigned.",
+            "Forecast: the next 24 hours with the rain chance under each hour, the 7-day outlook beside a Forecast accuracy card (30 days, 90 days or 1 year: how far off the highs were, and how often the rain chance was right). The temperature curve, report card and recent days are under More detail. The weather alerts box shows only when there are alerts.",
+            "Alert history: the last 30 days counted as Critical, Warning and Info, a search box with Weather, Station and App filters, and each day's alerts as rows with their level. Levels are read from each alert's words.",
+            "Compare stations: a card for each station with its temperature and 24-hour high and low, the readings side by side with their last 24 hours and the gap between them, a swap button, both temperature lines, the rain totals and a health line.",
+            "Ask: a question box with an Ask button, the answer as a large card, a chart of the month or year the answer points at, and buttons for more questions to try.",
+            "With two or more stations, the station picker sits under the Weather Lab name in the menu.",
+        ],
+    },
+    {
         "version": "0.37.62",
         "date": "November 24, 2026",
         "items": [

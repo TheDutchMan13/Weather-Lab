@@ -1,25 +1,83 @@
 """Rain calendar, rain events, Ask, unusual days and replay. All but Ask are tabs of History from 0.37.56."""
 
 import calendar
+import html
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date, datetime, timedelta
-from weatherlab import ask, charts, history, history_compare, rain_calendar, rain_events, replay, stations, storage, theme, units, timefmt
+from weatherlab import ask, charts, history, history_compare, line_icons, rain_calendar, rain_events, replay, stations, storage, theme, units, timefmt
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _all_days, _tile, _tz, empty_card
 
 
+ASK_SUGGESTIONS = [(":material/thermostat:", "Warmest day"), (":material/water_drop:", "Rain in March"),
+                   (":material/air:", "Wettest month"), (":material/ac_unit:", "Coldest night")]
+
+
+def _ask_pick(text: str) -> None:
+    st.session_state["ask_question"] = text
+
+
 def ask_page() -> None:
+    """Ask (0.37.63, the redesign): a question box with an Ask button, the answer as a card with a chart of the month
+    or year it points at, and a few more questions to try."""
     s = load_settings()
     metric = units.is_metric(s.units)
     today = datetime.now(_tz(s)).date()
     st.markdown(theme.page_head("Ask", "Ask a question about your history, such as the wettest month."), unsafe_allow_html=True)
-    question = st.text_input("Ask about your history", key="ask_question",
-                             placeholder="for example: wettest month, or rain in March 2026")
-    if not question.strip():
+    with st.form("ask_form", border=True, enter_to_submit=True):
+        left, right = st.columns([6, 1], vertical_alignment="center")
+        left.text_input("Ask about your history", key="ask_question", label_visibility="collapsed",
+                        placeholder="for example: which was my wettest month?", icon=":material/chat_bubble:")
+        right.form_submit_button("Ask", icon=":material/send:", type="primary", use_container_width=True)
+    question = st.session_state.get("ask_question", "")
+    days = _all_days(stations.current())
+    if question.strip():
+        text = ask.answer(question, days, today, metric)
+        found = ask.focus(question, days, today)
+        first, last = (days[0][0], days[-1][0]) if days else (today, today)
+        sub = f"Based on {stations.name_of(stations.current())} data for {first:%b} {first.day}, {first.year} – {last:%b} {last.day}, {last.year}."
+        icon = line_icons.icon("rain" if found and found["measure"] == "rain" else "thermo" if found else "chat", 54, "#7cc4ff")
+        st.markdown(f'<div class="wl-panel wl-answer">{icon}<div><div class="wl-at">{html.escape(text)}</div>'
+                    f'<div class="wl-as">{html.escape(sub)}</div></div></div>', unsafe_allow_html=True)
+        if found:
+            _ask_chart(found, days, metric)
+            if found["day"] is None and found["year"] == today.year and "month" in question.lower():
+                st.caption(f"{today:%B} isn't finished yet, so it isn't counted in the answer.")
+    else:
         st.caption("Try: " + ask.EXAMPLES + ".")
+    st.markdown("**Try another history question:**")
+    cols = st.columns(len(ASK_SUGGESTIONS))
+    for col, (icon, label) in zip(cols, ASK_SUGGESTIONS):
+        col.button(label, icon=icon, key=f"ask_try_{label}", on_click=_ask_pick, args=(label,), use_container_width=True)
+
+
+def _ask_chart(found: dict, days: list, metric: bool) -> None:
+    """Bars for the month or year the answer points at, with the answer's bar lit."""
+    import plotly.graph_objects as go
+    from weatherlab import charts
+    rows = ask.bars(found, days)
+    if not rows:
         return
-    st.write(ask.answer(question, _all_days(stations.current()), today, metric))
+    key = {"rain": "dailyrainin", "high": "tempf", "low": "tempf"}[found["measure"]]
+    values = [None if v is None else units.convert(key, v, metric) for _, v, _ in rows]
+    decimals = 2 if found["measure"] == "rain" else 0
+    unit = units.unit(key, metric)
+    colours = ["#38c6ec" if lit else "#1f6f8f" for _, _, lit in rows]
+    fig = charts.figure(theme.is_dark(), height=320)
+    fig.add_trace(go.Bar(x=[r[0] for r in rows], y=values, marker_color=colours,
+                         text=[("" if v is None else f"{v:.{decimals}f} {unit}") for v in values],
+                         textposition="outside", cliponaxis=False))
+    what = {"rain": "rainfall", "high": "average high" if found["day"] is None else "daily high", "low": "daily low"}[found["measure"]]
+    when = str(found["year"]) if found["day"] is None else f'{calendar.month_name[found["month"]]} {found["year"]}'
+    total = ""
+    if found["measure"] == "rain":
+        total = f" · total {sum(v for v in values if v is not None):.2f} {unit}"
+    fig.update_layout(title=dict(text=f"{what.capitalize()} by {'month' if found['day'] is None else 'day'}, {when}{total}",
+                                 x=0, xanchor="left", font=dict(size=15)), showlegend=False, margin=dict(t=56))
+    fig.update_yaxes(title_text=unit)
+    with st.container(border=True):
+        charts.show(fig, use_container_width=True)
 
 
 @st.cache_data(ttl=600, show_spinner=False)

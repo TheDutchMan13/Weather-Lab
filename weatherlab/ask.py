@@ -85,3 +85,67 @@ def answer(question: str, days: list[tuple[date, dict]], today: date, metric: bo
             return "No rain is recorded in the stored history."
         return f"The wettest day was {_day(day)}, with {_rain(s['rain_in'], metric)} of rain."
     return f"I can answer questions like: {EXAMPLES}."
+
+
+def focus(question: str, days: list[tuple[date, dict]], today: date) -> dict | None:
+    """What the answer is about, for the chart under it on the Ask page (0.37.63):
+    {"measure": "rain" | "high" | "low", "year": y, "month": m or None, "day": date or None}. None when there is nothing to draw."""
+    q = " ".join(question.lower().split())
+    if not days:
+        return None
+    monthly = _monthly(days)
+    done = {k: v for k, v in monthly.items() if k != (today.year, today.month)}
+    m = re.search(r"rain in ([a-z]+)(?: (\d{4}))?", q)
+    if m and m.group(1) in MONTHS:
+        month = MONTHS[m.group(1)]
+        matches = [(y, mo) for (y, mo) in monthly if mo == month and (not m.group(2) or y == int(m.group(2)))]
+        if matches:
+            year, _ = max(matches)
+            return {"measure": "rain", "year": year, "month": month, "day": None}
+        return None
+    if ("wettest month" in q or "driest month" in q) and done:
+        pick = max if "wettest" in q else min
+        year, month = pick(done, key=lambda k: done[k]["rain"])
+        return {"measure": "rain", "year": year, "month": month, "day": None}
+    if ("hottest month" in q or "warmest month" in q) and done:
+        scored = {k: sum(v["highs"]) / len(v["highs"]) for k, v in done.items() if v["highs"]}
+        if scored:
+            year, month = max(scored, key=scored.get)
+            return {"measure": "high", "year": year, "month": month, "day": None}
+    if re.search(r"how many days", q):
+        return None
+    if "warmest" in q or "hottest" in q or "highest temp" in q:
+        known = [(d, x) for d, x in days if x.get("tempf_max") is not None]
+        if known:
+            day = max(known, key=lambda t: t[1]["tempf_max"])[0]
+            return {"measure": "high", "year": day.year, "month": day.month, "day": day}
+    if "coldest" in q or "coolest" in q or "lowest temp" in q:
+        known = [(d, x) for d, x in days if x.get("tempf_min") is not None]
+        if known:
+            day = min(known, key=lambda t: t[1]["tempf_min"])[0]
+            return {"measure": "low", "year": day.year, "month": day.month, "day": day}
+    if "wettest" in q or "most rain" in q:
+        day, x = max(days, key=lambda t: t[1].get("rain_in") or 0.0)
+        if x.get("rain_in"):
+            return {"measure": "rain", "year": day.year, "month": day.month, "day": day}
+    return None
+
+
+def bars(f: dict, days: list[tuple[date, dict]]) -> list[tuple[str, float | None, bool]]:
+    """The bars for a focus: each month of its year (a month answer) or each day of its month (a day answer), as
+    (label, value in stored units, is_the_answer)."""
+    key = {"rain": "rain_in", "high": "tempf_max", "low": "tempf_min"}[f["measure"]]
+    if f["day"] is None:
+        monthly = _monthly(days)
+        out = []
+        for month in range(1, 13):
+            entry = monthly.get((f["year"], month))
+            if entry is None:
+                value = None
+            elif f["measure"] == "rain":
+                value = entry["rain"]
+            else:
+                value = sum(entry["highs"]) / len(entry["highs"]) if entry["highs"] else None
+            out.append((calendar.month_abbr[month], value, month == f["month"]))
+        return out
+    return [(str(d.day), x.get(key), d == f["day"]) for d, x in days if d.year == f["year"] and d.month == f["month"]]

@@ -892,21 +892,66 @@ def home_page() -> None:
     _customize_link()  # at the end from 0.37.62, so the top of Home matches the redesign
 
 
+ALERT_FILTERS = ["All", "Weather", "Station", "App"]
+
+
 def alerts_log_page() -> None:
+    """Alert history (0.37.63, the redesign): the last 30 days by level, a search box and filters, then each day's
+    alerts as rows with their level."""
+    from weatherlab import alert_kinds
     s = load_settings()
     tz = _tz(s)
-    st.markdown(theme.page_head("Alert history", "Every alert Weather Lab has sent, newest first. Search to filter them."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Alert history", "Every alert Weather Lab has sent, newest first."), unsafe_allow_html=True)
     rows = storage.recent_alerts(storage.connect(), limit=300)
     if not rows:
         empty_card("Alerts appear here once Weather Lab sends its first notification.")
         return
-    query = st.text_input("Search alerts", key="alert_search").strip().lower()
-    body = [{"When": timefmt.stamp(datetime.fromtimestamp(ts, tz), "%a %b %d"), "Alert": text}
-            for ts, text in rows if not query or query in text.lower()]
-    if not body:
+    items = [dict(alert_kinds.classify(text), ts=ts, text=text) for ts, text in rows]
+    now = time.time()
+    month = [it for it in items if it["ts"] >= now - 30 * 86400]
+    c = alert_kinds.counts(month)
+    first = datetime.fromtimestamp(now - 30 * 86400, tz)
+    last = datetime.fromtimestamp(now, tz)
+    span = f"{first:%b} {first.day}, {first.year} – {last:%b} {last.day}, {last.year}"  # no %-d: Windows lacks it
+    stat = lambda icon, colour, n, word: (f'<div>{line_icons.icon(icon, 30, colour)}<div><b>{n}</b>'
+                                          f'<span>{word}</span></div></div>')
+    st.markdown('<div class="wl-panel wl-stats"><div><div><b>Last 30 days</b><span>' + html.escape(span) + '</span></div></div>'
+                + stat("bolt", "#ff7a6b", c["Critical"], "Critical") + stat("alert", "#f6c445", c["Warning"], "Warning")
+                + stat("info", "#38c6ec", c["Info"], "Info") + stat("bell", "#9db0c4", c["total"], "total alerts") + "</div>",
+                unsafe_allow_html=True)
+    left, right = st.columns([3, 2], vertical_alignment="center")
+    query = left.text_input("Search alerts", key="alert_search", placeholder="Search alerts",
+                            label_visibility="collapsed").strip().lower()
+    kind = right.segmented_control("Show", ALERT_FILTERS, default="All", key="alert_kind",
+                                   label_visibility="collapsed") or "All"
+    shown = [it for it in items if (not query or query in it["text"].lower()) and (kind == "All" or it["kind"] == kind)]
+    if not shown:
         empty_card("No alerts match that search")
         return
-    theme.table(body)
+    station = stations.name_of(stations.current())
+    colours = {"Critical": "#ff7a6b", "Warning": "#f6c445", "Info": "#38c6ec"}
+    today = datetime.now(tz).date()
+    by_day: dict = {}
+    for it in shown:
+        by_day.setdefault(datetime.fromtimestamp(it["ts"], tz).date(), []).append(it)
+    out = []
+    for day, day_items in by_day.items():
+        name = "Today" if day == today else "Yesterday" if (today - day).days == 1 else ""
+        plain = f"{day:%b} {day.day}, {day.year}"
+        label = f'{name}<span>{plain}</span>' if name else plain
+        out.append(f'<div class="wl-dayhead">{label}</div><div class="wl-panel wl-rows">')
+        for it in day_items:
+            when = timefmt.time_text(datetime.fromtimestamp(it["ts"], tz))
+            sub = f'<div class="wl-rsub">{html.escape(it["detail"])}</div>' if it["detail"] else ""
+            out.append(f'<div class="wl-row"><span class="wl-rt">{html.escape(when)}</span>'
+                       f'{line_icons.icon(it["icon"], 28, colours[it["level"]])}'
+                       f'<div style="min-width:0"><div class="wl-rtitle">{html.escape(it["title"])}</div>{sub}</div>'
+                       f'<span class="wl-badge wl-badge-{it["level"].lower()}">{it["level"]}</span>'
+                       f'<span class="wl-rwhere">{line_icons.icon("pin", 16)} {html.escape(station)}</span></div>')
+        out.append("</div>")
+    st.markdown("".join(out), unsafe_allow_html=True)
+    st.caption("Levels are read from each alert's words: lightning and severe warnings are Critical, wind, heat, rain "
+               "rate and station problems are Warnings, and the rest is Info.")
 
 
 def briefing_page() -> None:

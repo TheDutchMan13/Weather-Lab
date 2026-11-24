@@ -78,3 +78,12 @@ def rain_summary(pops: dict, rained: dict) -> dict:
         if rained[day]:
             out[f"{kind}_rained"] += 1
     return out
+
+
+def rain_hit_rate(stats: dict) -> int | None:
+    """Percent of days the rain chance called right (0.37.63): rain on a 50%-or-more day, or none on an under-50% day."""
+    total = stats["wet_days"] + stats["dry_days"]
+    if not total:
+        return None
+    right = stats["wet_rained"] + (stats["dry_days"] - stats["dry_rained"])
+    return round(right * 100 / total)
