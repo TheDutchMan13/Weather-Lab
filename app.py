@@ -70,17 +70,22 @@ def access_gate() -> bool:
     return False
 
 
-PAGE_ICONS = {  # emoji, so each sidebar page has a clear, coloured icon
-    "Home": "🏠", "Compare stations": "🆚", "History": "🗓️", "Alert history": "🚨",
-    "Rain calendar": "📆", "Rain events": "💧", "Ask": "💬",
-    "Unusual days": "🧐", "Replay": "▶️",
-    "Forecast": "🔮", "Heat": "🥵", "Wind": "🌬️", "Wind map": "💨",
-    "Sun": "☀️", "Astronomy": "🔭",
-    "Air": "😷", "Fire": "🚒", "Lightning": "⚡", "Tropics": "🌀", "Radar": "📡",
-    "Import": "📥", "Export": "📤", "Backup": "💾", "Reports": "📄",
-    "Station health": "🩺", "Home layout": "🧩",
-    "What's New": "🆕", "Help": "❔", "Settings": "⚙️", "Stations": "📍",
-    "Air and heat": "🌡️", "Sun and sky": "🌤️", "Data": "🗄️",
+# Line icons (0.37.62, the redesign), replacing the emoji. Tab names show them too.
+PAGE_ICONS = {
+    "Home": ":material/home:", "Forecast": ":material/calendar_month:", "Alert history": ":material/notifications:",
+    "Compare stations": ":material/compare_arrows:", "History": ":material/bar_chart:", "Ask": ":material/chat_bubble:",
+    "Air and heat": ":material/thermostat:", "Wind": ":material/air:", "Sun and sky": ":material/wb_sunny:",
+    "Lightning": ":material/bolt:", "Fire": ":material/local_fire_department:", "Tropics": ":material/cyclone:",
+    "Radar": ":material/radar:", "Station health": ":material/monitor_heart:", "Stations": ":material/layers:",
+    "Settings": ":material/settings:", "Home layout": ":material/dashboard_customize:", "Data": ":material/database:",
+    "Help": ":material/help:",
+    # Tabs (and the old page names that open them)
+    "Rain calendar": ":material/calendar_month:", "Rain events": ":material/rainy:", "Unusual days": ":material/warning:",
+    "Replay": ":material/play_circle:", "Air": ":material/air:", "Heat": ":material/thermostat:",
+    "Wind map": ":material/map:", "Sun": ":material/light_mode:", "Astronomy": ":material/dark_mode:",
+    "Backup": ":material/backup:", "Reports": ":material/bar_chart:", "Export": ":material/upload:",
+    "Import": ":material/download:", "What's New": ":material/new_releases:",
+    "Status": ":material/monitor_heart:", "Sensors": ":material/sensors:", "Health check": ":material/fact_check:",
 }
 
 
@@ -107,8 +112,12 @@ STATION_VIEWS = {"Status": status_page, "Sensors": sensors_page, "Health check":
 
 
 def station_health_page() -> None:
-    view = st.segmented_control("Station health", list(STATION_VIEWS), default="Status", key="station_view") or "Status"
+    head = st.empty()  # the title goes above the tabs (0.37.62)
+    theme.head_slot(head)
+    view = st.segmented_control("Station health", list(STATION_VIEWS), default="Status", key="station_view",
+                                format_func=_tab_label, label_visibility="collapsed") or "Status"
     STATION_VIEWS[view]()
+    _fill_unused_head("Station health")
 
 
 # Pages without tabs.
@@ -139,9 +148,25 @@ def _tabbed(page: str):
             del st.query_params["tab"]
         elif st.session_state.get(key) not in tabs:
             st.session_state[key] = tabs[0]
-        view = st.segmented_control(page, tabs, key=key, required=True, label_visibility="collapsed")
+        head = st.empty()  # the page's title goes above its tabs (0.37.62)
+        theme.head_slot(head)
+        view = st.segmented_control(page, tabs, key=key, required=True, label_visibility="collapsed",
+                                    format_func=_tab_label)
         VIEW_FUNCS[view if view in tabs else tabs[0]]()
+        _fill_unused_head(page)
     return run
+
+
+def _tab_label(name: str) -> str:
+    icon = PAGE_ICONS.get(name)
+    return f"{icon} {name}" if icon else name
+
+
+def _fill_unused_head(page: str) -> None:
+    """A tab whose view has no title of its own still shows the page's name above the tabs."""
+    slot = theme.take_slot()
+    if slot is not None:
+        slot.markdown(theme.page_head(page), unsafe_allow_html=True)
 
 
 def _moved(name: str):
@@ -213,6 +238,7 @@ def _sidebar_menu(sections: dict, pages: dict, current: str) -> None:
     Streamlit's own menu is hidden (position="hidden"), so this one can have the box at the top and folding groups."""
     with stations.using(stations.MAIN):
         cfg = load_settings()
+    st.sidebar.markdown(BRAND_HTML, unsafe_allow_html=True)
     _jump_box(pages)
     pins = sidebar.clean_pins(cfg.pinned_pages)
     sb = st.sidebar
@@ -225,12 +251,67 @@ def _sidebar_menu(sections: dict, pages: dict, current: str) -> None:
         with sb.expander(group, expanded=sidebar.is_open(group, cfg.closed_groups, current), key=key,
                          on_change=_group_changed, args=(group,)):
             for page in group_pages:
-                st.page_link(page)
+                if page.title == current:  # a named box, so the redesign can fill the current page's row (0.37.62)
+                    with st.container(key="wl-nav-current"):
+                        st.page_link(page)
+                else:
+                    st.page_link(page)
     pinned = current in pins
     sb.button(("Unpin " if pinned else "Pin ") + current, icon=":material/keep_off:" if pinned else ":material/keep:",
               type="tertiary", key="pin_toggle", on_click=_toggle_pin, args=(current,),
               disabled=not pinned and len(pins) >= sidebar.MAX_PINS,
               help=None if pinned or len(pins) < sidebar.MAX_PINS else f"Up to {sidebar.MAX_PINS} pages can be pinned.")
+
+
+BRAND_HTML = ('<div class="wl-brand"><svg viewBox="0 0 48 48" width="42" height="42" fill="none" stroke-linecap="round" '
+              'stroke-linejoin="round" aria-hidden="true"><circle cx="19" cy="18" r="7" stroke="#f6c445" stroke-width="3"/>'
+              '<path d="M19 4v3M8 8l2 2M5 18h3M30 8l-2 2" stroke="#f6c445" stroke-width="3"/>'
+              '<path d="M15 39a8 8 0 0 1-.7-16 11 11 0 0 1 21 3.3A6.5 6.5 0 0 1 35 39z" stroke="#38c6ec" stroke-width="3" '
+              'fill="#101a28"/></svg><div><b>Weather Lab</b><small>Ecowitt station</small></div></div>')
+
+
+def _latest_reading():
+    try:
+        return storage.latest(storage.connect())
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _place(lat: float, lon: float, contact: str) -> str:
+    """The town the station is in, as the National Weather Service names it ("Springfield, IL"), or ""."""
+    from weatherlab import nws
+    try:
+        return nws.place_name(lat, lon, contact)
+    except Exception:
+        return ""
+
+
+def _header_context(page: str) -> None:
+    """What the bar under each title says (0.37.62): the station's name, its town and whether readings are live."""
+    cfg = load_settings()
+    names = {r["id"]: r["name"] for r in stations.all_stations()}
+    latest = _latest_reading()
+    live = health.age_status(latest[0] if latest else None, time.time())
+    place = _place(round(cfg.latitude, 3), round(cfg.longitude, 3), cfg.nws_contact) \
+        if cfg.latitude is not None and cfg.longitude is not None else ""
+    theme.set_context(page, names.get(stations.current(), ""), place, live)
+
+
+def _top_right() -> None:
+    """Top right of every page (0.37.62): the time of the latest reading and a refresh button."""
+    from zoneinfo import ZoneInfo
+    from weatherlab import timefmt
+    from datetime import datetime
+    latest = _latest_reading()
+    with st.container(key="wl-topright", horizontal=True):
+        if latest:
+            try:
+                tz = ZoneInfo(load_settings().timezone)
+            except Exception:
+                tz = None
+            st.markdown(f"Last updated {timefmt.time_text(datetime.fromtimestamp(latest[0], tz))}")
+        st.button("", icon=":material/refresh:", key="wl_refresh", help="Refresh")
 
 
 def _sidebar_status() -> None:
@@ -255,7 +336,7 @@ HEAD_SCRIPT = """<script>
       ['link', {rel: 'apple-touch-icon', href: '/app/static/apple-touch-icon.png'}],
       ['meta', {name: 'apple-mobile-web-app-capable', content: 'yes'}],
       ['meta', {name: 'apple-mobile-web-app-title', content: 'Weather Lab'}],
-      ['meta', {name: 'theme-color', content: '#0b3d91'}]
+      ['meta', {name: 'theme-color', content: '#0b1828'}]
     ];
     tags.forEach(function (t) {
       var key = t[1].rel || t[1].name;
@@ -322,6 +403,8 @@ def main() -> None:
     st.session_state["wl_pages"] = pages  # lets a page link to another, such as Customize on Home
     _sidebar_menu(sections, pages, nav.title)
     _sidebar_status()
+    _header_context(nav.title)
+    _top_right()
     nav.run()
     st.caption(f"{APP_NAME} version {APP_VERSION}")
 

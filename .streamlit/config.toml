@@ -4,3 +4,7 @@ enableStaticServing = true
 [client]
 # No Streamlit "Deploy" button or developer menu in Weather Lab's window (0.37.60). launcher.py passes the same.
 toolbarMode = "minimal"
+
+[theme]
+# The redesign's cyan accent for radios, checkboxes and sliders (0.37.62). launcher.py passes the same.
+primaryColor = "#38c6ec"

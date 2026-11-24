@@ -52,6 +52,14 @@ def points(lat: float, lon: float, contact: str) -> dict:
             "stations": p.get("observationStations") or ""}
 
 
+def place_name(lat: float, lon: float, contact: str) -> str:
+    """The nearest town as the National Weather Service names it, such as "Springfield, IL", or "" (0.37.62)."""
+    data = _get(f"{BASE}/points/{lat:.4f},{lon:.4f}", contact)
+    rel = (((data.get("properties") or {}).get("relativeLocation") or {}).get("properties") or {})
+    city, state = str(rel.get("city") or "").strip(), str(rel.get("state") or "").strip()
+    return ", ".join(x for x in (city, state) if x)
+
+
 def alerts(lat: float, lon: float, contact: str) -> list[dict]:
     """Active alerts for a location, most severe first."""
     data = _get(f"{BASE}/alerts/active?point={lat:.4f},{lon:.4f}", contact)

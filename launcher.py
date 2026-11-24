@@ -57,7 +57,9 @@ def serve(port: int, host: str = "127.0.0.1") -> int:
     sys.argv = ["streamlit", "run", str(base_dir() / "app.py"),
                 "--server.headless=true", f"--server.address={host}", f"--server.port={port}",
                 # Set here too: the exe doesn't start in the folder that holds .streamlit/config.toml (0.37.60).
-                "--server.enableStaticServing=true", "--client.toolbarMode=minimal"]
+                "--server.enableStaticServing=true", "--client.toolbarMode=minimal",
+                # The cyan accent for radios, checkboxes and sliders (0.37.62, the redesign).
+                "--theme.primaryColor=#38c6ec"]
     cli.main()
     return 0
 

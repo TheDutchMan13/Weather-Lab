@@ -48,7 +48,7 @@ class BackupPage(unittest.TestCase):
         self.assertIn("Backup", nav_groups.TABS["Data"])  # Backup is a tab of Data (0.37.56)
         app = (ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn('"Backup": backup_page', app)
-        self.assertIn('"Backup": "💾"', app)
+        self.assertIn('"Backup": ":material/backup:"', app)  # line icons from 0.37.62
 
     def test_page_checks_a_backup_before_restoring_it(self):
         source = (ROOT / "weatherlab" / "screens" / "data.py").read_text(encoding="utf-8")

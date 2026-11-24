@@ -5,6 +5,18 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.62",
+        "date": "November 24, 2026",
+        "items": [
+            "A new look, part 1 of the redesign: Dark mode is now deep navy with a cyan accent, line icons in the menu instead of emoji, the Weather Lab name at the top of the menu, and a filled row for the page you're on.",
+            "Each weather page has a bar under its title with your station's name, its town (from the National Weather Service) and whether readings are live. The time of the latest reading and a refresh button sit at the top right of every page.",
+            "Tabs are one joined bar under the page's title, with an icon on each tab.",
+            "Home is redesigned: a large right-now card with today's high and low, the change over the last hour, today's temperature line and the sunset time; five cards for wind, humidity, pressure, UV and rain, each with its last 24 hours; Today so far beside yesterday at the same time; a 24-hour outlook; and a Station health line.",
+            "The Last 24 hours row on Home is replaced by the new reading cards. UV, pressure and rain no longer appear twice on Home.",
+            "Radio buttons, checkboxes and sliders use the cyan accent instead of red.",
+        ],
+    },
+    {
         "version": "0.37.61",
         "date": "November 13, 2026",
         "items": [

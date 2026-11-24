@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import time
 from datetime import datetime
-from weatherlab import alert_map, card_order, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons, timefmt
+from weatherlab import alert_map, card_order, astro, charts, comfort, dew, dials, gauges, gateway_sensors, health, health_check, hero, line_icons, motion, nws, sparks, stations, storage, sun_uv, theme, units, wind_rose, wx_icons, timefmt
 from weatherlab.config import CARD_LABELS
 from weatherlab.screens import live_history
 from weatherlab.settings import Settings, load_settings
@@ -13,6 +13,8 @@ from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _sta
 
 
 REFRESH_SECONDS = 30
+# Readings with a card under the right-now card (0.37.62), so they aren't repeated in Air or Wind and rain.
+ON_TOP = ("dailyrainin", "baromrelin", "uv")
 
 
 def _comfort_tiles(data: dict) -> list[str]:
@@ -176,52 +178,147 @@ def _hero(s: Settings, row: tuple, short: str, night: bool, alerts: list[dict]) 
     elif set_n and now_n < set_n:
         sun = f"Sunset in {_span(set_n - now_n)}"
 
-    tiles = []
+    # The reading cards under the right-now card (0.37.62), each with its last 24 hours.
+    day = [(t, r) for t, r in _recent_thinned(int(wall // 600), stations.current()) if t >= wall - 86400]
+
+    def line(key: str, colour: str, h: int = 44) -> str:
+        # Hourly averages, so a gusty day reads as a trend rather than a scribble.
+        hours: dict = {}
+        for t, r in day:
+            if r.get(key) is not None:
+                hours.setdefault(int(t // 3600), []).append(r[key])
+        values = [units.convert(key, sum(v) / len(v), metric) for _, v in sorted(hours.items())]
+        return sparks.spark_svg(values, colour, h=h)
+
+    cards = []
     ws, wd = data.get("windspeedmph"), data.get("winddir")
     if ws is not None:
-        prefix = wind_rose.NAMES[round(wd / 22.5) % 16] + " " if wd is not None and ws >= 1 else ""
-        gust_note = f"gusts {units.format_value('windgustmph', max(gusts), metric, 0)} today" if gusts else ""
-        tiles.append(("Wind", prefix + units.format_value("windspeedmph", ws, metric, 0), gust_note))
+        speed = units.format_value("windspeedmph", ws, metric, 0)
+        number, _, unit_text = speed.partition(" ")
+        direction = wind_rose.NAMES[round(wd / 22.5) % 16] if wd is not None and ws >= 1 else ""
+        gust_note = f"Gusts {units.format_value('windgustmph', max(gusts), metric, 0)} today" if gusts else ""
+        cards.append(hero.metric_html(line_icons.icon("wind", 26, "#7cc4ff"), "Wind", number,
+                                      f"{unit_text} {direction}".strip(), gust_note, line("windspeedmph", "#38c6ec")))
     hum, dew = data.get("humidity"), data.get("dewpointf")
     if hum is not None:
-        dew_note = f"dew point {units.format_value('dewpointf', dew, metric, 0)}" if dew is not None else ""
-        tiles.append(("Humidity", f"{hum:.0f}%", dew_note))
+        dew_note = f"Dew point {units.format_value('dewpointf', dew, metric, 0)}" if dew is not None else ""
+        cards.append(hero.metric_html(line_icons.icon("drop", 26, "#7cc4ff"), "Humidity", f"{hum:.0f}%", "", dew_note,
+                                      line("humidity", "#5b9df0")))
     if press is not None:
-        tiles.append(("Pressure", units.format_value("baromrelin", press, metric, 2), press_word))
+        value = units.format_value("baromrelin", press, metric, 2)
+        number, _, unit_text = value.partition(" ")
+        cards.append(hero.metric_html(line_icons.icon("gauge", 26, "#7cc4ff"), "Pressure", number, unit_text,
+                                      press_word.capitalize(), line("baromrelin", "#38c6ec")))
     uv = data.get("uv")
     if uv is not None:
-        tiles.append(("UV index", f"{uv:.0f}", _uv_word(uv)))
+        cards.append(hero.metric_html(line_icons.icon("sun", 26, "#f6c445"), "UV index", f"{uv:.0f}", "",
+                                      _uv_word(uv).capitalize(), line("uv", "#f6c445")))
     rain = data.get("dailyrainin")
     if rain is not None:
-        tiles.append(("Rain today", units.format_value("dailyrainin", rain, metric, 2), ""))
-
-    parts = []
-    if hi is not None:
-        parts.append(f"high {units.convert('tempf', hi, metric):.0f}° · low {units.convert('tempf', lo, metric):.0f}°")
-    if rain is not None:
-        parts.append(f"rain {units.format_value('dailyrainin', rain, metric, 2)}")
-    if gusts:
-        parts.append(f"peak gust {units.format_value('windgustmph', max(gusts), metric, 0)}")
+        value = units.format_value("dailyrainin", rain, metric, 2)
+        number, _, unit_text = value.partition(" ")
+        cards.append(hero.metric_html(line_icons.icon("rain", 26, "#7cc4ff"), "Rain today", number, unit_text, "",
+                                      line("dailyrainin", "#38c6ec")))
 
     feels = data.get("feelslikef")
-    html_out, _ = hero.hero_html({
-        "temp_text": f"{units.convert('tempf', temp, metric):.0f}°", "plain": s.hero_style == "plain",
-        "kind": kind, "icon": wx_icons.now_icon(kind, 84),
-        "feels": units.format_value("feelslikef", feels, metric, 0) if feels is not None else "",
-        "label": short, "place": "",
-        "live_state": state, "live_text": live_text,
+    today_temps_shown = [units.convert("tempf", r["tempf"], metric) for _, r in today[::3] if r.get("tempf") is not None]
+    up = None
+    if prior:
+        delta = units.convert("tempf", temp, metric) - units.convert("tempf", prior[-1], metric)
+        up = None if abs(delta) < 0.5 else delta > 0
+    sun_kind = "sunrise" if sun.startswith("Sunrise") else "sunset"
+    card = hero.card_html({
+        "temp": f"{units.convert('tempf', temp, metric):.0f}", "unit": units.unit("tempf", metric),
+        "plain": s.hero_style == "plain", "kind": kind, "icon": wx_icons.now_icon(kind, 116),
+        "label": short, "feels": units.format_value("feelslikef", feels, metric, 0) if feels is not None else "",
+        "hi_text": f"{units.convert('tempf', hi, metric):.0f}°" if hi is not None else "",
+        "lo_text": f"{units.convert('tempf', lo, metric):.0f}°" if lo is not None else "",
+        "trend": trend.lstrip("▲▼– ").replace("° in", "° in") if trend else "", "trend_up": up,
+        "spark": sparks.spark_svg(today_temps_shown, "#f6c445", h=64),
+        "sun_icon": line_icons.icon(sun_kind, 30, "#f6c445"), "sun_note": sun,
         "alert": alert, "alert_tone": tone,
-        "lo": units.convert("tempf", lo, metric) if lo is not None else None,
-        "hi": units.convert("tempf", hi, metric) if hi is not None else None,
-        "now": units.convert("tempf", temp, metric),
-        "lo_text": units.format_value("tempf", lo, metric, 0) if lo is not None else "",
-        "hi_text": units.format_value("tempf", hi, metric, 0) if hi is not None else "",
-        "tiles": tiles, "trend": trend, "trend_col": trend_col, "sun_note": sun,
-        "today_line": " · ".join(parts),
     })
-    # Drawn into the page (not a fixed-height frame), so it sizes to its content and leaves no gap on a wide
-    # screen. st.markdown keeps the inline sky icon, which st.html strips.
-    st.markdown(html_out, unsafe_allow_html=True)
+    # Drawn into the page (not a fixed-height frame), so it sizes to its content. st.markdown keeps the inline SVG.
+    st.markdown(card, unsafe_allow_html=True)
+    if cards:
+        st.markdown(f'<div class="wl-metrics">{"".join(cards)}</div>', unsafe_allow_html=True)
+    _today_so_far(s, data, today, wall)
+
+
+def _today_so_far(s: Settings, data: dict, today: list, wall: float) -> None:
+    """Today's high, rain and peak gust so far, each beside yesterday's at the same time of day (0.37.62)."""
+    metric = units.is_metric(s.units)
+    start = _start_of_today(s)
+    yday = storage.readings_between(storage.connect(), start - 86400, wall - 86400 + 1)
+
+    def peak(rows, key):
+        vals = [r[key] for _, r in rows if r.get(key) is not None]
+        return max(vals) if vals else None
+
+    parts = []
+    for icon_name, colour, label, key, decimals in (("thermo", "#f07a5a", "High", "tempf", 0),
+                                                     ("rain", "#7cc4ff", "Rain", "dailyrainin", 2),
+                                                     ("wind", "#7cc4ff", "Peak gust", "windgustmph", 0)):
+        now_v, then_v = peak(today, key), peak(yday, key)
+        if now_v is None:
+            continue
+        if key == "tempf":
+            fmt = lambda v: f"{units.convert('tempf', v, metric):.0f}°"
+        else:
+            fmt = lambda v, k=key, d=decimals: units.format_value(k, v, metric, d)
+        then = f"(yesterday: {fmt(then_v)})" if then_v is not None else "(yesterday: no readings)"
+        parts.append(f'<div>{line_icons.icon(icon_name, 30, colour)}<div><div class="wl-bv">{html.escape(label)}: '
+                     f'<b>{html.escape(fmt(now_v))}</b></div><div class="wl-bs">{html.escape(then)}</div></div></div>')
+    if parts:
+        st.markdown('<div class="wl-panel wl-band"><div><div><div class="wl-bt">Today so far</div>'
+                    '<div class="wl-bs">vs yesterday at this time</div></div></div>' + "".join(parts) + "</div>",
+                    unsafe_allow_html=True)
+
+
+def _outlook(s: Settings) -> None:
+    """The next 24 hours from the National Weather Service, every second hour (0.37.62). Nothing when it can't load."""
+    from weatherlab import forecast_view
+    from weatherlab.screens.common import _hourly, _points
+    if s.latitude is None or s.longitude is None:
+        return
+    try:
+        pts = _points(s.latitude, s.longitude, s.nws_contact)
+        hourly = _hourly(pts["forecastHourly"], s.nws_contact) if pts.get("forecastHourly") else []
+    except Exception:
+        return
+    tz = _tz(s)
+    metric = units.is_metric(s.units)
+    hours = forecast_view.overview_hours(hourly, s.latitude, s.longitude, tz, datetime.now(tz), count=12, step=2)
+    if not hours:
+        return
+    cells = []
+    for h in hours:
+        t = forecast_view.to_shown(h["temp"], h["unit"], metric)
+        temp = f"{t:.0f}°" if t is not None else "--"
+        pop = f'<span class="wl-pop">{h["pop"]:.0f}%</span>' if h.get("pop") else ""
+        label = forecast_view.clock(h["when"]).replace(":00", "")
+        cells.append(f'<div>{html.escape(label)}<br>'
+                     f'{wx_icons.forecast_icon(h["short"], h["night"], 38)}<b>{temp}</b>{pop}</div>')
+    st.markdown('<div class="wl-panel wl-outlook"><div class="wl-ptitle">24-hour outlook</div>'
+                f'<div class="wl-hours">{"".join(cells)}</div></div>', unsafe_allow_html=True)
+
+
+def _health_line(s: Settings) -> None:
+    """One line at the end of Home: is the station reporting, and when was the last reading (0.37.62)."""
+    row = storage.latest(storage.connect())
+    state, _ = health.age_status(row[0] if row else None, time.time())
+    words = {"ok": ("all readings arriving", "#3ddc84", "check"), "slow": ("readings are late", "#f6c445", "alert"),
+             "silent": ("the station isn't reporting", "#ef5b4c", "alert"), "none": ("no readings yet", "#9aa3b0", "clock")}
+    text, colour, icon_name = words[state]
+    last = f'<span class="wl-hr">Last reading: {html.escape(_clock_short(s, row[0]))}</span>' if row else ""
+    st.markdown(f'<div class="wl-panel wl-health">{line_icons.icon(icon_name, 26, colour, 2.2)}'
+                f'<span><b style="color:{colour}">Station health:</b> {html.escape(text)}</span>{last}</div>',
+                unsafe_allow_html=True)
+
+
+def _clock_short(s: Settings, ts: float) -> str:
+    from weatherlab import timefmt
+    return timefmt.time_text(datetime.fromtimestamp(ts, _tz(s)))
 
 
 def _temp_ring(s: Settings, data: dict) -> None:
@@ -238,7 +335,7 @@ def _temp_ring(s: Settings, data: dict) -> None:
     st.iframe(motion.add(html_out, s.animate), height="content")
 
 
-SPARK_KEYS = ("tempf", "humidity", "windspeedmph", "baromrelin")
+SPARK_KEYS = ("tempf", "humidity", "windspeedmph", "baromrelin", "uv", "dailyrainin")
 
 
 ALERT_ZONE_LIMIT = 25  # zones outlined at most, so a statewide warning can't stall the page
@@ -447,6 +544,8 @@ def live_now() -> None:
     if alerts and s.latitude is not None and s.longitude is not None:
         with st.expander("Alert map", expanded=True):
             _alert_map(s, alerts)
+    _outlook(s)
+    _health_line(s)
 
 
 @st.fragment(run_every=REFRESH_SECONDS)
@@ -459,8 +558,7 @@ def live_readings() -> None:
     row = storage.latest(storage.connect())
     if row is not None:
         _, data = row
-        dark = theme.is_dark()
-        _glance(s, data, row[0])
+        dark = theme.is_dark()  # the Last 24 hours row is now the reading cards under the right-now card (0.37.62)
         metric = units.is_metric(s.units)
         p = theme.DARK if dark else theme.LIGHT
         now = time.time()
@@ -468,15 +566,14 @@ def live_readings() -> None:
         uv_card = _trend_card(s, "uv", "UV index", "", data, day, p["accent"])  # (key, html), or None without a UV reading
         air, wind = [], []
         for key in s.live_cards:
-            if key in data and key not in card_order.IN_24H_ROW:  # these have their own card in the Last 24 hours row
+            if key in data and key not in card_order.IN_24H_ROW and key not in ON_TOP:  # these have their own card in the Last 24 hours row
                 label, unit = CARD_LABELS[key]
                 text = units.format_value(key, data[key], metric) if units.converts(key) else f"{data[key]:g} {unit}".strip()
                 decimals = 2 if key == "dailyrainin" else 0
                 card = _trend_card(s, key, label, unit, data, day, TREND_COLOURS.get(key, "#7c86c9"), decimals)
                 html_out = card[1] if card else _tile(label, text)
                 (wind if card_order.group_of(label) == "Wind and rain" else air).append((key, html_out))
-        if uv_card:
-            air.append(uv_card)
+        # UV now has its card at the top of Home (0.37.62).
         for comfort_tile in _comfort_tiles(data):
             (wind if "Wind" in comfort_tile or "Rain" in comfort_tile else air).append((None, comfort_tile))
         # The cards come first; the big gauges are a group of their own that a phone keeps closed (Home layout).
@@ -778,15 +875,11 @@ def home_page() -> None:
         welcome.show()
         return
     st.markdown(LIVE_ROOMY_CSS, unsafe_allow_html=True)
-    left, right = st.columns([5, 1])
-    with left:
-        st.markdown(theme.page_head("Home", "Right now at your station, today's briefing, and the last 24 hours."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Home", "Live readings from your station"), unsafe_allow_html=True)
     from weatherlab.screens import setup_wizard
     if setup_wizard.active():
         setup_wizard.show()
         return
-    with right:
-        _customize_link()
     live_now()
     _checklist(s)
     if s.home_briefing:
@@ -796,6 +889,7 @@ def home_page() -> None:
     with st.expander("More readings: dew point and the nearest airport", icon=":material/add_circle:"):
         _dew_card()
         airport_card(s)
+    _customize_link()  # at the end from 0.37.62, so the top of Home matches the redesign
 
 
 def alerts_log_page() -> None:

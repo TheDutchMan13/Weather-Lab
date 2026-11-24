@@ -150,3 +150,74 @@ def hero_html(d: dict) -> tuple[str, int]:
     n_extra = sum(1 for k in ("trend", "sun_note", "today_line") if d.get(k))
     height = 300 + rows * 82 + 22 * n_extra  # tall enough for the stacked layout on phones
     return out, height
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# The redesigned right-now card (0.37.62): sky icon, the big temperature, the conditions and today's range, then today's
+# temperature line and the sunrise or sunset time over a strip of sky on the right.
+
+def _clouds_svg(night: bool) -> str:
+    """Soft clouds for the sky strip, as a background image."""
+    fill = "#c9d6ec" if night else "#ffffff"
+    shapes = "".join(f'<ellipse cx="{x}" cy="{y}" rx="{rx}" ry="{ry}" fill="{fill}" fill-opacity="{o}"/>'
+                     for x, y, rx, ry, o in ((330, 70, 120, 34, .55), (410, 52, 80, 30, .5), (240, 92, 90, 22, .35),
+                                             (470, 120, 110, 26, .45), (380, 150, 140, 22, .3), (180, 40, 70, 16, .25)))
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 200" preserveAspectRatio="xMidYMid slice">'
+           '<filter id="b"><feGaussianBlur stdDeviation="9"/></filter>'
+           f'<g filter="url(#b)">{shapes}</g></svg>')
+    enc = svg.replace('"', "%27").replace("#", "%23").replace("<", "%3C").replace(">", "%3E").replace(" ", "%20")
+    return "url('data:image/svg+xml;utf8," + enc + "')"
+
+
+def card_html(d: dict) -> str:
+    """d keys: temp (number text, no unit), unit ("°F"), icon (HTML), label, feels, hi_text, lo_text, trend,
+    trend_up (True, False or None for steady), series (today's temperatures), spark (HTML of the line), sun_icon (HTML),
+    sun_note, kind, plain, alert, alert_tone ('warn'|'bad')."""
+    kind = d.get("kind", "clear_day")
+    g = GRADS.get(kind, GRADS["clear_day"])
+    night = kind in ("night", "dusk")
+    sky = g[1] if d.get("plain") else f"{_clouds_svg(night)} center/cover no-repeat, {sky_bg(kind, g)}"
+    arrow, colour = {True: ("▲", "#3ddc84"), False: ("▼", "#7cc4ff")}.get(d.get("trend_up"), ("–", "#9db0c4"))
+    trend = (f'<div class="wl-hx-line"><span style="color:{colour}">{arrow}</span> {_e(d["trend"])}</div>'
+             if d.get("trend") else "")
+    range_line = ""
+    if d.get("hi_text") and d.get("lo_text"):
+        range_line = (f'<div class="wl-hx-line">High <b>{_e(d["hi_text"])}</b> &nbsp;/&nbsp; Low <b>{_e(d["lo_text"])}</b></div>')
+    feels = f'<div class="wl-hx-feels">Feels like {_e(d["feels"])}</div>' if d.get("feels") else ""
+    alert = ""
+    if d.get("alert"):
+        bad = d.get("alert_tone") == "bad"
+        bg, fg = ("rgba(217,45,32,.25)", "#ff9a8f") if bad else ("rgba(240,140,0,.2)", "#ffc266")
+        alert = (f'<div style="display:inline-flex;font-size:13px;font-weight:650;background:{bg};color:{fg};padding:4px 10px;'
+                 f'border-radius:99px;margin-top:8px">{_e(d["alert"])}</div>')
+    sun = (f'<div class="wl-hx-sun">{d.get("sun_icon", "")}<span>{_e(d["sun_note"])}</span></div>'
+           if d.get("sun_note") else "")
+    return ('<style>.wl-hx{container-type:inline-size;margin:0 0 14px;overflow:hidden;position:relative}'
+            '.wl-hx-in{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:0;position:relative;z-index:1}'
+            '.wl-hx-ic{padding:24px 28px 24px 34px}'
+            '.wl-hx-t{font-size:96px;font-weight:800;letter-spacing:-3px;line-height:1;padding:0 30px;'
+            'border-left:1px solid rgba(160,190,220,.25);white-space:nowrap}'
+            '.wl-hx-t sup{font-size:44px;font-weight:700;letter-spacing:0;vertical-align:top;position:relative;top:10px;margin-left:4px}'
+            '.wl-hx-c{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:18px;padding:18px 26px 18px 6px}'
+            '.wl-hx-label{font-size:30px;font-weight:750;letter-spacing:-.4px}'
+            '.wl-hx-feels{font-size:18px;opacity:.85;margin-top:2px}'
+            '.wl-hx-line{font-size:18px;margin-top:6px}.wl-hx-line b{font-weight:750}'
+            '.wl-hx-right{display:flex;flex-direction:column;justify-content:flex-end;gap:10px;min-height:120px}'
+            '.wl-hx-sun{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:600}'
+            '.wl-hx-sky{position:absolute;inset:0 0 0 52%;-webkit-mask-image:linear-gradient(90deg,transparent,#000 45%);'
+            'mask-image:linear-gradient(90deg,transparent,#000 45%);opacity:.9}'
+            '@container (max-width:860px){.wl-hx-in{grid-template-columns:auto 1fr}.wl-hx-c{grid-column:1/-1;padding:0 24px 20px}'
+            '.wl-hx-t{font-size:72px;border-left:none;padding:0}.wl-hx-sky{inset:0 0 0 30%}}'
+            '@container (max-width:520px){.wl-hx-c{grid-template-columns:1fr}}</style>'
+            f'<div class="wl-panel wl-hx"><div class="wl-hx-sky" style="background:{sky}"></div><div class="wl-hx-in">'
+            f'<div class="wl-hx-ic">{d.get("icon", "")}</div>'
+            f'<div class="wl-hx-t">{_e(d["temp"])}<sup>{_e(d.get("unit", ""))}</sup></div>'
+            f'<div class="wl-hx-c"><div><div class="wl-hx-label">{_e(d.get("label") or "")}</div>{feels}{range_line}{trend}{alert}</div>'
+            f'<div class="wl-hx-right">{d.get("spark", "")}{sun}</div></div></div></div>')
+
+
+def metric_html(icon: str, label: str, value: str, unit: str, note: str, spark: str) -> str:
+    """One reading card under the right-now card: icon and name, the value, a short note and its last 24 hours."""
+    unit_html = f"<small>{_e(unit)}</small>" if unit else ""
+    return (f'<div class="wl-panel wl-metric"><div class="wl-mh">{icon}{_e(label)}</div>'
+            f'<div class="wl-mv">{_e(value)}{unit_html}</div><div class="wl-mn">{_e(note) or "&nbsp;"}</div>{spark}</div>')

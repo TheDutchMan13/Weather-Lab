@@ -30,17 +30,18 @@ SHADOW_HOVER = {True: "0 2px 4px rgba(0,0,0,.4),0 14px 32px rgba(0,0,0,.3)",
 # Card colours (utils/live_cards.py _k).
 LIGHT = {"page": "#ffffff", "surface": "#f8f9fa", "text": "#1c2330", "muted": "#5b6472",
          "card": "#ffffff", "line": "#e3e7ee", "sub": "#f4f6f9", "accent": "#4ea1ff"}
-DARK = {"page": "#0e1117", "surface": "#161b22", "text": "#e8eaed", "muted": "#9aa3b0",
-        "card": "#161b24", "line": "#262d3a", "sub": "#1b2130", "accent": "#4ea1ff"}
+# Dark is the navy look from the redesign (0.37.62): deep blue page, blue-grey cards, cyan accent.
+DARK = {"page": "#0b1828", "surface": "#101a28", "text": "#eaf2fb", "muted": "#9db0c4",
+        "card": "#142536", "line": "#2c4357", "sub": "#1a2c3e", "accent": "#38c6ec"}
 
 # Page colours (utils/theme.py LIGHT_PALETTE and DARK_PALETTE).
 PAGE_LIGHT = {"background": "#ffffff", "surface": "#f8f9fa", "border": "#e0e0e0",
               "text": "#1a1a1a", "text_muted": "#666666", "accent": "#4ea1ff"}
-PAGE_DARK = {"background": "#0e1117", "surface": "#161b22", "border": "#30363d",
-             "text": "#e0e0e0", "text_muted": "#999999", "accent": "#4ea1ff"}
+PAGE_DARK = {"background": "#0b1828", "surface": "#101a28", "border": "#2c4357",
+             "text": "#eaf2fb", "text_muted": "#9db0c4", "accent": "#38c6ec"}
 
 # Selected pill-tab colours (wxdash/live_glue.py inject_style): background, text.
-TAB_ON = {True: ("#23324a", "#ffffff"), False: ("#e6eefb", "#17325c")}
+TAB_ON = {True: ("#16485b", "#ffffff"), False: ("#e6eefb", "#17325c")}
 
 # Colour schemes (utils/theme.py COLOR_SCHEMES), copied exactly.
 SCHEMES = {
@@ -275,6 +276,7 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
         "@media (prefers-reduced-motion:no-preference){.wl-title,.wl-sub,.wl-card{animation:wl-fade .35s ease-out both}"
         ".wl-skel{animation:wl-shimmer 1.4s linear infinite}}",
     ]
+    rules += _redesign_rules(dark, p, pg, tab_bg, tab_text, shadow)
     if large:
         rules += ["html{font-size:118%}", ".wl-title{font-size:32px !important}", ".wl-label{font-size:15px !important}",
                   ".wl-value{font-size:28px !important}", ".wl-note,.wl-status{font-size:16px !important}",
@@ -284,15 +286,186 @@ def css(dark: bool, scheme: str = "Default", compact: bool = False, large: bool 
     return "<style>" + FONT_FACE + "".join(rules) + MOBILE_CSS + extra + "</style>"
 
 
+def _redesign_rules(dark: bool, p: dict, pg: dict, tab_bg: str, tab_text: str, shadow: str) -> list[str]:
+    """The redesign (0.37.62): a softly lit page, a branded sidebar with a filled pill for the page you're on, a header
+    bar under each title, tabs as one joined bar, and the Home cards. Uses the scheme's colours, so Light and the
+    other schemes get the same shapes."""
+    glow = "rgba(56,198,236,.07)" if dark else "rgba(78,161,255,.06)"
+    soft = f"{p['line']}aa"
+    return [
+        _rule(".stApp", f"background:radial-gradient(1200px 600px at 20% -10%,{glow},transparent 60%),{pg['background']} !important"),
+        _rule("[data-testid='stHeader']", "background:transparent !important"),
+        _rule("[data-testid='stMainBlockContainer']", "position:relative;padding-top:1.6rem !important;max-width:1400px"),
+        # Sidebar: brand at the top, cyan section names, a filled pill for the page you're on.
+        _rule(".wl-brand", "display:flex;align-items:center;gap:10px;padding:2px 6px 10px"),
+        _rule(".wl-brand b", f"display:block;font-family:{FONT};font-size:19px;font-weight:800;letter-spacing:-.3px;"
+                             f"color:{p['text']};line-height:1.15"),
+        _rule(".wl-brand small", f"display:block;font-size:12.5px;color:{p['muted']}"),
+        _rule("[data-testid='stSidebar'] [data-testid='stExpander'] summary p,"
+              "[data-testid='stSidebar'] [data-testid='stExpander'] summary span",
+              f"color:{p['accent']} !important;opacity:1 !important"),
+        _rule("[data-testid='stSidebar'] [data-testid='stPageLink'] a", f"border-radius:{RADIUS['sm']}px;padding:.3rem .6rem !important"),
+        _rule("[data-testid='stSidebar'] [data-testid='stPageLink'] a:hover", f"background:{p['line']}55"),
+        _rule(".st-key-wl-nav-current a",
+              f"background:linear-gradient(90deg,{tab_bg},{tab_bg}cc) !important;box-shadow:inset 0 0 0 1px {p['accent']}55"),
+        _rule(".st-key-wl-nav-current a *", f"color:{tab_text} !important;font-weight:650"),
+        _rule("[data-testid='stSidebar'] [data-testid='stPageLink'] [data-testid='stIconMaterial']", f"color:{p['muted']}"),
+        # Streamlit's own boxes (react-aria in 1.65): select boxes, text boxes and folding headers in the scheme's colours.
+        _rule("[data-testid='stSelectbox'] [role='group'],[data-testid='stMultiSelect'] [role='group'],"
+              "[data-testid='stTextInput'] [data-baseweb='input'],[data-testid='stTextInput'] input,"
+              "[data-testid='stNumberInput'] input,[data-testid='stDateInput'] input,[data-testid='stTextArea'] textarea",
+              f"background-color:{p['sub']} !important;color:{p['text']} !important;border-color:{soft} !important"),
+        _rule("[data-testid='stDateInputField'],[data-testid='stTimeInput'] [role='group']",
+              f"background-color:{p['sub']} !important;color:{p['text']} !important;border-color:{soft} !important"),
+        _rule("[data-testid='stDateInputField'] *", f"color:{p['text']} !important"),
+        _rule("button[data-testid^='stBaseButton-secondary'],button[data-testid^='stBaseButton-tertiary']:hover",
+              f"background-color:{p['card']} !important;color:{p['text']} !important;border-color:{soft} !important"),
+        _rule("button[data-testid^='stBaseButton-secondary'] p", f"color:{p['text']} !important"),
+        _rule("[data-testid='stSelectbox'] input,[data-testid='stMultiSelect'] input", f"color:{p['text']} !important;background:transparent !important"),
+        _rule("[data-testid='stSelectbox'] input::placeholder,[data-testid='stTextInput'] input::placeholder", f"color:{p['muted']} !important"),
+        _rule("[data-testid='stSelectbox'] [role='group'] button svg", f"fill:{p['muted']}"),
+        _rule("[data-testid='stExpander'] summary", f"background:transparent !important;color:{p['text']} !important"),
+        _rule("[data-testid='stExpander'] summary:hover", f"background:{p['line']}44 !important"),
+        _rule("[data-testid='stMain'] [data-testid='stExpander'] details", f"background:{p['card']}"),
+        # Title row and the bar under it: station, place, and whether the readings are live.
+        _rule(".wl-head .wl-title", f"font-family:{FONT};font-size:32px !important;font-weight:800 !important;letter-spacing:-.6px;"
+                                   f"margin:0 !important;padding:0 !important;color:{p['text']} !important;line-height:1.15 !important"),
+        _rule(".wl-head .wl-sub", "margin:4px 0 14px !important"),
+        _rule(".wl-ctx", f"display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;font-family:{FONT};font-size:15px;"
+                         f"color:{p['text']};margin:0 0 16px"),
+        _rule(".wl-ctx .wl-chip", f"display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border:1px solid {soft};"
+                                  f"border-radius:{RADIUS['sm']}px;background:{p['card']}"),
+        _rule(".wl-ctx .wl-sep", f"width:1px;height:20px;background:{soft}"),
+        _rule(".wl-ctx .wl-live", "display:inline-flex;align-items:center;gap:8px"),
+        _rule(".wl-ctx .wl-live b", "font-weight:750;letter-spacing:.02em"),
+        _rule(".wl-ctx .wl-dot", "width:9px;height:9px;border-radius:50%"),
+        _rule("div[data-testid='stLayoutWrapper']:has(>.st-key-wl-topright)",
+              "position:absolute !important;top:1.6rem;right:1rem;width:auto !important;z-index:5"),
+        # Style-only blocks and the 1-pixel head script take no room, so the title sits at the top.
+        _rule("[data-testid='stElementContainer']:has(>[data-testid='stMarkdown'] [data-testid='stMarkdownContainer']>style:only-child)",
+              "display:none !important"),
+        _rule("[data-testid='stElementContainer']:has(>iframe[height='1']),[data-testid='stElementContainer']:has(>[data-testid='stIFrame'][height='1'])",
+              "position:absolute !important;width:1px;height:1px;overflow:hidden"),
+        _rule(".st-key-wl-topright [data-testid='stHorizontalBlock']", "gap:10px !important;align-items:center"),
+        _rule(".st-key-wl-topright p", f"color:{p['muted']} !important;font-size:14px !important;white-space:nowrap;margin:0"),
+        _rule(".st-key-wl-topright button", f"border-radius:{RADIUS['sm']}px !important;min-height:38px;padding:0 10px !important;"
+                                            f"background:{p['card']} !important;border:1px solid {soft} !important"),
+        # Tabs: one joined bar with the open tab filled.
+        _rule("div[data-testid='stButtonGroup']:has(button[data-variant='segmented_control'])>div[role='radiogroup']",
+              f"gap:4px !important;padding:4px;border:1px solid {soft};border-radius:{RADIUS['md']}px;background:{p['card']};"
+              "flex-wrap:wrap;width:100%"),
+        _rule("div[data-testid='stButtonGroup'] button[data-variant='segmented_control']",
+              f"flex:1 1 auto;border:none !important;border-radius:{RADIUS['sm']}px !important;margin:0 !important;padding:8px 16px !important"),
+        _rule("div[data-testid='stButtonGroup'] button[data-variant='segmented_control'][aria-checked='true']",
+              f"background:{tab_bg} !important;box-shadow:inset 0 0 0 1px {p['accent']}66"),
+        # Cards: the same surface for Streamlit's bordered boxes and the tiles.
+        _rule("div[data-testid='stVerticalBlockBorderWrapper']:has(>div>div[data-testid='stVerticalBlock']),"
+              ".wl-tile,.wl-card", f"background:{p['card']} !important;border-color:{soft} !important"),
+        _rule(".stButton>button[kind='primary'],.stFormSubmitButton>button[kind='primaryFormSubmit']",
+              f"background:{p['accent']} !important;color:{'#06202c' if dark else '#ffffff'} !important;border:none !important;font-weight:700"),
+        _rule(".stButton>button[kind='primary'] p", f"color:{'#06202c' if dark else '#ffffff'} !important"),
+        # Home (0.37.62): the right-now card, the reading cards, Today so far, the 24-hour outlook and the health line.
+        _rule(".wl-panel", f"font-family:{FONT};background:{p['card']};border:1px solid {soft};border-radius:{RADIUS['lg']}px;"
+                           f"box-shadow:{shadow};color:{p['text']}"),
+        _rule(".wl-ptitle", f"display:flex;align-items:center;gap:10px;font-size:21px;font-weight:750;margin:0 0 12px"),
+        _rule(".wl-ptitle::before", f"content:'';width:4px;height:22px;border-radius:2px;background:{p['accent']}"),
+        _rule(".wl-metrics", "display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:0 0 14px"),
+        _rule(".wl-metric", "padding:16px 18px 10px;min-width:0"),
+        _rule(".wl-metric .wl-mh", f"display:flex;align-items:center;gap:10px;font-size:16px;font-weight:600;color:{p['text']}"),
+        _rule(".wl-metric .wl-mv", "font-size:30px;font-weight:750;letter-spacing:-.5px;margin-top:10px;white-space:nowrap;"
+                                   "font-variant-numeric:tabular-nums"),
+        _rule(".wl-metric .wl-mv small", "font-size:20px;font-weight:650;margin-left:4px"),
+        _rule(".wl-metric .wl-mn", f"font-size:14px;color:{p['muted']};margin:2px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"),
+        _rule(".wl-band", "display:grid;grid-template-columns:1.2fr repeat(3,1fr);align-items:center;padding:16px 22px;margin:0 0 14px;gap:12px"),
+        _rule(".wl-band>div", f"display:flex;align-items:center;gap:14px;min-width:0"),
+        _rule(".wl-band>div+div", f"border-left:1px solid {soft};padding-left:22px"),
+        _rule(".wl-band .wl-bt", "font-size:21px;font-weight:750"),
+        _rule(".wl-band .wl-bs", f"font-size:14px;color:{p['muted']}"),
+        _rule(".wl-band .wl-bv", "font-size:18px;font-weight:650;white-space:nowrap"),
+        _rule(".wl-band .wl-bv b", f"color:{p['accent'] if not dark else '#f6c445'}"),
+        _rule(".wl-outlook", "padding:16px 22px 18px;margin:0 0 14px"),
+        _rule(".wl-hours", "display:grid;grid-template-columns:repeat(12,minmax(0,1fr))"),
+        _rule(".wl-hours>div", f"text-align:center;padding:6px 2px;font-size:15px;color:{p['muted']}"),
+        _rule(".wl-hours>div+div", f"border-left:1px solid {p['line']}77"),
+        _rule(".wl-hours b", f"display:block;font-size:20px;font-weight:700;color:{p['text']};margin-top:4px"),
+        _rule(".wl-hours .wl-pop", f"display:block;font-size:13px;color:{p['accent']};margin-top:2px"),
+        _rule(".wl-health", "display:flex;align-items:center;gap:12px;padding:12px 20px;margin:0 0 14px;font-size:16px"),
+        _rule(".wl-health .wl-hr", f"margin-left:auto;padding-left:18px;border-left:1px solid {soft};color:{p['muted']};white-space:nowrap"),
+        "@media (max-width:900px){.wl-band{grid-template-columns:1fr 1fr}.wl-band>div+div{border-left:none;padding-left:0}"
+        ".wl-hours{grid-template-columns:repeat(6,minmax(0,1fr))}.wl-hours>div:nth-child(n+7){display:none}"
+        "div[data-testid='stLayoutWrapper']:has(>.st-key-wl-topright){position:static !important}}",
+    ]
+
+
+# The bar under the title (station, place, live) shows on the pages about the weather; settings-like pages skip it.
+BAR_PAGES = {"Home", "Forecast", "Alert history", "History", "Ask", "Air and heat", "Sun and sky", "Lightning",
+             "Fire", "Tropics"}
+
+import contextvars as _cv
+_CONTEXT: _cv.ContextVar = _cv.ContextVar("wl_head_context", default=None)
+_SLOT: _cv.ContextVar = _cv.ContextVar("wl_head_slot", default=None)
+
+
+def set_context(page: str, station: str = "", place: str = "", live: tuple | None = None) -> None:
+    """What the header bar says on this run: the page, the station's name, the place and (state, age text)."""
+    _CONTEXT.set({"page": page, "station": station, "place": place, "live": live})
+
+
+def head_slot(slot) -> None:
+    """A tabbed page puts its title above the tabs: the tab's page_head() then fills this slot (an st.empty)."""
+    _SLOT.set(slot)
+
+
+def take_slot():
+    """The slot if no page_head() used it, so the tabbed page can still show its name."""
+    slot = _SLOT.get()
+    _SLOT.set(None)
+    return slot
+
+
+LIVE_WORDS = {"ok": ("LIVE", "#3ddc84"), "slow": ("LATE", "#f6c445"), "silent": ("OFFLINE", "#ef5b4c"),
+              "none": ("WAITING", "#9aa3b0")}
+
+
+def context_bar_html(ctx: dict) -> str:
+    """Station name, place and live state, as one line of chips."""
+    from weatherlab import line_icons
+    parts = []
+    if ctx.get("station"):
+        parts.append(f'<span class="wl-chip">{line_icons.icon("station", 20)}{_html.escape(ctx["station"])}</span>')
+    if ctx.get("place"):
+        parts.append(f'<span>{line_icons.icon("pin", 19)} {_html.escape(ctx["place"])}</span>')
+    live = ctx.get("live")
+    if live:
+        word, colour = LIVE_WORDS.get(live[0], LIVE_WORDS["none"])
+        tail = f" · updated {_html.escape(live[1])}" if live[0] != "none" else ""
+        parts.append(f'<span class="wl-live"><i class="wl-dot" style="background:{colour};box-shadow:0 0 0 3px {colour}33">'
+                     f'</i><b style="color:{colour}">{word}</b>{tail}</span>')
+    if not parts:
+        return ""
+    return '<div class="wl-ctx">' + '<i class="wl-sep"></i>'.join(parts) + "</div>"
+
+
 def skeleton_html(heights: tuple = (72, 96)) -> str:
     """Grey shimmering shapes to stand in for a part of the page that is still loading."""
     return "".join(f'<div class="wl-skel" style="height:{h}px" aria-hidden="true"></div>' for h in heights)
 
 
 def page_head(title: str, subtitle: str = "") -> str:
-    """A page's title, with one line under it saying what the page shows."""
+    """A page's title, with one line under it saying what the page shows, then the header bar on the weather pages
+    (0.37.62). On a tabbed page the head goes above the tabs, under the page's own name, and this returns ""."""
+    ctx = _CONTEXT.get() or {}
+    slot = _SLOT.get()
+    if slot is not None:
+        _SLOT.set(None)
+        title = ctx.get("page") or title
     sub = f'<div class="wl-sub">{_html.escape(subtitle)}</div>' if subtitle else ""
-    return f'<div class="wl-title">{title}</div>{sub}'
+    bar = context_bar_html(ctx) if ctx.get("page") in BAR_PAGES else ""
+    out = f'<div class="wl-head"><div class="wl-title">{title}</div>{sub}{bar}</div>'
+    if slot is not None:
+        slot.markdown(out, unsafe_allow_html=True)
+        return ""
+    return out
 
 
 def tile_html(label: str, value: str) -> str:
