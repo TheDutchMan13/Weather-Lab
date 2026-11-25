@@ -221,3 +221,12 @@ def metric_html(icon: str, label: str, value: str, unit: str, note: str, spark: 
     unit_html = f"<small>{_e(unit)}</small>" if unit else ""
     return (f'<div class="wl-panel wl-metric"><div class="wl-mh">{icon}{_e(label)}</div>'
             f'<div class="wl-mv">{_e(value)}{unit_html}</div><div class="wl-mn">{_e(note) or "&nbsp;"}</div>{spark}</div>')
+
+
+def banner_html(icon: str, title: str, sub: str = "", extra: str = "") -> str:
+    """The page banner of the redesign's last pages (0.37.66): a line icon, a big title, a line under it and a
+    soft sky on the right. icon, sub and extra are markup the caller has already escaped."""
+    sky = sky_bg("clear_day", GRADS["clear_day"])
+    return (f'<div class="wl-panel wl-banner"><div class="wl-bsky" style="background:{sky}"></div>'
+            f'<div class="wl-bicon">{icon}</div><i class="wl-div"></i><div class="wl-btext">'
+            f'<div class="wl-btitle">{title}</div>{f"<div class=wl-bsub>{sub}</div>" if sub else ""}{extra}</div></div>')

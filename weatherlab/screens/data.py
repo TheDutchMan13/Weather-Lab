@@ -1,11 +1,12 @@
 """Pages under Data: import, export and reports."""
 
+import html
 import io
 import sqlite3
 import streamlit as st
 from dataclasses import replace
 from datetime import date, datetime, timedelta
-from weatherlab import auto_reports, backup, ecowitt_import, exports, history, importer, noaa, report, secrets, storage, theme, units, timefmt
+from weatherlab import auto_reports, backup, ecowitt_import, exports, history, importer, hero, line_icons, noaa, report, secrets, storage, theme, units, timefmt
 from weatherlab.settings import Settings, load_settings, save_settings
 from zoneinfo import ZoneInfo
 from weatherlab.screens.common import _tz, empty_card, pc_only, start_poller
@@ -127,38 +128,69 @@ def weather_underground_page() -> None:
 
 
 # ---------------------------------------------------------------- Backup
+def _bcard(icon: str, title: str, body: str) -> str:
+    return (f'<div class="wl-panel wl-bcard"><div class="wl-ph" style="font-size:17px;margin-bottom:8px">'
+            f'{line_icons.icon(icon, 24, "#38c6ec")}{html.escape(title)}</div>{body}</div>')
+
+
 def backup_page() -> None:
-    """Back up now, see every backup with its size, and restore one after a confirmation."""
+    """Back up now, see every backup with its size, and restore one after a confirmation. The redesign (0.37.66):
+    a banner, the latest backup, the folder and how many are kept in a row, then the list beside Restore."""
     s = load_settings()
     st.markdown(theme.page_head("Backup", "Your readings and daily summaries live in one database file on this PC. Back it up here, or restore an earlier copy."), unsafe_allow_html=True)
     folder = backup.folder_for(storage.db_path())
     rows = backup.describe(folder)
-    with st.container(border=True):
-        st.markdown("**Back up now**")
-        st.caption("Saves a copy of your whole history. It is safe to do while Weather Lab is running.")
-        if st.button("Back up now", key="backup_now"):
+    st.markdown(hero.banner_html(line_icons.icon("calendar", 62, "#38c6ec", 1.5), "Back up your station data",
+                                 "Readings and daily summaries in one database file."), unsafe_allow_html=True)
+    notice = st.empty()
+    cards = st.columns([3, 4, 2.4, 2.6], gap="small")
+    if rows:
+        latest = (f'<div style="font-size:19px;font-weight:800">{html.escape(timefmt.stamp(rows[0]["when"], "%b %d, %Y"))}</div>'
+                  f'<div class="wl-note">{html.escape(rows[0]["name"])} · {rows[0]["size"]}</div>')
+    else:
+        latest = '<div style="font-size:24px;font-weight:800">None yet</div><div class="wl-note">The first one is made today.</div>'
+    cards[0].markdown(_bcard("check", "Latest backup", latest), unsafe_allow_html=True)
+    cards[1].markdown(_bcard("pin", "Backup folder", f'<div style="word-break:break-all;font-size:15px">{html.escape(str(folder))}</div>'),
+                      unsafe_allow_html=True)
+    cards[2].markdown(_bcard("calendar", "Number kept", f'<div style="font-size:30px;font-weight:800">{s.backup_keep}</div>'
+                                                         '<div class="wl-note">most recent copies</div>'), unsafe_allow_html=True)
+    with cards[3]:
+        if st.button("Back up now", key="backup_now", type="primary", icon=":material/sync:", use_container_width=True):
             path = backup.make_backup(storage.db_path(), folder, datetime.now())
             backup.prune(folder, s.backup_keep)
             ok, text = backup.verify(path)
             try:
                 backup.copy_to_folder(path, s.backup_copy_folder, s.backup_keep)
             except OSError as exc:
-                st.warning(f"Couldn't copy the backup to the second folder: {exc}")
-            (st.success if ok else st.error)(f"Saved {path.name}. Checked: {text}")
+                notice.warning(f"Couldn't copy the backup to the second folder: {exc}")
+            else:
+                (notice.success if ok else notice.error)(f"Saved {path.name}. Checked: {text}")
             rows = backup.describe(folder)
-        newest = f"{timefmt.stamp(rows[0]['when'], '%b %d, %Y')} ({rows[0]['size']})" if rows else "none yet"
-        st.caption(f"Backup folder: {folder}. Last backup: {newest}. Keeping the newest {s.backup_keep}.")
+        st.caption("Safe to do while Weather Lab is running.")
     with st.container(border=True):  # in view, not in Settings, so you can see the copy is current (0.37.54)
         _offsite_section(s, folder)
-    st.markdown(theme.section_html("Backups on this PC"), unsafe_allow_html=True)
     if not rows:
         empty_card("No backups yet", "Press Back up now, or wait for the daily backup.")
     else:
-        theme.table([{"Backup": r["name"], "Made": timefmt.stamp(r['when'], '%b %d, %Y'), "Size": r["size"]} for r in rows])
-        pick = st.selectbox("Backup to restore", [r["name"] for r in rows], key="restore_pick_page")
-        chosen = next(r for r in rows if r["name"] == pick)
-        if st.button("Restore this backup", key="restore_ask"):
-            st.session_state["restore_confirm"] = chosen["name"]
+        left, right = st.columns([6, 4], gap="medium")
+        shown = rows[:12]
+        with left:
+            body = "".join(f'<tr><td>{html.escape(r["name"])}</td><td>{html.escape(timefmt.stamp(r["when"], "%b %d, %Y"))}</td>'
+                           f'<td class="wl-num">{r["size"]}</td></tr>' for r in shown)
+            st.markdown(f'<div class="wl-panel wl-kvp"><div class="wl-ph">{line_icons.icon("calendar", 24, "#38c6ec")}Recent backup copies'
+                        f'<small>{len(shown)} of {len(rows)} shown</small></div><div class="wl-table-wrap"><table class="wl-table">'
+                        f'<thead><tr><th>File name</th><th>Date and time</th><th class="wl-num">Size</th></tr></thead>'
+                        f'<tbody>{body}</tbody></table></div></div>', unsafe_allow_html=True)
+        with right:
+            with st.container(border=True):
+                st.markdown(f'<div class="wl-ph">{line_icons.icon("clock", 24, "#38c6ec")}Restore</div>', unsafe_allow_html=True)
+                st.caption("Restore your station data from a backup copy.")
+                pick = st.selectbox("Selected backup", [r["name"] for r in rows], key="restore_pick_page")
+                chosen = next(r for r in rows if r["name"] == pick)
+                st.info("Restoring replaces your current history with the selected backup. A copy of your current history "
+                        "is saved first, so you can undo it.", icon=":material/info:")
+                if st.button("Restore backup", key="restore_ask", icon=":material/history:", use_container_width=True):
+                    st.session_state["restore_confirm"] = chosen["name"]
         if st.session_state.get("restore_confirm") == chosen["name"]:
             with st.container(border=True):
                 st.markdown(f"**Restore {chosen['name']}?**")

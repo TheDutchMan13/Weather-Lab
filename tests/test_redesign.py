@@ -206,3 +206,44 @@ class FireDanger(unittest.TestCase):
 class InlineColours(unittest.TestCase):
     def test_coloured_spans_keep_their_colour(self):
         self.assertIn(".stApp span:not([style*='color'])", theme.css(True))
+
+
+class Batch5(unittest.TestCase):
+    def test_banner_holds_icon_title_and_line(self):
+        from weatherlab import hero
+        out = hero.banner_html("<svg></svg>", "Station connected", "Backyard", '<div class="wl-bline">x</div>')
+        for text in ("wl-banner", "Station connected", "Backyard", "wl-bline", "<svg>"):
+            self.assertIn(text, out)
+
+    def test_banner_without_a_line_has_no_empty_sub(self):
+        from weatherlab import hero
+        self.assertNotIn("wl-bsub", hero.banner_html("", "Title"))
+
+    def test_new_styles_exist(self):
+        css = theme.css(True)
+        for name in (".wl-banner", ".wl-cols", ".wl-srows", ".wl-stcard", ".wl-term", ".wl-bcard", ".wl-kvlist"):
+            self.assertIn(name, css)
+
+    def test_status_row_names_its_word(self):
+        from weatherlab.screens.system import _srow
+        row = _srow("ok", "Collector", "Receiving data", "Running")
+        self.assertIn("Running", row)
+        self.assertIn("Collector", row)
+
+    def test_station_card_marks_the_picked_one(self):
+        from weatherlab.screens.system import _station_card
+        f = {"id": "main", "name": "Backyard", "ts": None, "state": "none"}
+        self.assertIn("wl-on", _station_card(f, True))
+        self.assertNotIn("wl-on", _station_card(f, False))
+
+    def test_help_rows_are_in_letter_order_with_icons(self):
+        from weatherlab import glossary
+        from weatherlab.screens.help import TERM_ICONS, _rows
+        out = _rows(glossary.TERMS)
+        self.assertLess(out.index('wl-letter">A'), out.index('wl-letter">D'))
+        for t in glossary.TERMS:
+            self.assertIn(t["key"], TERM_ICONS)
+
+    def test_version_entry(self):
+        from weatherlab import whats_new
+        self.assertEqual(whats_new.ENTRIES[0]["version"], "0.37.66")

@@ -738,49 +738,53 @@ def home_layout_page() -> None:
     s = load_settings()
     st.markdown(theme.page_head("Home layout", "Choose the cards on Home, their order and their size."),
                 unsafe_allow_html=True)
-    show = st.checkbox("Show today's briefing under the reading right now", value=s.home_briefing,
-                       key="home_show_briefing")
-    # Temperature, humidity and wind are in the Last 24 hours row, so they aren't offered here (0.37.44); a saved
-    # choice is dropped on save.
-    choices = [k for k in CARD_LABELS if k not in card_order.IN_24H_ROW]
-    picked = st.multiselect("Readings on Home", options=choices, default=[k for k in s.live_cards if k in choices],
-                            format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
-    show_list = st.checkbox("Show the Getting started list on Home", value=not s.checklist_hidden,
-                            key="home_show_checklist")
-    hero_choices = {"gradient": "Sky gradient", "plain": "Plain colour"}
-    hero_style = st.segmented_control("Right-now panel", list(hero_choices), format_func=hero_choices.get,
-                                      default=s.hero_style if s.hero_style in hero_choices else "gradient",
-                                      key="home_hero_style") or s.hero_style
-    gauge_choices = {"auto": "Automatic: open on a computer, closed on a phone", "open": "Always open",
-                     "closed": "Always closed"}
-    gauges = st.selectbox("Gauges on Home (the temperature ring, Feels like and Pressure)", list(gauge_choices),
-                          index=list(gauge_choices).index(s.gauges) if s.gauges in gauge_choices else 0,
-                          format_func=gauge_choices.get, key="home_gauges")
+    col_opts, col_order, col_prev = st.columns([3, 5, 3], gap="medium")
+    with col_opts, st.container(border=True):
+        st.markdown('<div class="wl-ph">Home options</div>', unsafe_allow_html=True)
+        show = st.toggle("Show today's briefing under the reading right now", value=s.home_briefing,
+                         key="home_show_briefing")
+        show_list = st.toggle("Show the Getting started list on Home", value=not s.checklist_hidden,
+                              key="home_show_checklist")
+        # Temperature, humidity and wind are in the Last 24 hours row, so they aren't offered here (0.37.44); a saved
+        # choice is dropped on save.
+        choices = [k for k in CARD_LABELS if k not in card_order.IN_24H_ROW]
+        picked = st.multiselect("Show cards on Home", options=choices, default=[k for k in s.live_cards if k in choices],
+                                format_func=lambda k: CARD_LABELS[k][0], key="home_cards")
+        hero_choices = {"gradient": "Sky gradient", "plain": "Plain colour"}
+        hero_style = st.segmented_control("Right-now panel", list(hero_choices), format_func=hero_choices.get,
+                                          default=s.hero_style if s.hero_style in hero_choices else "gradient",
+                                          key="home_hero_style") or s.hero_style
+        gauge_choices = {"auto": "Automatic: open on a computer, closed on a phone", "open": "Always open",
+                         "closed": "Always closed"}
+        gauges = st.selectbox("Gauges on Home (the temperature ring, Feels like and Pressure)", list(gauge_choices),
+                              index=list(gauge_choices).index(s.gauges) if s.gauges in gauge_choices else 0,
+                              format_func=gauge_choices.get, key="home_gauges")
     cards = card_order.merge(s.live_cards, picked)
     if (show != s.home_briefing or cards != list(s.live_cards) or gauges != s.gauges
             or show_list == s.checklist_hidden or hero_style != s.hero_style):
         save_settings(replace(s, home_briefing=show, live_cards=cards, gauges=gauges, checklist_hidden=not show_list,
                               hero_style=hero_style))
         st.rerun()
-    left, right = st.columns([3, 2], gap="large")
-    with left:
-        st.markdown(theme.section_html("Order and size"), unsafe_allow_html=True)
-        st.caption("Cards keep this order inside Air and inside Wind and rain. A wide card has a row to itself.")
+    with col_order, st.container(border=True):
+        st.markdown('<div class="wl-ph">Card order and size</div>', unsafe_allow_html=True)
+        st.caption("Use the arrows to change the order. Cards keep this order inside Air and inside Wind and rain. "
+                   "A wide card has a row to itself. Changes save as you make them.")
         last = len(s.live_cards) - 1
         for i, key in enumerate(s.live_cards):
             name = CARD_LABELS[key][0] if key in CARD_LABELS else key
-            name_col, up_col, down_col, size_col = st.columns([4, 1, 1, 3], vertical_alignment="center")
+            name_col, up_col, down_col, size_col = st.columns([3, 1, 1, 4], vertical_alignment="center")
             name_col.markdown(name)
-            up_col.button("↑", key=f"home_up_{key}", on_click=_move_card, args=(key, -1), disabled=i == 0,
-                          help=f"Move {name} up")
-            down_col.button("↓", key=f"home_down_{key}", on_click=_move_card, args=(key, 1), disabled=i == last,
-                            help=f"Move {name} down")
+            up_col.button("", icon=":material/keyboard_arrow_up:", key=f"home_up_{key}", on_click=_move_card,
+                          args=(key, -1), disabled=i == 0, help=f"Move {name} up")
+            down_col.button("", icon=":material/keyboard_arrow_down:", key=f"home_down_{key}", on_click=_move_card,
+                            args=(key, 1), disabled=i == last, help=f"Move {name} down")
             size_col.segmented_control(f"Size of {name}", ["Small", "Wide"],
                                        default="Wide" if key in s.wide_cards else "Small",
                                        key=f"layout_size_{key}", on_change=_set_wide, args=(key,),
                                        label_visibility="collapsed")
-    with right:
-        st.markdown(theme.section_html("Preview"), unsafe_allow_html=True)
+    with col_prev, st.container(border=True):
+        st.markdown('<div class="wl-ph">Preview</div>', unsafe_allow_html=True)
+        st.caption("How the cards under the reading right now are laid out.")
         _preview(load_settings())
 
 

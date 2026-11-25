@@ -5,6 +5,19 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.66",
+        "date": "November 24, 2026",
+        "items": [
+            "The new look, part 5 (the last): Station health, Stations, Settings, Home layout, Data and Help are redesigned.",
+            "Station health: a banner that says whether the station is connected, with the time of the last reading and whether the collector is running. Beside it, a card for each paired sensor with its battery and signal, and the health of the collector, database, disk and backups. Buttons take you to Sensors and the Health check.",
+            "Stations: each station is a card with its status and last reading. Pick one to see its address, status, readings in the last 24 hours, folder and latest numbers, and to rename it, make it the active station or remove it.",
+            "Settings: the station you're using, its latest numbers and whether it is reporting now sit at the top of Station and services, and Station and services / App and alerts is a wide bar.",
+            "Home layout: three panels (Home options, Card order and size, Preview), with switches for the briefing and the Getting started list. Changes still save as you make them.",
+            "Data: Backup opens with the latest backup, the backup folder, how many copies are kept and Back up now, then the recent copies beside Restore.",
+            "Help: the glossary is in A-to-Z order with an icon for each term, and quick links to Station setup, Alerts and Backups sit at the bottom.",
+        ],
+    },
+    {
         "version": "0.37.65",
         "date": "November 24, 2026",
         "items": [

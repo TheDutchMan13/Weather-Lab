@@ -1,10 +1,11 @@
 """Pages under System: status, health check, What's New, setup, settings and stations."""
 
+import html
 import streamlit as st
 import time
 from dataclasses import replace
 from datetime import datetime
-from weatherlab import alert_rules, api, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, mqtt_publish, network, parse, push, pwsweather, secrets, settings_index, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground, timefmt
+from weatherlab import alert_rules, api, auth, autostart, backup, discover, errlog, gateway_sensors, health, health_check, hero, line_icons, mqtt_publish, network, parse, push, pwsweather, secrets, settings_index, station_status, stations, storage, theme, units, updates, weathercloud, whats_new, wunderground, timefmt
 from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
@@ -266,7 +267,7 @@ def settings_page() -> None:
         st.session_state["settings_area"] = "Station"
     _find_setting()
     picked = st.segmented_control(
-        "Settings for", AREAS, key="settings_area", label_visibility="collapsed",
+        "Settings for", AREAS, key="settings_area", label_visibility="collapsed", width="stretch",
         format_func=lambda a: {"Station": ":material/sensors: Station and services",
                                "App": ":material/tune: App and alerts"}[a])
     unsaved = st.empty()
@@ -338,8 +339,29 @@ def _upload_note(error: str, last: float | None, action: str) -> None:
         st.caption(f"Last {action} {_clock(last)}")
 
 
+def _connected_banner() -> None:
+    """The station in use at the top of Settings (0.37.66): its name, address, whether it is reporting, the newest
+    reading and the three main numbers."""
+    f = _station_facts(stations.current(), time.time())
+    word = {"ok": "Connected station", "slow": "Station reporting late", "silent": "Station offline",
+            "none": "Waiting for the first reading"}[f["state"]]
+    colour = theme.HEALTH_DOT["ok" if f["state"] == "ok" else "warn" if f["state"] == "slow" else "fail"]
+    d, metric = f["data"], f["metric"]
+    last = f"{timefmt.time_text(datetime.fromtimestamp(f['ts']))} ({f['age']})" if f["ts"] else "none yet"
+    nums = " · ".join(x for x in (units.format_value("tempf", d.get("tempf"), metric, 1) if d.get("tempf") is not None else "",
+                                  f'{d["humidity"]:.0f} %' if d.get("humidity") is not None else "",
+                                  units.format_value("windspeedmph", d.get("windspeedmph"), metric, 0)
+                                  if d.get("windspeedmph") is not None else "") if x)
+    extra = (f'<div class="wl-bline"><span><span class="wl-dot" style="background:{colour}"></span> Last reading {html.escape(last)}</span>'
+             f'<span>{html.escape(nums)}</span></div>')
+    sub = html.escape(" · ".join(x for x in (f["name"], f["ip"]) if x))
+    st.markdown(hero.banner_html(line_icons.icon("station", 52, "#e6edf7", 1.5), html.escape(word), sub, extra),
+                unsafe_allow_html=True)
+
+
 def _station_settings(s: Settings, default_tab: str | None = None) -> None:
     """Where the station is, and the optional services that use it (the old Setup page)."""
+    _connected_banner()
     _station_tools(s)
     (station_tab, air_tab, uploads_tab, network_tab) = st.tabs(
         STATION_TABS, default=default_tab if default_tab in STATION_TABS else None)
@@ -779,29 +801,86 @@ def status_page() -> None:
                         "battery_text": battery_text, "signal_text": signal_text})
     ok, problems = station_status.summary(reporting, feed_errors, sensors)
 
-    if ok:
-        st.success("Everything looks normal.")
+    _status_view(s, poller, db, now, reporting, age_text, ok, problems, sensors, raw, ip, last_ts)
+
+
+def _go_view(view: str) -> None:
+    st.session_state["station_view"] = view
+
+
+def _srow(state: str, name: str, note: str, word: str) -> str:
+    colour = theme.HEALTH_DOT.get(state, "#9aa3b0")
+    return (f'<div><span class="wl-dot" style="background:{colour}"></span><span><b>{html.escape(name)}</b>'
+            f'<small>{html.escape(note)}</small></span><em style="color:{colour}">{html.escape(word)}</em></div>')
+
+
+def _system_rows(poller, db_file, now: float) -> str:
+    """Collector, database, disk and backups, each with a dot and a word."""
+    import shutil
+    rows = [_srow("ok" if poller.is_alive() else "fail", "Collector", "Receiving and processing data",
+                  "Running" if poller.is_alive() else "Stopped")]
+    exists = db_file.exists()
+    rows.append(_srow("ok" if exists else "fail", "Database",
+                      f"Storing station readings ({db_file.stat().st_size / 1e6:.0f} MB)" if exists else "Not found",
+                      "Healthy" if exists else "Missing"))
+    free = shutil.disk_usage(db_file.parent)
+    pct = 100 * free.free / free.total
+    rows.append(_srow("ok" if free.free > 2e9 else "warn", "Disk", f"Storage {free.free / 1e9:.1f} GB free ({pct:.0f}%)",
+                      "OK" if free.free > 2e9 else "Low"))
+    backups = backup.backups(backup.folder_for(db_file))
+    if backups:
+        age_days = (now - backups[-1].stat().st_mtime) / 86400
+        when = timefmt.stamp(datetime.fromtimestamp(backups[-1].stat().st_mtime))
+        rows.append(_srow("ok" if age_days < 3 else "warn", "Backups", f"Last backup {when}",
+                          "Up to date" if age_days < 3 else "Behind"))
     else:
-        st.warning("Needs attention:")
-        st.markdown("\n".join(f"- {p}" for p in problems))
-    st.markdown(theme.grid_html([
-        _tile("Last reading", age_text.capitalize(),
-              {"ok": "Good", "slow": "Delayed", "silent": "Offline", "none": ""}[reporting]),
-        _tile("Sensors paired", "--" if raw is None or not ip else str(len(sensors))),
-        _tile("Problems", str(len(problems))),
-    ]), unsafe_allow_html=True)
+        rows.append(_srow("warn", "Backups", "No backup yet", "None yet"))
+    return f'<div class="wl-srows">{"".join(rows)}</div>'
+
+
+def _status_view(s, poller, db, now, reporting, age_text, ok, problems, sensors, raw, ip, last_ts) -> None:
+    """Status (0.37.66, the redesign): a banner, the paired sensors and the system's health side by side, then
+    where to go next."""
+    ctx = theme._CONTEXT.get() or {}
+    where = " · ".join(x for x in (stations.name_of(stations.current()), ctx.get("place", "")) if x)
+    state_word = {"ok": "Station connected", "slow": "Station reporting late", "silent": "Station offline",
+                  "none": "Waiting for the first reading"}[reporting]
+    icon = line_icons.icon("check" if ok else "alert", 64, "#3ddc84" if ok else "#f6c445", 1.7)
+    collector = "Collector running" if poller.is_alive() else "Collector stopped"
+    dot = theme.HEALTH_DOT["ok" if reporting == "ok" else "warn" if reporting == "slow" else "fail"]
+    extra = (f'<div class="wl-bline"><span><span class="wl-dot" style="background:{dot}"></span> '
+             f'Last reading {html.escape(age_text)}</span><span>{collector}</span></div>')
+    st.markdown(hero.banner_html(icon, html.escape(state_word), html.escape(where), extra), unsafe_allow_html=True)
+    if not ok:
+        st.markdown('<div class="wl-panel wl-kvp" style="margin-bottom:14px"><div class="wl-ph">Needs attention</div><div class="wl-kv">'
+                    + "".join(f"<div>{html.escape(p)}</div>" for p in problems) + "</div></div>", unsafe_allow_html=True)
 
     if not ip:
-        empty_card("Set the station IP in Settings, under Station to see sensor battery and signal.")
+        cards = '<span class="wl-note">Set the station IP in Settings, under Station, to see each sensor\'s battery and signal.</span>'
     elif raw is None:
-        st.caption("Battery and signal aren't available right now. The station may be off or offline.")
+        cards = '<span class="wl-note">Battery and signal aren\'t available right now. The station may be off or offline.</span>'
     elif sensors:
-        st.markdown(theme.section_html("Sensors"), unsafe_allow_html=True)
-        theme.table([{"Sensor": x["name"], "Battery": x["battery_text"] or "--",
-                   "Radio signal": x["signal_text"] or "--"} for x in sensors])
+        cards = '<div class="wl-scards">' + "".join(
+            f'<div class="wl-scard"><b>{html.escape(x["name"])}</b><span>Battery: {html.escape(x["battery_text"] or "--")}</span>'
+            f'<span>Signal: {html.escape(x["signal_text"] or "--")}</span></div>' for x in sensors) + "</div>"
     else:
-        st.caption("No paired sensors were found.")
-    st.caption("This page is checked on every visit. Battery and signal refresh about every five minutes.")
+        cards = '<span class="wl-note">No paired sensors were found.</span>'
+    count = f" ({len(sensors)})" if sensors else ""
+    st.markdown(f'<div class="wl-cols"><div class="wl-panel"><div class="wl-ph">{line_icons.icon("station", 24, "#38c6ec")}'
+                f'Paired sensors{count}<small>Checked about every 5 minutes</small></div>{cards}</div>'
+                f'<div class="wl-panel"><div class="wl-ph">{line_icons.icon("check", 24, "#38c6ec")}System health</div>'
+                f'{_system_rows(poller, storage.db_path(), now)}</div></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="wl-ph" style="margin-top:6px">Next steps</div>', unsafe_allow_html=True)
+    left, right = st.columns(2)
+    left.button("Sensors: battery, signal and how complete each one's data is", key="go_sensors",
+                on_click=_go_view, args=("Sensors",), use_container_width=True)
+    right.button("Health check: a full diagnostic of everything Weather Lab needs", key="go_health",
+                 on_click=_go_view, args=("Health check",), use_container_width=True)
+    summary = "all systems operational" if ok else f"{len(problems)} thing{'s' if len(problems) != 1 else ''} to look at"
+    when = timefmt.stamp(datetime.fromtimestamp(last_ts)) if last_ts else "none yet"
+    st.markdown(f'<div class="wl-panel wl-footline"><span><b>Station health:</b> {summary}</span>'
+                f'<span>Last reading: {html.escape(when)}</span></div>', unsafe_allow_html=True)
 
 
 def health_check_page() -> None:
@@ -885,40 +964,107 @@ def _backup_test(db_file) -> None:
         (st.success if ok else st.error)(text)
 
 
+def _station_facts(station_id: str, now: float) -> dict:
+    """One station's address, newest reading and how long ago it came, read from that station's own files."""
+    with stations.using(station_id):
+        cfg = load_settings()
+        db = storage.connect()
+        try:
+            latest = storage.latest(db)
+            today = storage.readings_between(db, now - 86400, now + 1)
+        finally:
+            db.close()
+    ts, data = (latest if latest else (None, {}))
+    state, age = health.age_status(ts, now)
+    return {"id": station_id, "name": stations.name_of(station_id), "ip": cfg.station_ip.strip(), "ts": ts, "data": data,
+            "state": state, "age": age, "metric": units.is_metric(cfg.units), "readings": len(today)}
+
+
+def _station_card(f: dict, picked: bool) -> str:
+    word = {"ok": "Connected", "slow": "Reporting late", "silent": "Offline", "none": "No readings yet"}[f["state"]]
+    colour = theme.HEALTH_DOT["ok" if f["state"] == "ok" else "warn" if f["state"] == "slow" else "fail"]
+    last = timefmt.time_text(datetime.fromtimestamp(f["ts"])) if f["ts"] else "--"
+    return (f'<div class="wl-panel wl-stcard{" wl-on" if picked else ""}">{line_icons.icon("station", 40, "#38c6ec", 1.5)}'
+            f'<span><b>{html.escape(f["name"])}</b><small><span class="wl-dot" style="background:{colour};width:9px;height:9px"></span> '
+            f'{word}{" · now showing" if f["id"] == stations.current() else ""}</small></span>'
+            f'<span class="wl-stat">Last reading<b>{html.escape(last)}</b></span></div>')
+
+
+def _station_detail(f: dict) -> None:
+    metric, d = f["metric"], f["data"]
+    word = {"ok": "Connected", "slow": "Reporting late", "silent": "Offline", "none": "No readings yet"}[f["state"]]
+    colour = theme.HEALTH_DOT["ok" if f["state"] == "ok" else "warn" if f["state"] == "slow" else "fail"]
+    last = (f'{timefmt.time_text(datetime.fromtimestamp(f["ts"]))} ({f["age"]})' if f["ts"] else "--")
+    rows = [("Ecowitt address", f["ip"] or "Not set yet"),
+            ("Collection status", f'<span class="wl-dot" style="background:{colour};width:10px;height:10px"></span> {word}'),
+            ("Last reading", html.escape(last)), ("Readings in the last 24 hours", f'{f["readings"]:,}'),
+            ("Folder", html.escape(str(stations.folder(f["id"]))))]
+    kv = "".join(f"<div><span>{k}</span><b>{v if k == 'Collection status' else html.escape(str(v)) if k != 'Last reading' else v}</b></div>"
+                 for k, v in rows)
+    parts = [("thermo", "Temp", units.format_value("tempf", d.get("tempf"), metric, 1)),
+             ("drop", "Humidity", f'{d["humidity"]:.0f} %' if d.get("humidity") is not None else "--"),
+             ("gauge", "Pressure", units.format_value("baromrelin", d.get("baromrelin"), metric, 2)),
+             ("wind", "Wind", units.format_value("windspeedmph", d.get("windspeedmph"), metric, 0)),
+             ("rain", "Rain (today)", units.format_value("dailyrainin", d.get("dailyrainin"), metric, 2))]
+    summary = "".join(f'<div style="text-align:center">{line_icons.icon(i, 26, "#7cc4ff")}<div class="wl-note">{lab}</div>'
+                      f'<b style="font-size:20px">{html.escape(val)}</b></div>' for i, lab, val in parts)
+    st.markdown(f'<div class="wl-panel" style="padding:0;overflow:hidden">'
+                + hero.banner_html(line_icons.icon("station", 52, "#e6edf7", 1.5), html.escape(f["name"]), "").replace(
+                    "wl-panel wl-banner", "wl-banner", 1)
+                + f'<div style="padding:0 22px 18px"><div class="wl-kvlist">{kv}</div>'
+                  f'<div class="wl-ph" style="margin-top:16px">Latest reading (summary)</div>'
+                  f'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">{summary}</div></div></div>',
+                unsafe_allow_html=True)
+
+
 def stations_page() -> None:
-    """Add, rename or remove weather stations. Each one keeps its own readings, settings, alerts and backups."""
+    """Add, rename or remove weather stations. Each one keeps its own readings, settings, alerts and backups.
+    The redesign (0.37.66): the stations as cards on the left, the one you pick on the right."""
     st.markdown(theme.page_head("Stations", "Add, rename or remove stations. Each keeps its own data and alerts."), unsafe_allow_html=True)
-    st.caption("Each station keeps its own readings, settings, phone topic and backups. Pick a station in the sidebar "
-               "to see it. A new station starts with default settings, so set its Ecowitt address and location in "
-               "Settings, under Station, after you add it.")
     rows = stations.all_stations()
-    theme.table([{"Station": r["name"], "Folder": str(stations.folder(r["id"])),
-                  "Showing now": "Yes" if r["id"] == stations.current() else ""} for r in rows])
+    now = time.time()
+    facts = {r["id"]: _station_facts(r["id"], now) for r in rows}
+    ids = [r["id"] for r in rows]
+    if st.session_state.get("station_manage") not in ids:
+        st.session_state["station_manage"] = stations.current() if stations.current() in ids else ids[0]
+    pick = st.session_state["station_manage"]
 
-    st.markdown(theme.section_html("Add a station"), unsafe_allow_html=True)
-    with st.form("add_station", clear_on_submit=True):
-        name = st.text_input("Name", placeholder="Back garden")
-        if st.form_submit_button("Add station"):
-            if not name.strip():
-                st.error("Give the station a name.")
-            else:
-                row = stations.add_station(name)
-                st.session_state["pending_station"] = row["id"]
+    left, right = st.columns([5, 6], gap="medium")
+    with left:
+        with st.container(border=True):
+            with st.form("add_station", clear_on_submit=True, border=False):
+                name = st.text_input("New station name", placeholder="Back garden")
+                if st.form_submit_button("Add station", type="primary", icon=":material/add:"):
+                    if not name.strip():
+                        st.error("Give the station a name.")
+                    else:
+                        row = stations.add_station(name)
+                        st.session_state["pending_station"] = row["id"]
+                        st.session_state["station_manage"] = row["id"]
+                        st.rerun()
+            st.markdown("".join(_station_card(facts[i], i == pick) for i in ids), unsafe_allow_html=True)
+            if len(ids) > 1:
+                st.selectbox("Show details for", ids, format_func=stations.name_of, key="station_manage")
+            st.caption("A new station starts with default settings. Set its Ecowitt address and location in Settings, "
+                       "under Station, after you add it.")
+    with right:
+        _station_detail(facts[pick])
+        with st.expander("Rename", icon=":material/edit:"):
+            new_name = st.text_input("New name", value=stations.name_of(pick), key=f"rename_{pick}")
+            if st.button("Save name", key=f"save_name_{pick}", type="primary"):
+                stations.rename_station(pick, new_name)
                 st.rerun()
-
-    if len(rows) > 1:
-        st.markdown(theme.section_html("Rename or remove"), unsafe_allow_html=True)
-        pick = st.selectbox("Station", [r["id"] for r in rows], format_func=stations.name_of, key="station_manage")
-        new_name = st.text_input("New name", value=stations.name_of(pick), key=f"rename_{pick}")
-        if st.button("Save name"):
-            stations.rename_station(pick, new_name)
+        if st.button("Set active", icon=":material/check:", use_container_width=True, key="set_active",
+                    disabled=pick == stations.current()):
+            st.session_state["pending_station"] = pick
             st.rerun()
         if pick != stations.MAIN:
             st.caption(f"Removing a station stops its collector. Its folder ({stations.folder(pick)}) is kept, so "
                        "adding a station with the same name brings its readings back.")
-            if confirm_button("Remove station", "rm_station",
-                              "The station stops collecting readings. Its folder is kept.", "Yes, remove station"):
+            if confirm_button("Remove", "rm_station", "The station stops collecting readings. Its folder is kept.",
+                              "Yes, remove station"):
                 stations.remove_station(pick)
                 if stations.current() == pick:
                     st.session_state["pending_station"] = stations.MAIN
+                st.session_state.pop("station_manage", None)
                 st.rerun()
