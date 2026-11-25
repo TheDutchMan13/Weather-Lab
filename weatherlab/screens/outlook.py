@@ -1,10 +1,11 @@
 """Pages under Outlook: forecast, heat, wind, sun and astronomy."""
 
 import html
+import plotly.graph_objects as go
 import streamlit as st
 import time
 from datetime import datetime, timedelta, timezone
-from weatherlab import astro, astro_art, line_icons, wx_icons, charts, forecast_card, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
+from weatherlab import astro, astro_art, hero, line_icons, sparks, wx_icons, charts, forecast_card, forecast_check, forecast_view, heat_safety, history, nws, storage, sun_uv, theme, units, windmap, wind_rose, timefmt
 from weatherlab.settings import Settings, load_settings
 from weatherlab.screens.common import _alert_box, _clock, _hourly, _points, _start_of_today, _tile, _tz, empty_card, start_poller
 
@@ -312,44 +313,149 @@ def heat_page() -> None:
 
 
 def wind_page() -> None:
+    """Wind (0.37.64, the redesign): the wind now, four figures for the period, the wind rose beside them, and the
+    hourly speed and gust."""
     s = load_settings()
     dark = theme.is_dark()
     metric = units.is_metric(s.units)
+    tz = _tz(s)
     db = storage.connect()
-    st.markdown(theme.page_head("Wind", "Where the wind came from and how strong it was, for the period you pick."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Wind", "Where the wind came from and how strong it was."), unsafe_allow_html=True)
     period = st.segmented_control("Period", list(WIND_PERIODS), default="Last 24 hours",
                                   key="wind_period", label_visibility="collapsed") or "Last 24 hours"
     end = time.time()
-    rows = [r for _, r in storage.readings_between(db, end - WIND_PERIODS[period] * 86400, end + 1)]
+    timed = storage.readings_between(db, end - WIND_PERIODS[period] * 86400, end + 1)
+    rows = [r for _, r in timed]
     counts, total = wind_rose.rose(rows)
     if total == 0:
         empty_card("No wind readings yet", "Wind readings appear once the station has reported for this period.")
         return
     speeds = [r["windspeedmph"] for r in rows if r.get("windspeedmph") is not None]
-    gusts = [r["windgustmph"] for r in rows if r.get("windgustmph") is not None]
-    st.markdown(theme.grid_html([
-        _tile("Average wind", units.format_value("windspeedmph", sum(speeds) / len(speeds), metric, 1)),
-        _tile("Strongest gust", units.format_value("windgustmph", max(gusts) if gusts else None, metric, 0)),
-        _tile("Most common direction", wind_rose.dominant(counts)),
-    ]), unsafe_allow_html=True)
-    pct = wind_rose.percentages(counts, total)
-    fig = charts.figure(dark, height=480)
-    from weatherlab.screens.history import ROSE_BLUES_DARK, ROSE_BLUES_LIGHT  # the same blues as History's rose
-    ramp = ROSE_BLUES_DARK if dark else ROSE_BLUES_LIGHT
-    for n, i in enumerate(wind_rose.DRAWN):
-        fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric),
-                         marker_color=ramp[n % len(ramp)], marker_line_width=0)
-    fig.update_layout(polar=dict(barmode="stack", angularaxis=dict(direction="clockwise", rotation=90),
-                                 radialaxis=dict(ticksuffix="%")))
-    charts.show(fig)
-    st.caption("Each wedge shows how often the wind came from that direction, coloured by speed.")
+    gusts = [(ts, r["windgustmph"]) for ts, r in timed if r.get("windgustmph") is not None]
+    latest = timed[-1][1]
+    now_speed, now_dir = latest.get("windspeedmph"), latest.get("winddir")
+    direction = wind_rose.NAMES[round(now_dir / 22.5) % 16] if now_dir is not None and (now_speed or 0) >= 1 else ""
+    today_gust = max((g for t, g in gusts if t >= _start_of_today(s)), default=None)
+    speed_text = units.format_value("windspeedmph", now_speed, metric, 0)
+    number, _, unit_text = speed_text.partition(" ")
+    gust_line = f"Gust {units.format_value('windgustmph', latest.get('windgustmph'), metric, 0)}" if latest.get("windgustmph") is not None else ""
+    if today_gust is not None:
+        gust_line += f" · today's top {units.format_value('windgustmph', today_gust, metric, 0)}"
+    sky = f"{hero._clouds_svg(False)} center/cover no-repeat, {hero.sky_bg('clear_day', hero.GRADS['clear_day'])}"
+
+    left, right = st.columns([1.15, 1], gap="medium")
+    with left:
+        st.markdown(f'<div class="wl-panel wl-bignum" style="min-height:150px"><div class="wl-hx-sky" style="position:absolute;'
+                    f'inset:0 0 0 50%;background:{sky};-webkit-mask-image:linear-gradient(90deg,transparent,#000 55%);'
+                    f'mask-image:linear-gradient(90deg,transparent,#000 55%);opacity:.8"></div>'
+                    f'<div style="position:relative;z-index:1;display:flex;align-items:center;gap:22px">'
+                    f'{line_icons.icon("wind", 70, "#7cc4ff", 1.6)}<i class="wl-div"></i><div><div class="wl-bn">{html.escape(number)}'
+                    f'<small>{html.escape(unit_text)} {direction}</small></div><div class="wl-bd" style="font-size:20px">'
+                    f'{html.escape(gust_line)}</div></div></div></div>', unsafe_allow_html=True)
+        calm = sum(1 for v in speeds if v < wind_rose.CALM_MPH)
+        top_gust = max(gusts, key=lambda x: x[1]) if gusts else None
+        hours: dict = {}
+        for ts, r in timed:
+            if r.get("windspeedmph") is not None:
+                hours.setdefault(int(ts // 3600), []).append(r["windspeedmph"])
+        hourly = [units.convert("windspeedmph", sum(v) / len(v), metric) for _, v in sorted(hours.items())]
+        prevailing = wind_rose.dominant(counts)
+        deg = {n: i * 22.5 for i, n in enumerate(wind_rose.NAMES)}.get(prevailing)
+        cards = [
+            hero.metric_html(line_icons.icon("wind", 24, "#7cc4ff"), f"Average ({period.replace('Last ', '')})",
+                             *units.format_value("windspeedmph", sum(speeds) / len(speeds), metric, 1).split(" ", 1), "",
+                             sparks.spark_svg(hourly, "#38c6ec", h=30)),
+            hero.metric_html(line_icons.icon("wind", 24, "#f6c445"), "Max gust",
+                             *(units.format_value("windgustmph", top_gust[1], metric, 0).split(" ", 1) if top_gust else ("--", "")),
+                             f"at {timefmt.time_text(datetime.fromtimestamp(top_gust[0], tz))}" if top_gust else "", ""),
+            hero.metric_html(line_icons.icon("wind", 24, "#9db0c4"), f"Calms (under {'2 km/h' if metric else '1 mph'})",
+                             f"{100 * calm / len(speeds):.1f}%" if speeds else "--", "", "share of readings", ""),
+            hero.metric_html(line_icons.icon("pin", 24, "#7cc4ff"), "Prevailing direction", prevailing,
+                             f"({deg:.0f}°)" if deg is not None else "", "most common", ""),
+        ]
+        st.markdown('<div class="wl-metrics" style="grid-template-columns:repeat(2,minmax(0,1fr))">' + "".join(cards) + "</div>",
+                    unsafe_allow_html=True)
+    with right, st.container(border=True):
+        pct = wind_rose.percentages(counts, total)
+        fig = charts.figure(dark, height=420)
+        from weatherlab.screens.history import ROSE_BLUES_DARK, ROSE_BLUES_LIGHT  # the same blues as History's rose
+        ramp = ["#2a8fb0", "#38c6ec", "#f6c445", "#f08a3c"] if dark else ROSE_BLUES_LIGHT
+        for n, i in enumerate(wind_rose.DRAWN):
+            fig.add_barpolar(r=pct[i], theta=wind_rose.NAMES, name=wind_rose.label(i, metric),
+                             marker_color=ramp[n % len(ramp)], marker_line_width=0)
+        fig.update_layout(title=dict(text=f"Wind rose · {period.lower()}", x=0, xanchor="left", font=dict(size=16)),
+                          polar=dict(barmode="stack", angularaxis=dict(direction="clockwise", rotation=90),
+                                     radialaxis=dict(ticksuffix="%")))
+        charts.show(fig)
+    with st.container(border=True):
+        buckets: dict = {}
+        for ts, r in timed:
+            buckets.setdefault(int(ts // 3600), []).append(r)
+        xs, sp, gu = [], [], []
+        for hour, rs in sorted(buckets.items()):
+            xs.append(datetime.fromtimestamp(hour * 3600, tz))
+            v = [r["windspeedmph"] for r in rs if r.get("windspeedmph") is not None]
+            g = [r["windgustmph"] for r in rs if r.get("windgustmph") is not None]
+            sp.append(units.convert("windspeedmph", sum(v) / len(v), metric) if v else None)
+            gu.append(units.convert("windgustmph", max(g), metric) if g else None)
+        fig = charts.figure(dark, height=300)
+        fig.add_trace(go.Scatter(x=xs, y=gu, name=f"Gust ({units.speed_unit(metric)})", mode="lines",
+                                 line=dict(color="#f6c445", width=2), fill="tozeroy", fillcolor="rgba(246,196,69,.18)"))
+        fig.add_trace(go.Scatter(x=xs, y=sp, name=f"Wind speed ({units.speed_unit(metric)})", mode="lines",
+                                 line=dict(color="#38c6ec", width=2.2), fill="tozeroy", fillcolor="rgba(56,198,236,.15)"))
+        fig.update_layout(title=dict(text="Hourly wind speed and gust", x=0, xanchor="left", font=dict(size=16)),
+                          legend=dict(orientation="h", y=1.14, x=1, xanchor="right"))
+        charts.show(fig)
+    st.caption("Wedges show how often the wind came from each direction, coloured by speed. The hourly line is each hour's "
+               "average speed and its strongest gust.")
+
+
+UV_COLOURS = [(3, "#3ddc84"), (6, "#f6c445"), (8, "#f08a3c"), (11, "#ef5b4c"), (99, "#b06cff")]
+
+
+def _uv_colour(uv: float) -> str:
+    return next(c for limit, c in UV_COLOURS if uv < limit)
+
+
+def _daylight_svg(progress, rise_text: str, set_text: str, length_text: str, now_text: str) -> str:
+    """Today's daylight as an arch from sunrise to sunset, with the sun where it is now (when it's up)."""
+    import math
+    w, base, half, tall = 560, 170, 215, 135
+    cx = w / 2
+
+    def pt(t):
+        return cx - half * math.cos(math.pi * t), base - tall * math.sin(math.pi * t)
+    path = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in (pt(i / 60) for i in range(61)))
+    sun = ""
+    if progress is not None:
+        sx, sy = pt(min(max(progress, 0.0), 1.0))
+        sun = (f'<text x="{sx:.1f}" y="{sy - 20:.1f}" text-anchor="middle" font-size="14" fill="#eaf2fb">{html.escape(now_text)}</text>'
+               f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="13" fill="#f6c445" fill-opacity=".25"/>'
+               f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="7" fill="#f6c445"/>')
+    left, right = cx - half, cx + half
+    return (f'<svg viewBox="0 0 {w} {base + 50}" width="100%" style="display:block;max-height:240px" aria-label="Daylight today">'
+            '<defs><linearGradient id="wl-day" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6c445" stop-opacity=".28"/>'
+            '<stop offset="1" stop-color="#f6c445" stop-opacity="0"/></linearGradient></defs>'
+            f'<path d="{path} Z" fill="url(#wl-day)"/>'
+            f'<path d="{path}" fill="none" stroke="#f6c445" stroke-width="2.5"/>'
+            f'<line x1="10" y1="{base}" x2="{w - 10}" y2="{base}" stroke="#9db0c4" stroke-opacity=".35"/>'
+            f'<text x="{cx}" y="{base - 62}" text-anchor="middle" font-size="15" fill="#c9d6e6">Daylight duration</text>'
+            f'<text x="{cx}" y="{base - 28}" text-anchor="middle" font-size="30" font-weight="800" fill="#eaf2fb">{html.escape(length_text)}</text>'
+            f'<text x="{left}" y="{base + 22}" text-anchor="middle" font-size="13" fill="#c9d6e6">Sunrise</text>'
+            f'<text x="{left}" y="{base + 42}" text-anchor="middle" font-size="16" font-weight="700" fill="#eaf2fb">{html.escape(rise_text)}</text>'
+            f'<text x="{right}" y="{base + 22}" text-anchor="middle" font-size="13" fill="#c9d6e6">Sunset</text>'
+            f'<text x="{right}" y="{base + 42}" text-anchor="middle" font-size="16" font-weight="700" fill="#eaf2fb">{html.escape(set_text)}</text>'
+            f'{sun}</svg>')
 
 
 def sun_page() -> None:
+    """Sun (0.37.64, the redesign): the UV index now, today's daylight, sunshine and solar radiation, UV by hour and the
+    time to sunburn."""
     s = load_settings()
     dark = theme.is_dark()
+    tz = _tz(s)
     db = storage.connect()
-    st.markdown(theme.page_head("Sun and UV", "Sunshine, UV and sunburn times at your station."), unsafe_allow_html=True)
+    st.markdown(theme.page_head("Sun and UV", "Solar conditions, UV and daylight for your station."), unsafe_allow_html=True)
     latest = storage.latest(db)
     if latest is None:
         empty_card("No readings yet", "Sun and UV fill in once the station has reported.")
@@ -361,23 +467,84 @@ def sun_page() -> None:
     sun_week = [(ts, r.get("solarradiation")) for ts, r in week]
     sun_today = [x for x in sun_week if x[0] >= today_start]
     uv_today = [(ts, r.get("uv")) for ts, r in week if ts >= today_start]
-    uv_peak = max((u for _, u in uv_today if u is not None), default=None)
     uv_now = data.get("uv")
-    st.markdown(theme.grid_html([
-        theme.strip_tile_html("UV index now", "--" if uv_now is None else f"{uv_now:.1f}",
-                              "" if uv_now is None else sun_uv.uv_word(uv_now), _uv_tone(uv_now), word=""),
-        theme.strip_tile_html("UV peak today", "--" if uv_peak is None else f"{uv_peak:.1f}",
-                              "" if uv_peak is None else sun_uv.uv_word(uv_peak), _uv_tone(uv_peak), word=""),
-        theme.strip_tile_html("Sunshine today", f"{sun_uv.sunshine_hours(sun_today):.1f} h"),
-        theme.strip_tile_html("Sunshine, last 7 days", f"{sun_uv.sunshine_hours(sun_week):.1f} h"),
-    ]), unsafe_allow_html=True)
-    st.markdown(theme.section_html("Sunburn time at this UV index"), unsafe_allow_html=True)
-    theme.table([{"Skin type": k, "Minutes until sunburn": "--" if m is None else f"{m:.0f}"}
-              for k in sun_uv.MED_J_M2 for m in [sun_uv.burn_minutes(uv_now, k)]])
-    fig = charts.figure(dark)
-    fig.add_scatter(x=[datetime.fromtimestamp(ts, _tz(s)) for ts, _ in uv_today], y=[u for _, u in uv_today],
-                    mode="lines", name="UV index", line=dict(color=charts.MEASURE["uv"]))
-    charts.show(fig)
+    solar_now = data.get("solarradiation")
+    word = "" if uv_now is None else sun_uv.uv_word(uv_now).capitalize()
+    sky_word, sky_note = (("Sunny", "Bright sunshine.") if (solar_now or 0) >= 500 else
+                          ("Some sun", "Sunshine through some cloud.") if (solar_now or 0) >= 120 else
+                          ("Dim", "Cloudy, or the sun is low.") if (solar_now or 0) > 5 else ("Dark", "The sun is down."))
+    sky = f"{hero._clouds_svg(False)} center/cover no-repeat, {hero.sky_bg('dawn' if (solar_now or 0) < 200 else 'clear_day', hero.GRADS['clear_day'])}"
+    st.markdown(f'<div class="wl-panel wl-bignum"><div class="wl-hx-sky" style="position:absolute;inset:0 0 0 45%;background:{sky};'
+                f'-webkit-mask-image:linear-gradient(90deg,transparent,#000 50%);mask-image:linear-gradient(90deg,transparent,#000 50%);opacity:.85"></div>'
+                f'<div style="position:relative;z-index:1;display:flex;align-items:center;gap:24px">'
+                f'{line_icons.icon("sun", 78, "#f6c445", 1.6)}<i class="wl-div"></i>'
+                f'<div><div class="wl-note">UV index</div><div class="wl-bn">{"--" if uv_now is None else f"{uv_now:.0f}"}</div>'
+                f'<div style="font-size:18px">{html.escape(word)}</div></div><i class="wl-div"></i>'
+                f'<div><div class="wl-bw" style="font-size:26px">{sky_word}</div><div class="wl-bd">{sky_note}</div></div></div></div>',
+                unsafe_allow_html=True)
+
+    left, right = st.columns([1.5, 1], gap="medium")
+    o = None
+    if s.latitude is not None and s.longitude is not None:
+        o = astro.overview(s.latitude, s.longitude, tz, datetime.now(timezone.utc), days=1)
+    with left:
+        if o:
+            arc = _daylight_svg(o["progress"], _local_time(o["sunrise"], tz), _local_time(o["sunset"], tz),
+                                astro.length_text(o["length"], short=True), timefmt.time_text(datetime.now(tz)))
+            st.markdown(f'<div class="wl-panel" style="padding:16px 20px"><div class="wl-ptitle">Today\'s daylight</div>{arc}</div>',
+                        unsafe_allow_html=True)
+        else:
+            empty_card("Set your location in Settings, under Station to see today's daylight.")
+    with right:
+        hours = sun_uv.sunshine_hours(sun_today)
+        possible = f"{min(100, 100 * hours * 3600 / o['length']):.0f}% of possible" if o and o.get("length") else ""
+        peak_solar = max((v for _, v in sun_today if v is not None), default=None)
+        st.markdown('<div class="wl-panel wl-kvp" style="margin-bottom:14px"><div class="wl-statrows" style="border:none;background:transparent;margin:0">'
+                    f'<div>{line_icons.icon("sun", 34, "#f6c445")}<div><b>Sunshine today</b><span>{possible}</span></div>'
+                    f'<span class="wl-big">{hours:.1f} h</span></div>'
+                    f'<div>{line_icons.icon("gauge", 34, "#7cc4ff")}<div><b>Solar radiation</b><span>Today\'s max '
+                    f'{"--" if peak_solar is None else f"{peak_solar:.0f} W/m²"}</span></div>'
+                    f'<span class="wl-big">{"--" if solar_now is None else f"{solar_now:.0f}"}<span style="font-size:15px"> W/m²</span></span></div>'
+                    f'<div>{line_icons.icon("clock", 34, "#9db0c4")}<div><b>Sunshine, last 7 days</b><span>hours of sun</span></div>'
+                    f'<span class="wl-big">{sun_uv.sunshine_hours(sun_week):.0f} h</span></div></div></div>', unsafe_allow_html=True)
+
+    chart_col, burn_col = st.columns([1.5, 1], gap="medium")
+    with chart_col, st.container(border=True):
+        hourly: dict = {}
+        for ts, u in uv_today:
+            if u is not None:
+                hourly.setdefault(datetime.fromtimestamp(ts, tz).replace(minute=0, second=0, microsecond=0), []).append(u)
+        xs = sorted(hourly)
+        ys = [max(hourly[x]) for x in xs]
+        lit = [i for i, v in enumerate(ys) if v > 0]  # only the daylight hours, with an hour either side
+        if lit:
+            lo, hi = max(lit[0] - 1, 0), min(lit[-1] + 2, len(xs))
+            xs, ys = xs[lo:hi], ys[lo:hi]
+        fig = charts.figure(dark, height=290)
+        fig.add_trace(go.Bar(x=xs, y=ys, marker_color=[_uv_colour(v) for v in ys], text=[f"{v:.0f}" for v in ys],
+                             textposition="outside", cliponaxis=False, name="UV"))
+        if xs and uv_now is not None:
+            fig.add_annotation(x=xs[-1], y=ys[-1], text=f"Now: UV {uv_now:.0f}", showarrow=True, arrowhead=2, ay=-38,
+                               bgcolor="rgba(0,0,0,.4)", bordercolor="#f6c445", font=dict(color="#f6c445"))
+        fig.update_layout(title=dict(text="UV by hour, today", x=0, xanchor="left", font=dict(size=16)), showlegend=False)
+        fig.update_yaxes(rangemode="tozero")
+        charts.show(fig)
+    with burn_col:
+        fair = sun_uv.burn_minutes(uv_now, "Type II (burns easily)")
+        big = "--" if fair is None else f"~{fair:.0f} minutes"
+        note = (f"Approximate time for fair skin to begin to burn at the current UV index ({uv_now:.0f})." if fair is not None
+                else "No sunburn risk while the UV index is 0.")
+        st.markdown(f'<div class="wl-panel" style="padding:18px 22px;margin-bottom:10px"><div style="display:flex;gap:12px;align-items:center;'
+                    f'font-size:17px;font-weight:700">{line_icons.icon("alert", 28, "#f6c445")}Estimated sunburn time</div>'
+                    f'<div style="font-size:34px;font-weight:800;text-align:center;margin:14px 0 6px">{big}</div>'
+                    f'<div class="wl-note" style="text-align:center">{html.escape(note)}</div></div>', unsafe_allow_html=True)
+        with st.expander("Every skin type"):
+            theme.table([{"Skin type": k, "Minutes until sunburn": "--" if m is None else f"{m:.0f}"}
+                         for k in sun_uv.MED_J_M2 for m in [sun_uv.burn_minutes(uv_now, k)]])
+    page = st.session_state.get("wl_pages", {}).get("Sun and sky")
+    if page is not None:
+        st.page_link(page, label="Moon phase, moonrise and tonight's sky: go to Astronomy", icon=":material/dark_mode:",
+                     query_params={"tab": "Astronomy"})
     st.caption("Estimates from the station's UV reading. They assume full sun with no shade and no sunscreen.")
 
 

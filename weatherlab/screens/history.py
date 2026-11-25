@@ -57,9 +57,9 @@ def daily_page() -> None:
     tz = _tz(s)
     db = storage.connect()
     today = datetime.now(tz).date()
-    _live_strip(s, db, tz)
     _head("Daily", "One day from your readings, or several days together. Today shows what has been recorded so far.")
-    period = st.radio("Range", list(daily_ranges.DAILY_RANGES), index=0, horizontal=True, key="daily_range")
+    period = st.radio("Range", list(daily_ranges.DAILY_RANGES), index=1, horizontal=True, key="daily_range",
+                      label_visibility="collapsed")  # several days first, as in the redesign (0.37.64)
     if not daily_ranges.is_day_view(period):
         _period_view(s, db, tz, today, _period_days())
         return
@@ -232,22 +232,23 @@ def _live_strip(s, db, tz) -> None:
         unsafe_allow_html=True)
 
 
-def _history_charts(rows: list, dark: bool, metric: bool) -> None:
+def _history_charts(rows: list, dark: bool, metric: bool, skip_first: bool = False) -> None:
     days = [d for d, _ in rows]
 
     def col(key: str, conv: str | None = None) -> list:
         values = [s.get(key) for _, s in rows]
         return _conv(conv, values, metric) if conv else values
 
-    st.markdown(theme.section_html("Temperature and rain"), unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        charts.show(_daily_lines(days, [(col("tempf_max", "tempf"), "High"), (col("tempf_avg", "tempf"), "Average"),
-                                        (col("tempf_min", "tempf"), "Low")],
-                                 "Daily temperature", units.unit("tempf", metric), dark))
-    with c2:
-        charts.show(_daily_bars(days, col("rain_in", "dailyrainin"), "Daily rainfall",
-                                units.unit("dailyrainin", metric), charts.MEASURE["rain"], dark))
+    if not skip_first:  # the redesigned view draws temperature and rain at the top (0.37.64)
+        st.markdown(theme.section_html("Temperature and rain"), unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            charts.show(_daily_lines(days, [(col("tempf_max", "tempf"), "High"), (col("tempf_avg", "tempf"), "Average"),
+                                            (col("tempf_min", "tempf"), "Low")],
+                                     "Daily temperature", units.unit("tempf", metric), dark))
+        with c2:
+            charts.show(_daily_bars(days, col("rain_in", "dailyrainin"), "Daily rainfall",
+                                    units.unit("dailyrainin", metric), charts.MEASURE["rain"], dark))
 
     st.markdown(theme.section_html("Humidity and pressure"), unsafe_allow_html=True)
     c3, c4 = st.columns(2)
@@ -287,6 +288,126 @@ def _history_charts(rows: list, dark: bool, metric: bool) -> None:
 
 
 @st.cache_data(ttl=1800, show_spinner="Working out wind patterns...")  # the wind rows are many; patterns move slowly
+def _day_kind(summary: dict) -> str:
+    """A sky icon for a finished day: rain if it rained, else by its sunshine hours."""
+    if (summary.get("rain_in") or 0) >= 0.01:
+        return "rain"
+    sun = summary.get("sun_hours")
+    if sun is None:
+        return "cloudy_day"
+    return "clear_day" if sun >= 8 else "cloudy_day" if sun >= 4 else "cloud"
+
+
+def _range_top(db, rows: list, n, metric: bool, dark: bool) -> None:
+    """The top of the several-days view (0.37.64, the redesign): temperature and rain charts, the last days' highs and
+    lows, then records, a summary, the change from the period before and the coverage."""
+    from weatherlab import line_icons, wx_icons
+    days = [d for d, _ in rows]
+    first, last = days[0], days[-1]
+    st.markdown(f'<div class="wl-note" style="margin:-4px 0 10px">{line_icons.icon("calendar", 18)} Date range: '
+                f'{_date_text(first)} – {_date_text(last)} · {len(rows)} days</div>', unsafe_allow_html=True)
+    highs = _conv("tempf", [x.get("tempf_max") for _, x in rows], metric)
+    lows = _conv("tempf", [x.get("tempf_min") for _, x in rows], metric)
+    rain = _conv("dailyrainin", [x.get("rain_in") or 0.0 for _, x in rows], metric)
+    t_unit, r_unit = units.unit("tempf", metric), units.unit("dailyrainin", metric)
+    left, right = st.columns(2, gap="medium")
+    with left, st.container(border=True):
+        fig = charts.figure(dark, height=300)
+        fig.add_trace(go.Scatter(x=days, y=highs, name="High", mode="lines+markers", line=dict(color="#ff6b4a", width=2.4),
+                                 marker=dict(size=5), fill="tozeroy", fillcolor="rgba(255,107,74,.10)"))
+        fig.add_trace(go.Scatter(x=days, y=lows, name="Low", mode="lines+markers", line=dict(color="#38c6ec", width=2.4),
+                                 marker=dict(size=5)))
+        known = [v for v in highs + lows if v is not None]
+        if known:
+            fig.update_yaxes(range=[min(known) - 3, max(known) + 3])
+        fig.update_layout(title=dict(text=f"Temperature ({t_unit})", x=0, xanchor="left", font=dict(size=16)),
+                          legend=dict(orientation="h", y=1.13, x=1, xanchor="right"))
+        charts.show(fig)
+    with right, st.container(border=True):
+        total, running = 0.0, []
+        for v in rain:
+            total += v or 0
+            running.append(round(total, 2))
+        fig = charts.figure(dark, height=300)
+        fig.add_trace(go.Bar(x=days, y=rain, name="Daily rain", marker_color="#38c6ec"))
+        fig.add_trace(go.Scatter(x=days, y=running, name="Running total (right)", mode="lines", yaxis="y2",
+                                 line=dict(color="#7ee8fa", width=2.2)))
+        fig.update_layout(title=dict(text=f"Rainfall ({r_unit})", x=0, xanchor="left", font=dict(size=16)),
+                          legend=dict(orientation="h", y=1.13, x=1, xanchor="right"),
+                          yaxis2=dict(overlaying="y", side="right", showgrid=False, rangemode="tozero"))
+        charts.show(fig)
+
+    shown = rows[-15:]
+    cells = []
+    for d, x in shown:
+        hi, lo = x.get("tempf_max"), x.get("tempf_min")
+        temps = (f"{units.convert('tempf', hi, metric):.0f}° / {units.convert('tempf', lo, metric):.0f}°"
+                 if hi is not None and lo is not None else "--")
+        cells.append(f'<div>{d:%b} {d.day}<br>{wx_icons.now_icon(_day_kind(x), 34, inline=True)}<b>{temps}</b></div>')
+    st.markdown('<div class="wl-panel wl-outlook"><div style="display:flex;justify-content:space-between;align-items:baseline">'
+                f'<div class="wl-ptitle">Daily high / low ({t_unit})</div><span class="wl-note">Last {len(shown)} days · '
+                f'{_date_text(shown[0][0])} – {_date_text(shown[-1][0])}</span></div><div class="wl-hl">{"".join(cells)}</div></div>',
+                unsafe_allow_html=True)
+
+    def best(key, pick):
+        found = [(x[key], d) for d, x in rows if x.get(key) is not None]
+        return pick(found) if found else None
+
+    def fmt(key, v, decimals):
+        return "--" if v is None else units.format_value(key, v, metric, decimals)
+
+    hot, cold, wet = best("tempf_max", max), best("tempf_min", min), best("rain_in", max)
+    rec = []
+    for label, item, key, dec in (("Highest temperature", hot, "tempf", 1), ("Lowest temperature", cold, "tempf", 1),
+                                  ("Most rain (day)", wet, "dailyrainin", 2)):
+        if item:
+            rec.append(f'<div><span>{label}</span><b>{fmt(key, item[0], dec)}<small>{_date_text(item[1])}</small></b></div>')
+    avg = lambda vals: sum(vals) / len(vals) if vals else None
+    h = [x["tempf_max"] for _, x in rows if x.get("tempf_max") is not None]
+    l = [x["tempf_min"] for _, x in rows if x.get("tempf_min") is not None]
+    a = [x["tempf_avg"] for _, x in rows if x.get("tempf_avg") is not None]
+    rain_days = [x.get("rain_in") for _, x in rows if x.get("rain_in") is not None]
+    wet_n = sum(1 for v in rain_days if v >= 0.01)
+    summ = [("Avg high", fmt("tempf", avg(h), 1)), ("Avg low", fmt("tempf", avg(l), 1)), ("Avg temperature", fmt("tempf", avg(a), 1)),
+            ("Total rainfall", fmt("dailyrainin", sum(rain_days) if rain_days else None, 2)),
+            ("Rainy days (0.01 in or more)" if not metric else "Rainy days (0.25 mm or more)", str(wet_n)),
+            ("Dry days", str(len(rain_days) - wet_n))]
+    span_words = "all time" if n is None else f"last {len(rows)} days"
+    panels = [("Records (in date range)", "".join(rec)),
+              (f"Summary, {span_words}", "".join(f"<div><span>{k}</span><b>{v}</b></div>" for k, v in summ))]
+    if n is not None:
+        prior = history.daily_between(db, first - timedelta(days=len(rows)), first - timedelta(days=1))
+        if prior:
+            ph = [x["tempf_max"] for _, x in prior if x.get("tempf_max") is not None]
+            pl = [x["tempf_min"] for _, x in prior if x.get("tempf_min") is not None]
+            pr = [x.get("rain_in") for _, x in prior if x.get("rain_in") is not None]
+
+            def change(key, now_v, then_v, dec, warm_is_up=True):
+                if now_v is None or then_v is None:
+                    return "<b>--</b>"
+                diff = units.convert_change(key, now_v - then_v, metric)
+                arrow = "↑" if diff > 0 else "↓" if diff < 0 else ""
+                tone = ("wl-warm" if diff > 0 else "wl-cool") if warm_is_up else ("wl-cool" if diff > 0 else "wl-warm")
+                return f'<b class="{tone}">{"+" if diff > 0 else ""}{diff:.{dec}f}{units.suffix(key, metric)} {arrow}</b>'
+            pw = sum(1 for v in pr if v >= 0.01)
+            rows_html = (f'<div><span>Avg high</span>{change("tempf", avg(h), avg(ph), 1)}</div>'
+                         f'<div><span>Avg low</span>{change("tempf", avg(l), avg(pl), 1)}</div>'
+                         f'<div><span>Total rainfall</span>{change("dailyrainin", sum(rain_days) if rain_days else None, sum(pr) if pr else None, 2, False)}</div>'
+                         f'<div><span>Rainy days</span><b>{"+" if wet_n - pw > 0 else ""}{wet_n - pw}</b></div>')
+            panels.append((f"Change vs. prior {len(rows)} days", rows_html))
+    got = {d for d, x in rows}
+    want = (last - first).days + 1
+    pct = round(100 * len(got) / want) if want else 0
+    tick = " ✓" if pct == 100 else ""
+    panels.append(("Date range and coverage", f'<div><span>Date range</span><b>{_date_text(first)} – {_date_text(last)}</b></div>'
+                   f'<div><span>Days</span><b>{len(rows)}</b></div>'
+                   f'<div><span>Data coverage</span><b class="{"wl-good" if pct == 100 else ""}">{pct}%{tick}</b></div>'
+                   f'<div><span>Station</span><b>{html.escape(stations.name_of(stations.current()))}</b></div>'))
+    st.markdown('<div class="wl-kvgrid">' + "".join(f'<div class="wl-panel wl-kvp"><div class="wl-ptitle">{t}</div>'
+                                                     f'<div class="wl-kv">{b}</div></div>' for t, b in panels) + "</div>",
+                unsafe_allow_html=True)
+
+
 def _wind_patterns(start_ts: int, end_ts: int, stamp: int, tz_name: str) -> dict:
     db = storage.connect()
     return wind_rose.patterns(storage.readings_sampled(db, start_ts, end_ts), ZoneInfo(tz_name))
@@ -338,11 +459,19 @@ def _period_view(s, db, tz, today: date, n) -> None:
         _compare_periods(db, today)
         return
 
-    st.caption(f"{len(rows)} days: {_date_text(rows[0][0])} to {_date_text(rows[-1][0])}")
-    tiles = _highlight_tiles(rows, metric)
-    with st.container(border=True):
+    dark = theme.is_dark()
+    _range_top(db, rows, n, metric, dark)
+    more = st.expander("More: humidity, pressure, indoors, wind, rain totals and the daily table", icon=":material/insights:")
+    with more:
+        tiles = _highlight_tiles(rows, metric)
         st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+    with more:
+        _period_rest(s, db, tz, today, n, rows, metric, dark)
+    _compare_periods(db, today)
 
+
+def _period_rest(s, db, tz, today, n, rows, metric, dark) -> None:
+    """The parts of the several-days view under More (0.37.64)."""
     if n is not None and st.toggle("Compare with last year", key="history_last_year", value=False,
                                    help="Shows last year's figures for the same days."):
         last_rows = history.daily_between(db, last_year.year_back(rows[0][0]), last_year.year_back(rows[-1][0]))
@@ -362,8 +491,7 @@ def _period_view(s, db, tz, today: date, n) -> None:
                 theme.strip_tile_html("Rain", rain_text(this["rain"]), f"Last year: {rain_text(last['rain'])}", "info"),
             ]), unsafe_allow_html=True)
 
-    dark = theme.is_dark()
-    _history_charts(rows, dark, metric)
+    _history_charts(rows, dark, metric, skip_first=True)
     _wind_section(rows, tz, metric, all_time=n is None, today=today, dark=dark)
 
     latest = storage.latest(db)
@@ -408,8 +536,6 @@ def _period_view(s, db, tz, today: date, n) -> None:
                           for r in table_rows]
         theme.table(table_rows, sort_key="daily_rows")
         st.download_button("Download CSV", history.daily_csv(rows).encode(), "weather_daily.csv", "text/csv")
-
-    _compare_periods(db, today)
 
 
 def _compare_periods(db, today: date) -> None:
@@ -965,7 +1091,7 @@ def history_page() -> None:
                 unsafe_allow_html=True)
     choice = st.radio("View", HISTORY_VIEWS, horizontal=True, key="history_view", label_visibility="collapsed")
     # One Period for the views that look back over days (0.37.50). Compare, Month, Year and Rewind pick their own dates.
-    if daily_ranges.shows_period(choice, st.session_state.get("daily_range")):
+    if daily_ranges.shows_period(choice, st.session_state.get("daily_range", "Several days")):  # its default (0.37.64)
         st.segmented_control("Period", list(daily_ranges.HISTORY_PERIODS), default=daily_ranges.DEFAULT_PERIOD,
                              key="history_period")
     _EMBEDDED = True

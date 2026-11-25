@@ -5,6 +5,17 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.64",
+        "date": "November 24, 2026",
+        "items": [
+            "The new look, part 3: History, Air, Wind and Sun are redesigned.",
+            "History: the views (Daily, Records, Rankings and the rest) and 1 day or Several days are joined bars, and Daily opens on several days. It shows the temperature and rain charts (with a running rain total), the last 15 days' highs and lows with a sky icon each, then four cards: records in the range, a summary, the change from the same number of days before, and the date range with its data coverage. Humidity, pressure, indoors, wind, rain totals and the daily table are under More. The live strip at the top of History is gone, since the bar under the title says whether readings are live.",
+            "Air: the AQI in a box coloured by its level, with what the level means; a card for each pollutant; and the last 24 hours of AQI as a line.",
+            "Wind: the wind now in a large card, four cards for the period (average, top gust and when, calm share, prevailing direction), the wind rose beside them, and each hour's average speed and strongest gust.",
+            "Sun: the UV index now, today's daylight as an arch with the sun where it is, sunshine and solar radiation, UV by hour coloured by level, the time to sunburn for fair skin (every skin type is one click away), and a link to Astronomy.",
+        ],
+    },
+    {
         "version": "0.37.63",
         "date": "November 24, 2026",
         "items": [

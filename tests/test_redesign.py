@@ -148,3 +148,40 @@ class RainHits(unittest.TestCase):
         from weatherlab import forecast_check
         self.assertEqual(forecast_check.rain_hit_rate({"wet_days": 2, "wet_rained": 1, "dry_days": 8, "dry_rained": 1}), 80)
         self.assertIsNone(forecast_check.rain_hit_rate({"wet_days": 0, "wet_rained": 0, "dry_days": 0, "dry_rained": 0}))
+
+
+class Batch3(unittest.TestCase):
+    def test_aqi_between(self):
+        import os, tempfile
+        old = os.environ.get("APPDATA")
+        os.environ["APPDATA"] = tempfile.mkdtemp()
+        try:
+            from weatherlab import storage
+            db = storage.connect()
+            for t in (100, 200, 300):
+                storage.store_aqi(db, {"aqi": t // 10}, t)
+            self.assertEqual([a["aqi"] for _, a in storage.aqi_between(db, 150, 300)], [20, 30])
+        finally:
+            if old is None:
+                os.environ.pop("APPDATA", None)
+            else:
+                os.environ["APPDATA"] = old
+
+    def test_day_icon(self):
+        from weatherlab.screens.history import _day_kind
+        self.assertEqual(_day_kind({"rain_in": 0.2, "sun_hours": 9}), "rain")
+        self.assertEqual(_day_kind({"sun_hours": 9}), "clear_day")
+        self.assertEqual(_day_kind({"sun_hours": 5}), "cloudy_day")
+        self.assertEqual(_day_kind({"sun_hours": 1}), "cloud")
+
+    def test_daylight_arch(self):
+        from weatherlab.screens.outlook import _daylight_svg
+        up = _daylight_svg(0.5, "7:00 AM", "5:30 PM", "10 h 30 m", "12:15 PM")
+        self.assertIn("10 h 30 m", up)
+        self.assertIn("12:15 PM", up)
+        self.assertNotIn("12:15 PM", _daylight_svg(None, "7:00 AM", "5:30 PM", "10 h 30 m", "12:15 PM"))
+
+    def test_uv_colours(self):
+        from weatherlab.screens.outlook import _uv_colour
+        self.assertEqual(_uv_colour(1), "#3ddc84")
+        self.assertEqual(_uv_colour(12), "#b06cff")

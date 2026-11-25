@@ -66,6 +66,12 @@ def latest_aqi(db: sqlite3.Connection) -> tuple[int, dict] | None:
     return None if row is None else (row[0], json.loads(row[1]))
 
 
+def aqi_between(db: sqlite3.Connection, start_ts: float, end_ts: float) -> list[tuple[int, dict]]:
+    """Saved air quality readings in a time span, oldest first (0.37.64)."""
+    rows = db.execute("SELECT ts, data FROM aqi WHERE ts >= ? AND ts <= ? ORDER BY ts", (int(start_ts), int(end_ts))).fetchall()
+    return [(ts, json.loads(data)) for ts, data in rows]
+
+
 def store_strike(db: sqlite3.Connection, ts: int, distance_mi: float) -> None:
     with db:
         db.execute("INSERT OR IGNORE INTO lightning_events (ts, distance) VALUES (?, ?)", (ts, distance_mi))

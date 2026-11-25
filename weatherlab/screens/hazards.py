@@ -1,17 +1,33 @@
 """Pages under Hazards: air quality, fire weather, lightning, tropics and radar."""
 
 import html
+import time
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import datetime, timedelta
-from weatherlab import airquality, charts, lightning_history, nws, secrets, storage, theme, tropics, units, timefmt
+from weatherlab import airquality, charts, hero, lightning_history, line_icons, nws, secrets, storage, theme, tropics, units, timefmt
 from weatherlab.config import RISK_COLORS
 from weatherlab.settings import load_settings
 from weatherlab.screens.common import _clock, _tile, _tz, empty_card, start_poller
 
 
 # ---------------------------------------------------------------- Air
+# What each AirNow category means, in a sentence (the EPA's wording, shortened).
+AQI_ADVICE = {
+    "Good": "Air quality is good. Enjoy being outside.",
+    "Moderate": "Air quality is acceptable. Unusually sensitive people may feel minor effects.",
+    "Unhealthy for Sensitive Groups": "People with heart or lung conditions, older adults and children should take it easier outside.",
+    "Unhealthy": "Everyone may begin to feel effects. Sensitive groups should limit time outside.",
+    "Very Unhealthy": "Health alert: everyone may feel more serious effects. Keep outdoor effort short.",
+    "Hazardous": "Emergency conditions. Everyone should stay indoors where possible.",
+}
+POLLUTANT_NOTES = {"PM2.5": "Fine particles", "PM10": "Coarse particles", "OZONE": "Ground-level ozone",
+                   "NO2": "Nitrogen dioxide", "SO2": "Sulfur dioxide", "CO": "Carbon monoxide"}
+
+
 def air_page() -> None:
+    """Air quality (0.37.64, the redesign): the AQI in a coloured box with what it means, each pollutant, and the last
+    24 hours as a line."""
     s = load_settings()
     st.markdown(theme.page_head("Air quality", "Air quality for your area from AirNow, with the pollutant levels."), unsafe_allow_html=True)
     if not secrets.get_key("airnow"):
@@ -22,7 +38,8 @@ def air_page() -> None:
         return
 
     poller = start_poller()
-    row = storage.latest_aqi(storage.connect())
+    db = storage.connect()
+    row = storage.latest_aqi(db)
     if row is None:
         empty_card("No air quality reading yet", "Weather Lab checks AirNow about every 30 minutes, and AirNow updates about once an hour.")
         if poller.status.aqi_error:
@@ -30,18 +47,38 @@ def air_page() -> None:
         return
 
     ts, data = row
-    risk = data.get("risk", "")
-    color = RISK_COLORS.get(risk, "#6b7280")
-    aqi_tile = (f'<div class="wl-tile" style="border-left:4px solid {color};border-radius:8px">'
-                f'<div class="wl-label">Air quality index</div>'
-                f'<div class="wl-value">{html.escape(str(data.get("aqi", "--")))}</div>'
-                f'<div class="wl-label" style="color:{color}">{html.escape(str(data.get("category", "")))}</div>'
-                f'<div class="wl-label">{html.escape(str(data.get("station", "")))} · updated {_clock(ts)}</div></div>')
-    tiles = [aqi_tile]
+    category = str(data.get("category", ""))
+    color = RISK_COLORS.get(data.get("risk", ""), "#6b7280")
+    where = f' · {html.escape(str(data["station"]))}' if data.get("station") else ""
+    st.markdown(f'<div class="wl-panel wl-bignum"><div><div class="wl-note" style="margin-bottom:10px">'
+                f'<b style="font-size:17px">Air Quality Index (AQI)</b> &nbsp;from AirNow{where}</div>'
+                f'<div style="display:flex;align-items:center;gap:24px"><div class="wl-aqibox" style="background:{color}">'
+                f'<span>AQI</span><b>{html.escape(str(data.get("aqi", "--")))}</b></div><i class="wl-div"></i>'
+                f'<div><div class="wl-bw">{html.escape(category)}</div>'
+                f'<div class="wl-bd">{html.escape(AQI_ADVICE.get(category, ""))}</div>'
+                f'<div class="wl-note" style="margin-top:6px">Updated {_clock(ts)}</div></div></div></div></div>',
+                unsafe_allow_html=True)
+    cards = []
     for name, key in airquality.POLLUTANTS.items():
         if data.get(key) is not None:
-            tiles.append(_tile(name, f"{data[key]:g}"))
-    st.markdown(theme.grid_html(tiles), unsafe_allow_html=True)
+            cards.append(hero.metric_html(line_icons.icon("drop" if name.startswith("PM") else "wind", 26, "#7cc4ff"),
+                                          name, f"{data[key]:g}", "", f"{POLLUTANT_NOTES.get(name, '')} · AQI subindex", ""))
+    if cards:
+        st.markdown(f'<div class="wl-metrics">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+    now = time.time()
+    trend = storage.aqi_between(db, now - 86400, now + 1)
+    if len(trend) >= 2:
+        tz = _tz(s)
+        fig = charts.figure(theme.is_dark(), height=280)
+        fig.add_trace(go.Scatter(x=[datetime.fromtimestamp(t, tz) for t, _ in trend], y=[d.get("aqi") for _, d in trend],
+                                 mode="lines", line=dict(color="#f6c445", width=2.4), fill="tozeroy",
+                                 fillcolor="rgba(246,196,69,.15)", name="AQI"))
+        fig.update_layout(title=dict(text="24-hour AQI trend", x=0, xanchor="left", font=dict(size=16)), showlegend=False)
+        fig.update_yaxes(rangemode="tozero")
+        with st.container(border=True):
+            charts.show(fig)
+    st.caption("Pollutant numbers are AQI subindexes, the scale AirNow reports. The AQI is the highest of them.")
     if poller.status.aqi_error:
         st.warning(poller.status.aqi_error)
 
