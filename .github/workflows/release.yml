@@ -113,9 +113,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.check.outputs.tag }}
         run: |
+          # The description comes from What's New (0.37.65), not from the pull request titles.
+          git fetch --tags --force --quiet || true
+          python tools/release_notes.py "$TAG" > release-notes.md
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" installer/WeatherLabSetup-*.exe installer/latest.json --clobber
+            gh release edit "$TAG" --notes-file release-notes.md
           else
             gh release create "$TAG" installer/WeatherLabSetup-*.exe installer/latest.json \
-              --target "$GITHUB_SHA" --title "Weather Lab $TAG" --generate-notes
+              --target "$GITHUB_SHA" --title "Weather Lab $TAG" --notes-file release-notes.md
           fi
