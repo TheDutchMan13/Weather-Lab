@@ -223,3 +223,26 @@ def day_note(f: dict, metric: bool) -> str:
     wind = re.sub(r"\d+(?:\.\d+)?", lambda m: f"{float(m.group(0)) * units.speed_factor(True):.0f}",
                   str(f["wind_speed"]).replace(" mph", "").replace("mph", ""))
     return f"{temp} · {f['humidity']}% · {wind} km/h"
+
+
+# Danger classes for the Fire Weather Index (0.37.64): the usual Canadian breaks. (upper bound, level, colour, advice)
+DANGER = [
+    (5.2, "Low", "#3ddc84", ["Fires are unlikely to spread far.", "Normal care with outdoor burning."]),
+    (11.2, "Moderate", "#f6c445", ["Some fire risk. Dry and breezy afternoons can help fires grow.",
+                                   "Use caution with outdoor burning.", "Follow local fire restrictions."]),
+    (21.3, "High", "#f08a3c", ["Fires start easily and spread quickly.", "Avoid outdoor burning.",
+                               "Check for local burn bans."]),
+    (38.0, "Very high", "#ef5b4c", ["Fires can spread fast and be hard to control.", "No outdoor burning.",
+                                    "Take care with anything that sparks."]),
+    (float("inf"), "Extreme", "#b06cff", ["Dangerous fire weather. Any fire can grow explosively.",
+                                          "No burning, no sparks.", "Follow official instructions."]),
+]
+
+
+def danger(fwi: float | None) -> dict:
+    """{"level", "colour", "advice", "share"} for an FWI value; share is 0 to 1 along the gauge (0 to 50)."""
+    if fwi is None:
+        return {"level": "Unknown", "colour": "#9db0c4", "advice": [], "share": 0.0}
+    for upper, level, colour, advice in DANGER:
+        if fwi < upper:
+            return {"level": level, "colour": colour, "advice": advice, "share": max(0.0, min(fwi / 50.0, 1.0))}

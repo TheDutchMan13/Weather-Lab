@@ -185,3 +185,24 @@ class Batch3(unittest.TestCase):
         from weatherlab.screens.outlook import _uv_colour
         self.assertEqual(_uv_colour(1), "#3ddc84")
         self.assertEqual(_uv_colour(12), "#b06cff")
+
+
+class FireDanger(unittest.TestCase):
+    def test_levels(self):
+        from weatherlab import fire
+        self.assertEqual(fire.danger(2)["level"], "Low")
+        self.assertEqual(fire.danger(8)["level"], "Moderate")
+        self.assertEqual(fire.danger(15)["level"], "High")
+        self.assertEqual(fire.danger(30)["level"], "Very high")
+        self.assertEqual(fire.danger(60)["level"], "Extreme")
+        self.assertEqual(fire.danger(60)["share"], 1.0)
+        self.assertEqual(fire.danger(None)["level"], "Unknown")
+
+    def test_gauge_draws(self):
+        from weatherlab.screens.hazards import _fire_gauge
+        self.assertIn("Moderate", _fire_gauge(.2, "#f6c445", "Moderate"))
+
+
+class InlineColours(unittest.TestCase):
+    def test_coloured_spans_keep_their_colour(self):
+        self.assertIn(".stApp span:not([style*='color'])", theme.css(True))

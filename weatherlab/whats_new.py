@@ -5,6 +5,18 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.65",
+        "date": "November 24, 2026",
+        "items": [
+            "The new look, part 4: Lightning, Fire, Tropics and Radar are redesigned.",
+            "Lightning: strikes today, the closest strike and the time of the last one in one card, then each day's strike count and closest strike for 30 days or a year. Today's strikes are one click away.",
+            "Fire: the danger level (Low, Moderate, High, Very high or Extreme) with a gauge and what it means, the temperature, humidity, wind and rain behind it, the National Weather Service forecast in words, and the next 3 days with their level. The index and its parts are under a fold.",
+            "Tropics: the storms and your station on a map, a card for each storm (winds, movement, distance and direction from you), a legend and the source.",
+            "Radar: the radar loop with your station's readings and the radar's colour scale beside it.",
+            "Fix: coloured labels (levels in Alert history, gaps in Compare stations, rain chances in the forecast) showed in plain white. They now keep their colours.",
+        ],
+    },
+    {
         "version": "0.37.64",
         "date": "November 24, 2026",
         "items": [

@@ -82,7 +82,7 @@ SCHEMES = {
 }
 
 TEXT_SELECTORS = (".stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,.stApp p,.stApp label,"
-                  ".stApp li,.stApp span,[data-testid='stMarkdownContainer'],[data-testid='stMetricValue'],"
+                  ".stApp li,.stApp span:not([style*='color']),[data-testid='stMarkdownContainer'],[data-testid='stMetricValue'],"
                   "[data-testid='stMetricLabel'],[data-testid='stWidgetLabel']")
 INPUT_SELECTORS = ("[data-baseweb='select']>div,[data-baseweb='input']>div,.stTextInput input,"
                    ".stNumberInput input,.stDateInput input")
@@ -483,6 +483,17 @@ def _redesign_rules(dark: bool, p: dict, pg: dict, tab_bg: str, tab_text: str, s
                             f"border-radius:{RADIUS['lg']}px;color:#1b1406;font-weight:800;flex:0 0 auto"),
         _rule(".wl-aqibox span,.wl-aqibox b", "color:#1b1406 !important"),
         _rule(".wl-aqibox span", "font-size:20px"), _rule(".wl-aqibox b", "font-size:52px;line-height:1"),
+        # Coloured text set by class wins over the page's text colour (0.37.65).
+        _rule(".stApp span.wl-pop", f"color:{p['accent']} !important"),
+        _rule(".stApp span.wl-badge-critical", "color:#ff7a6b !important"),
+        _rule(".stApp span.wl-badge-warning", "color:#f6c445 !important"),
+        _rule(".stApp span.wl-badge-info", f"color:{p['accent']} !important"),
+        _rule(".stApp span.wl-note,.stApp span.wl-rt,.stApp span.wl-rwhere,.stApp span.wl-pp,.stApp .wl-stats span,"
+              ".stApp .wl-statrows span:not(.wl-big),.stApp .wl-hours>div,.stApp .wl-hl>div", f"color:{p['muted']} !important"),
+        _rule(".stApp span.wl-up", "color:#f6c445 !important"), _rule(".stApp span.wl-dn", "color:#7cc4ff !important"),
+        _rule("[data-testid='stLinkButton'] a", f"background:{p['card']} !important;color:{p['text']} !important;"
+                                                f"border:1px solid {soft} !important;border-radius:{RADIUS['sm']}px !important"),
+        _rule("[data-testid='stLinkButton'] a *", f"color:{p['text']} !important"),
         "@media (max-width:900px){.wl-hl{grid-template-columns:repeat(8,minmax(0,1fr))}.wl-hl>div:nth-child(n+9){display:none}"
         ".wl-bignum{flex-wrap:wrap}.wl-bignum .wl-div{display:none}}",
         "@media (max-width:900px){.wl-row{grid-template-columns:70px 32px minmax(0,1fr) auto}.wl-row .wl-rwhere{display:none}"
