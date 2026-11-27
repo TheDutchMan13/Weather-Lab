@@ -15,6 +15,7 @@ ENTRIES = [
             "Updated to Streamlit 1.67 and Pillow 13, which fixes the known security problems in the older Pillow.",
             "The installer is now built from exact library versions checked against their published checksums, and the build steps are pinned to exact versions, so a bad update to any of them can't slip into Weather Lab.",
             "Fix: warning and information boxes were hard to read in the dark theme. They now use the page's colours with a tint of their kind.",
+            "The Android app 0.7.36 has its own fixes: the phone and watch never send the token over the network, and the watch keeps it encrypted.",
         ],
     },
     {
