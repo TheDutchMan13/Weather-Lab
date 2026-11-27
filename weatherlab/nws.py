@@ -12,6 +12,7 @@ import json
 import math
 from urllib.request import Request, urlopen
 from weatherlab import plain_errors
+from weatherlab import netread
 
 BASE = "https://api.weather.gov"
 TIMEOUT_S = 10
@@ -35,7 +36,7 @@ def _get(url: str, contact: str) -> dict:
     req = Request(url, headers={"User-Agent": agent, "Accept": "application/geo+json"})
     try:
         with urlopen(req, timeout=TIMEOUT_S) as response:
-            return json.loads(response.read().decode("utf-8"))
+            return json.loads(netread.read_limited(response).decode("utf-8"))
     except (OSError, ValueError) as exc:
         raise NwsError(plain_errors.service("the National Weather Service", exc)) from exc
 

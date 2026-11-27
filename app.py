@@ -39,7 +39,12 @@ def access_gate() -> bool:
         st.session_state["on_pc"] = True
         return True
     token = os.environ.get("WEATHERLAB_WINDOW_TOKEN", "")
-    if local or (token and st.query_params.get("wl_token") == token):
+    # A connection from this PC counts as this PC only when it also names this PC (0.37.67). Otherwise it is a web
+    # page in a browser here that pointed its own name at Weather Lab (DNS rebinding), and it gets the password.
+    if local and not auth.local_host_header(st.context.headers.get("Host")):
+        local = False
+    if local or (token and st.query_params.get("wl_token") == token
+                 and auth.local_host_header(st.context.headers.get("Host"))):
         st.session_state["on_pc"] = True
         st.session_state["signed_in"] = True
         return True

@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 
 from weatherlab import stations
 from weatherlab import plain_errors
+from weatherlab import netread
 
 BASE = "https://api.open-meteo.com/v1/forecast"
 ROWS, COLS = 5, 7  # the grid; odd numbers keep the station in the middle
@@ -82,7 +83,7 @@ def _fetch(points: list[tuple[float, float]], now_local: str) -> dict:
     request = Request(url_for(points), headers={"User-Agent": "WeatherLab"})
     try:
         with urlopen(request, timeout=TIMEOUT_S) as response:
-            data = json.loads(response.read().decode("utf-8"))
+            data = json.loads(netread.read_limited(response).decode("utf-8"))
     except (OSError, ValueError) as exc:
         raise WindError(plain_errors.service("the wind service", exc)) from exc
     return frames_from(data, now_local)

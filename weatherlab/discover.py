@@ -4,6 +4,7 @@ import concurrent.futures
 import json
 import socket
 import urllib.request
+from weatherlab import netread
 
 
 def local_ip() -> str | None:
@@ -26,7 +27,7 @@ def is_gateway(ip: str, timeout: float = 0.6) -> bool:
     """True when the address answers like an Ecowitt gateway's live data page."""
     try:
         with urllib.request.urlopen(f"http://{ip}/get_livedata_info", timeout=timeout) as response:
-            data = json.loads(response.read().decode("utf-8", "replace"))
+            data = json.loads(netread.read_limited(response).decode("utf-8", "replace"))
     except (OSError, ValueError):
         return False
     return isinstance(data, dict) and "common_list" in data

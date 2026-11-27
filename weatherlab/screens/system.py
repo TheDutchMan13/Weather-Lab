@@ -9,7 +9,7 @@ from weatherlab import alert_rules, api, auth, autostart, backup, discover, errl
 from weatherlab.config import APP_VERSION, CARD_LABELS
 from weatherlab.settings import Settings, load_settings, save_settings, settings_path, valid_ip
 from zoneinfo import available_timezones
-from weatherlab.screens.common import _clock, pc_only, _tile, clear_key_button, confirm_button, empty_card, start_poller
+from weatherlab.screens.common import _clock, on_this_pc, pc_only, _tile, clear_key_button, confirm_button, empty_card, start_poller
 from weatherlab import plain_errors
 
 
@@ -76,6 +76,8 @@ def _password_section() -> None:
 
 def _station_tools(s: Settings) -> None:
     """Test the connection to the station, or look for it on the local network."""
+    if not on_this_pc():  # setup and finding the station save its address, which only this PC may change (0.37.67)
+        return
     if st.button("Run setup again", key="station_wizard", help="The three-step setup from the first run."):
         from weatherlab.screens import setup_wizard
         setup_wizard.start()
@@ -536,6 +538,12 @@ def _station_settings(s: Settings, default_tab: str | None = None) -> None:
         ip = ip.strip()
         if ip and not valid_ip(ip):
             st.error("That isn't a valid IP address.")
+            return
+        # Where Weather Lab connects to (the station, the MQTT broker) changes only on this PC (0.37.67), so a
+        # signed-in phone can't point the PC at another machine.
+        moved = ip != s.station_ip.strip() or mqtt_host.strip() != s.mqtt_host.strip() or int(mqtt_port) != s.mqtt_port
+        if moved and not on_this_pc():
+            st.error("The station address and the MQTT broker can only be changed on the PC that runs Weather Lab.")
             return
         if cwop_on and not cwop_call.strip():
             st.error("Enter a CWOP callsign to turn CWOP on.")
@@ -1058,7 +1066,7 @@ def stations_page() -> None:
                     disabled=pick == stations.current()):
             st.session_state["pending_station"] = pick
             st.rerun()
-        if pick != stations.MAIN:
+        if pick != stations.MAIN and pc_only("Removing a station"):
             st.caption(f"Removing a station stops its collector. Its folder ({stations.folder(pick)}) is kept, so "
                        "adding a station with the same name brings its readings back.")
             if confirm_button("Remove", "rm_station", "The station stops collecting readings. Its folder is kept.",

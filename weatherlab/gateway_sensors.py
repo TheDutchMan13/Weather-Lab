@@ -6,6 +6,7 @@ Ported from the dashboard's utils/sensor_battery.py (see SOURCES.md). Battery le
 
 import json
 import urllib.request
+from weatherlab import netread
 
 UNPAIRED = ("FFFFFFFF", "FFFFFFFE")
 FRIENDLY = {"wh90": "Outdoor array (WS90)", "wh57": "Lightning sensor (WH57)", "wh85": "Wind and rain (WH85)",
@@ -39,7 +40,7 @@ def parse_sensors(pages):
 
 def fetch(ip, path, timeout=3):  # a station on the same network answers in milliseconds (0.37.58)
     with urllib.request.urlopen(f"http://{ip}{path}", timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8", "replace"))
+        return json.loads(netread.read_limited(r).decode("utf-8", "replace"))
 
 
 def read(ip):

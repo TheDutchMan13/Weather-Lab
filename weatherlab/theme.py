@@ -518,6 +518,14 @@ def _redesign_rules(dark: bool, p: dict, pg: dict, tab_bg: str, tab_text: str, s
         _rule(".wl-bcard", "padding:14px 18px;height:100%"),
         _rule(".st-key-settings_area,.st-key-settings_area [data-testid='stButtonGroup'],.st-key-settings_area [data-testid='stButtonGroup']>div","width:100% !important"),
         _rule(".st-key-settings_area button[data-variant='segmented_control']","flex:1;justify-content:center;padding:10px 14px"),
+        # Notices (st.info, st.warning and the rest) take the page's colours with a tint of their kind (0.37.67).
+        # Streamlit 1.67 draws them in its light colours, so a warning showed light text on pale yellow.
+        _rule("[data-testid='stAlertContainer']", f"color:{p['text']} !important;border:1px solid {soft} !important"),
+        _rule("[data-testid='stAlertContainer']:has([data-testid='stAlertContentInfo'])", "background:rgba(56,198,236,.12) !important"),
+        _rule("[data-testid='stAlertContainer']:has([data-testid='stAlertContentWarning'])", "background:rgba(246,196,69,.14) !important"),
+        _rule("[data-testid='stAlertContainer']:has([data-testid='stAlertContentSuccess'])", "background:rgba(61,220,132,.13) !important"),
+        _rule("[data-testid='stAlertContainer']:has([data-testid='stAlertContentError'])", "background:rgba(239,91,76,.15) !important"),
+        _rule("[data-testid='stAlertContainer'] p,[data-testid='stAlertContainer'] span:not([style*='color'])", f"color:{p['text']} !important"),
         _rule(".wl-kvlist>div", f"display:flex;justify-content:space-between;gap:16px;padding:11px 4px;border-bottom:1px solid {soft};font-size:16px"),
         _rule(".wl-kvlist span", f"color:{p['muted']}"),
         "@media (max-width:900px){.wl-cols{grid-template-columns:minmax(0,1fr)}.wl-banner{flex-wrap:wrap}.wl-banner .wl-div{display:none}}",

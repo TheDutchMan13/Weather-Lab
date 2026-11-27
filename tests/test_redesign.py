@@ -246,4 +246,4 @@ class Batch5(unittest.TestCase):
 
     def test_version_entry(self):
         from weatherlab import whats_new
-        self.assertEqual(whats_new.ENTRIES[0]["version"], "0.37.66")
+        self.assertIn("0.37.66", [e["version"] for e in whats_new.ENTRIES])

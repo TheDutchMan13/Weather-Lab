@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from urllib.request import Request, urlopen
 from weatherlab import plain_errors
+from weatherlab import netread
 
 NHC_URL = "https://www.nhc.noaa.gov/CurrentStorms.json"
 KT_TO_MPH = 1.15078
@@ -74,7 +75,7 @@ def parse(raw, home):
 def _download():
     req = Request(NHC_URL, headers={"User-Agent": "WeatherLab/0.1"})
     with urlopen(req, timeout=TIMEOUT_S) as r:
-        return json.loads(r.read().decode("utf-8", "replace"))
+        return json.loads(netread.read_limited(r).decode("utf-8", "replace"))
 
 
 def read_cache(path):

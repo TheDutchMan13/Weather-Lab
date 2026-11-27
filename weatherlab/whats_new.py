@@ -5,6 +5,19 @@ The first entry's version must match APP_VERSION in config.py (tests/test_whats_
 
 ENTRIES = [
     {
+        "version": "0.37.67",
+        "date": "November 26, 2026",
+        "items": [
+            "Security fixes from an audit of the app.",
+            "With phones and devices allowed, a web page open in a browser on this PC could reach Weather Lab under its own name and get in without the password. Weather Lab now treats such a page like any other device: it has to sign in, and it can't change the settings kept for this PC.",
+            "Restoring a backup, importing files, removing a station, running the setup again and changing the station's or the MQTT broker's address now work only on the PC that runs Weather Lab. A signed-in phone can still see all of them.",
+            "Replies from the station and the weather services are limited to 8 MB, so a broken or hostile one can't fill the PC's memory.",
+            "Updated to Streamlit 1.67 and Pillow 13, which fixes the known security problems in the older Pillow.",
+            "The installer is now built from exact library versions checked against their published checksums, and the build steps are pinned to exact versions, so a bad update to any of them can't slip into Weather Lab.",
+            "Fix: warning and information boxes were hard to read in the dark theme. They now use the page's colours with a tint of their kind.",
+        ],
+    },
+    {
         "version": "0.37.66",
         "date": "November 24, 2026",
         "items": [

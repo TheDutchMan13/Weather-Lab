@@ -189,9 +189,10 @@ def backup_page() -> None:
                 chosen = next(r for r in rows if r["name"] == pick)
                 st.info("Restoring replaces your current history with the selected backup. A copy of your current history "
                         "is saved first, so you can undo it.", icon=":material/info:")
-                if st.button("Restore backup", key="restore_ask", icon=":material/history:", use_container_width=True):
+                here = pc_only("Restoring a backup")  # it replaces the whole history (0.37.67)
+                if here and st.button("Restore backup", key="restore_ask", icon=":material/history:", use_container_width=True):
                     st.session_state["restore_confirm"] = chosen["name"]
-        if st.session_state.get("restore_confirm") == chosen["name"]:
+        if here and st.session_state.get("restore_confirm") == chosen["name"]:
             with st.container(border=True):
                 st.markdown(f"**Restore {chosen['name']}?**")
                 st.write(f"This replaces your current history with the backup from {chosen['when']:%b %d, %Y}. "
@@ -294,7 +295,7 @@ def _backups_section(s: Settings) -> None:
         except OSError as exc:
             st.warning(f"Couldn't copy the backup to that folder: {exc}")
         st.success(f"Saved {path.name}.")
-    if items:
+    if items and pc_only("Restoring a backup"):
         pick = st.selectbox("Backup to restore", list(reversed(items)), format_func=lambda p: p.name, key="restore_pick")
         sure = st.checkbox("Replace the current data with this backup", key="restore_sure")
         if st.button("Restore", disabled=not sure):
@@ -550,6 +551,9 @@ def noaa_page() -> None:
 
 
 def _import_page() -> None:
+    # Importing writes into the history and the daily summaries, so only this PC may do it (0.37.67).
+    if not pc_only("Importing"):
+        return
     pages = {"CSV": csv_import_page, "Excel": excel_import_page,
              "Weather Underground": weather_underground_page,
              "Ecowitt export": ecowitt_import_page, "NOAA history": noaa_page}

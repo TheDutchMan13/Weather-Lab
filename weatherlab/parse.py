@@ -8,6 +8,7 @@ import json
 import re
 import time
 import urllib.request
+from weatherlab import netread
 
 MIN_ROWS_FOR_DAY = 20  # unused in Phase 1, kept for the daily summaries in a later phase
 
@@ -147,4 +148,4 @@ CORE_WITHOUT_OUTDOOR = ("tempinf", "humidityin", "baromrelin", "baromabsin", "da
 # ------------------------------------------------------------------ talking to the gateway
 def fetch(ip, path="/get_livedata_info", timeout=8):
     with urllib.request.urlopen(f"http://{ip}{path}", timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8", "replace"))
+        return json.loads(netread.read_limited(r).decode("utf-8", "replace"))

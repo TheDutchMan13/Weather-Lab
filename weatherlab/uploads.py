@@ -9,6 +9,7 @@ import urllib.request
 
 from weatherlab.config import APP_VERSION
 from weatherlab import plain_errors
+from weatherlab import netread
 
 TIMEOUT_S = 10
 
@@ -23,10 +24,10 @@ def get(url: str, params: dict, name: str) -> str:
     request = urllib.request.Request(f"{url}?{query}", headers={"User-Agent": f"WeatherLab {APP_VERSION}"})
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
-            return response.read().decode("utf-8", "replace").strip()
+            return netread.read_limited(response).decode("utf-8", "replace").strip()
     except urllib.error.HTTPError as exc:
         raise UploadError(f"{name} returned an error ({exc.code}).") from None
-    except OSError as exc:
+    except (OSError, ValueError) as exc:  # ValueError: a reply over the size limit (0.37.67)
         raise UploadError(plain_errors.service(name, exc)) from None
 
 

@@ -19,6 +19,9 @@ def start() -> None:
 
 
 def active() -> bool:
+    """Only on this PC (0.37.67): the setup saves the station's address, which another device may not change."""
+    if not st.session_state.get("on_pc", True):
+        return False
     return bool(st.session_state.get("wiz_active")) or not load_settings().station_ip.strip()
 
 

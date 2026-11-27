@@ -95,7 +95,7 @@ class NwsTests(unittest.TestCase):
             def __exit__(self, *a):
                 return False
 
-            def read(self):
+            def read(self, size=-1):  # the app reads with a size limit (0.37.67)
                 return b"{}"
 
         def fake_urlopen(req, timeout):

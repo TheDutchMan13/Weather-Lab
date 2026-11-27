@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 from weatherlab import secrets
 from weatherlab import plain_errors
+from weatherlab import netread
 
 BASE = "https://www.ncei.noaa.gov/cdo-web/api/v2"
 TOKEN_KEY = "noaa_token"
@@ -30,7 +31,7 @@ def _get(path: str, params: dict, token: str) -> dict:
     request = Request(url, headers={"token": token, "User-Agent": "WeatherLab"})
     try:
         with urlopen(request, timeout=TIMEOUT_S) as response:
-            return json.loads(response.read().decode("utf-8"))
+            return json.loads(netread.read_limited(response).decode("utf-8"))
     except HTTPError as exc:
         if exc.code in (401, 403):
             raise NoaaError("NOAA didn't accept the token. Check it on the NOAA Climate Data Online website.") from exc
